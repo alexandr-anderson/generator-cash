@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String      @id @default(cuid())
+  email      String      @unique
+  projects   Project[]
+  createdAt  DateTime    @default(now())
+}
+
+model Project {
+  id             String           @id @default(cuid())
+  name           String
+  ownerId        String
+  owner          User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sourceAssets   SourceAsset[]
+  consentRecords ConsentRecord[]
+  styleProfile   StyleProfile?
+  briefs         CreativeBrief[]
+  runs           GenerationRun[]
+  documents      EditorDocument[]
+  exports        Export[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model SourceAsset {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  objectKey   String
+  mimeType    String
+  byteSize    Int
+  sha256      String
+  license     String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([projectId])
+  @@index([expiresAt])
+}
+
+model ConsentRecord {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorId     String
+  basis       String
+  policy      String
+  acceptedAt  DateTime @default(now())
+  revokedAt   DateTime?
+}
+
+model StyleProfile {
+  id          String   @id @default(cuid())
+  projectId   String   @unique
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  schema      Json
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CreativeBrief {
+  id          String          @id @default(cuid())
+  projectId   String
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  schema      Json
+  runs        GenerationRun[]
+  createdAt   DateTime        @default(now())
+}
+
+model GenerationRun {
+  id            String        @id @default(cuid())
+  projectId     String
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  briefId       String
+  brief         CreativeBrief @relation(fields: [briefId], references: [id], onDelete: Cascade)
+  provider      String
+  model         String
+  modelVersion  String
+  prompt        String
+  seed          String
+  inputManifest Json
+  costUsd       Decimal       @db.Decimal(10, 4)
+  createdAt     DateTime      @default(now())
+}
+
+model EditorDocument {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  format      String
+  schema      Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Export {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  objectKey   String
+  mimeType    String
+  manifest    Json
+  createdAt   DateTime @default(now())
+}
