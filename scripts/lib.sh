@@ -124,6 +124,7 @@ load_server_env() {
   : "${APP_NAME:=postvmeste}"
   : "${APP_PORT:=3000}"
   : "${NODE_ENV:=production}"
+  : "${NPM_CI_ARGS:=--ignore-scripts}"
 }
 
 load_deploy_env() {
@@ -148,6 +149,7 @@ load_deploy_env() {
   : "${APP_NAME:=postvmeste}"
   : "${APP_PORT:=3000}"
   : "${NODE_ENV:=production}"
+  : "${NPM_CI_ARGS:=--ignore-scripts}"
 }
 
 run_remote() {
@@ -180,5 +182,6 @@ export NODE_ENV='${NODE_ENV}'
 export NODE_BIN='${NODE_BIN:-}'
 export NPM_BIN='${NPM_BIN:-}'
 export PM2_BIN='${PM2_BIN:-}'
+export NPM_CI_ARGS='${NPM_CI_ARGS}'
 EOF
 }

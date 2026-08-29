@@ -165,3 +165,20 @@ npm ci
 ```
 
 Если `node` тоже не найден, включите Node.js в панели Timeweb или пропишите пути в `scripts/deploy.env`.
+
+### Если `npm ci` падает на `unrs-resolver` / `uv_thread_create`
+
+На shared hosting Timeweb postinstall-скрипты часто падают из-за лимита потоков. В `scripts/deploy.env` уже включено:
+
+```env
+NPM_CI_ARGS=--ignore-scripts
+```
+
+После обновления проекта выполните:
+
+```bash
+cd /home/c/cm149295/postvmeste
+git pull origin main
+rm -rf node_modules
+bash deploy.sh
+```

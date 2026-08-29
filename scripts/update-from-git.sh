@@ -33,7 +33,8 @@ git checkout "${GIT_BRANCH}"
 git pull --ff-only "${GIT_REMOTE}" "${GIT_BRANCH}"
 
 echo "==> Installing dependencies"
-"$NPM_BIN" ci
+# shellcheck disable=SC2086
+"$NPM_BIN" ci ${NPM_CI_ARGS:---ignore-scripts}
 
 resolve_pm2_bin "$ROOT_DIR"
 echo "==> PM2: $("$PM2_BIN" -v)"
