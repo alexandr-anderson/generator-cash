@@ -32,3 +32,42 @@ npm run build
 - PostgreSQL-модель production-данных в `prisma/schema.prisma`.
 
 В MVP используется deterministic local provider, поэтому приложение работает без API-ключей и не отправляет пользовательские файлы третьим сторонам. Границы production-интеграции и retention описаны в [`docs/architecture.md`](docs/architecture.md), а сценарий проверки спроса — в [`docs/concierge-playbook.md`](docs/concierge-playbook.md).
+
+## Деплой на Timeweb через SSH
+
+### 1. Подготовка локально
+
+```bash
+cp scripts/deploy.env.example scripts/deploy.env
+```
+
+Проверь значения в `scripts/deploy.env`. Если на сервере `node`, `npm` или `pm2` не в `PATH`, укажи полные пути в `NODE_BIN`, `NPM_BIN`, `PM2_BIN`.
+
+### 2. Первый запуск на сервере
+
+На сервере должны быть установлены `git`, `node`, `npm` и `pm2`. Nginx уже должен проксировать домен на `127.0.0.1:3000`. Пример конфига: [`docs/nginx-postvmeste.example.conf`](docs/nginx-postvmeste.example.conf).
+
+```bash
+npm run deploy:bootstrap
+```
+
+Скрипт создаст `/home/c/cm149295/postvmeste`, сделает `git clone`, соберёт приложение и запустит его через PM2.
+
+### 3. Обычный деплой
+
+После каждого merge в `main`:
+
+```bash
+npm run deploy
+```
+
+Скрипт по SSH зайдёт на сервер, выполнит `git pull`, `npm ci`, `npm run build` и `pm2 startOrReload`.
+
+### 4. Проверка на сервере
+
+```bash
+ssh cm149295@vh470.timeweb.ru
+cd /home/c/cm149295/postvmeste
+pm2 status
+pm2 logs postvmeste
+```
