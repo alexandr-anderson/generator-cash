@@ -35,19 +35,39 @@ npm run build
 
 ## Деплой на Timeweb
 
-На Timeweb домен отдаётся из каталога `public_html`. Поэтому проект должен лежать именно там, а Apache/nginx проксирует запросы на Next.js на порту `3000`.
+На аккаунте может быть несколько проектов. Для `postvmeste.ru` используйте такую структуру:
+
+```text
+/home/c/cm149295/
+  filo-src/                         # другой проект
+  postvmeste/                        # корень этого проекта
+    deploy.sh
+    package.json
+    src/
+    public_html/                     # сюда должен смотреть Timeweb
+      .htaccess
+```
+
+В панели Timeweb для домена `postvmeste.ru` укажите корень сайта:
+
+```text
+/home/c/cm149295/postvmeste/public_html
+```
+
+Next.js запускается из `/home/c/cm149295/postvmeste` через PM2 на порту `3000`, а `public_html/.htaccess` проксирует запросы на приложение.
 
 ### Ручной деплой на сервере через SSH
 
 ```bash
-bash /home/c/cm149295/public_html/deploy.sh
+bash /home/c/cm149295/postvmeste/deploy.sh
 ```
 
 Скрипт сам:
 1. подтянет актуальный код из `git` (`main`);
 2. установит зависимости;
 3. соберёт проект;
-4. перезапустит приложение через PM2.
+4. перезапустит приложение через PM2;
+5. проверит наличие `public_html/.htaccess`.
 
 При первом запуске на сервере создайте конфиг:
 
@@ -61,24 +81,27 @@ cp scripts/deploy.env.example scripts/deploy.env
 
 ```bash
 ssh cm149295@vh470.timeweb.ru
-mkdir -p /home/c/cm149295/public_html
-cd /home/c/cm149295/public_html
+mkdir -p /home/c/cm149295/postvmeste
+cd /home/c/cm149295/postvmeste
 git clone https://github.com/alexandr-anderson/generator-cash.git .
 cp scripts/deploy.env.example scripts/deploy.env
-bash /home/c/cm149295/public_html/deploy.sh
+bash /home/c/cm149295/postvmeste/deploy.sh
 ```
 
-Если проект уже лежит в `/home/c/cm149295/postvmeste`, перенесите его так:
+Если проект уже был разложен прямо в `public_html`, верните правильную структуру:
 
 ```bash
-mv /home/c/cm149295/postvmeste /home/c/cm149295/public_html
-cd /home/c/cm149295/public_html
+mkdir -p /home/c/cm149295/postvmeste
+mv /home/c/cm149295/public_html/* /home/c/cm149295/postvmeste/ 2>/dev/null || true
+mv /home/c/cm149295/public_html/.[!.]* /home/c/cm149295/postvmeste/ 2>/dev/null || true
+cd /home/c/cm149295/postvmeste
+git pull origin main
 bash deploy.sh
 ```
 
 Если видите `Permission denied (publickey)`, используйте HTTPS-клон, как выше.
 
-Файл [`.htaccess`](.htaccess) в корне проекта проксирует сайт на `127.0.0.1:3000`. Пример nginx-конфига: [`docs/nginx-postvmeste.example.conf`](docs/nginx-postvmeste.example.conf).
+Пример nginx-конфига: [`docs/nginx-postvmeste.example.conf`](docs/nginx-postvmeste.example.conf).
 
 ### Деплой с локального компьютера
 

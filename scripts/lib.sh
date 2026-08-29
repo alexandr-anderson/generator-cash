@@ -14,6 +14,26 @@ resolve_bin() {
   command -v "$fallback"
 }
 
+resolve_public_html() {
+  : "${DEPLOY_PATH:?DEPLOY_PATH is required}"
+  : "${PUBLIC_HTML:=${DEPLOY_PATH}/public_html}"
+}
+
+ensure_public_html() {
+  local root_dir="$1"
+  resolve_public_html
+
+  mkdir -p "${PUBLIC_HTML}"
+
+  if [[ ! -f "${PUBLIC_HTML}/.htaccess" ]]; then
+    if [[ -f "${root_dir}/public_html/.htaccess" ]]; then
+      cp "${root_dir}/public_html/.htaccess" "${PUBLIC_HTML}/.htaccess"
+    else
+      echo "Warning: ${PUBLIC_HTML}/.htaccess is missing." >&2
+    fi
+  fi
+}
+
 load_server_env() {
   local script_dir="$1"
   local env_file="${script_dir}/deploy.env"
@@ -23,7 +43,8 @@ load_server_env() {
     source "$env_file"
   fi
 
-  : "${DEPLOY_PATH:=/home/c/cm149295/public_html}"
+  : "${DEPLOY_PATH:=/home/c/cm149295/postvmeste}"
+  resolve_public_html
   : "${GIT_BRANCH:=main}"
   : "${GIT_REMOTE:=origin}"
   : "${APP_NAME:=postvmeste}"
@@ -46,7 +67,8 @@ load_deploy_env() {
   : "${SSH_HOST:?SSH_HOST is required}"
   : "${SSH_USER:?SSH_USER is required}"
   : "${SSH_PORT:=22}"
-  : "${DEPLOY_PATH:=/home/c/cm149295/public_html}"
+  : "${DEPLOY_PATH:=/home/c/cm149295/postvmeste}"
+  resolve_public_html
   : "${GIT_BRANCH:=main}"
   : "${GIT_REMOTE:=origin}"
   : "${APP_NAME:=postvmeste}"
@@ -75,6 +97,7 @@ run_remote() {
 export_remote_env() {
   cat <<EOF
 export DEPLOY_PATH='${DEPLOY_PATH}'
+export PUBLIC_HTML='${PUBLIC_HTML}'
 export GIT_BRANCH='${GIT_BRANCH}'
 export GIT_REMOTE='${GIT_REMOTE}'
 export APP_NAME='${APP_NAME}'

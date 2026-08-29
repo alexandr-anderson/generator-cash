@@ -1,0 +1,11 @@
+# postvmeste-node-proxy
+# Timeweb document root: postvmeste/public_html
+# Next.js app runs from project root on port 3000 via PM2.
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
+</IfModule>
