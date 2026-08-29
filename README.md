@@ -121,6 +121,19 @@ pm2 logs postvmeste
 curl -I http://127.0.0.1:3000
 ```
 
+### Если `Node.js not found`
+
+На Timeweb Node.js обычно ставится через `nvm`, а не глобально.
+
+Один раз выполните:
+
+```bash
+cd /home/c/cm149295/postvmeste
+bash scripts/setup-node-timeweb.sh
+source ~/.bash_profile
+bash deploy.sh
+```
+
 ### Если `pm2: command not found`
 
 На Timeweb PM2 часто не установлен глобально. Это нормально: проект ставит PM2 локально через `npm ci`.

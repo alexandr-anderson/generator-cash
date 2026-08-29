@@ -12,7 +12,8 @@
     "deploy": "bash scripts/deploy.sh",
     "deploy:bootstrap": "bash scripts/bootstrap-server.sh",
     "deploy:server": "bash scripts/update-from-git.sh",
-    "deploy:doctor": "bash scripts/doctor.sh"
+    "deploy:doctor": "bash scripts/doctor.sh",
+    "setup:node": "bash scripts/setup-node-timeweb.sh"
   },
   "dependencies": {
     "jszip": "^3.10.1",
