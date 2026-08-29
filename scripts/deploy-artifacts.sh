@@ -40,6 +40,7 @@ rsync_opts=(
   -az
   --delete
   --exclude ".DS_Store"
+  --exclude "scripts/deploy.env"
 )
 
 echo "==> Uploading release to ${ssh_target}:${DEPLOY_PATH}"

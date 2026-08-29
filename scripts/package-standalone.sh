@@ -29,6 +29,7 @@ cp "${ROOT_DIR}/scripts/restart-app.sh" "${RELEASE_DIR}/scripts/"
 cp "${ROOT_DIR}/scripts/load-nvm.sh" "${RELEASE_DIR}/scripts/"
 cp "${ROOT_DIR}/scripts/lib.sh" "${RELEASE_DIR}/scripts/"
 cp "${ROOT_DIR}/scripts/doctor.sh" "${RELEASE_DIR}/scripts/"
+cp "${ROOT_DIR}/scripts/deploy.env.example" "${RELEASE_DIR}/scripts/"
 cp "${ROOT_DIR}/public_html/.htaccess.template" "${RELEASE_DIR}/public_html/"
 
 echo "==> Release ready at ${RELEASE_DIR}"
