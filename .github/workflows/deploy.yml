@@ -57,7 +57,7 @@ jobs:
           SSH_PORT="${SSH_PORT:-22}"
           ssh -i ~/.ssh/deploy_key -p "${SSH_PORT}" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" \
             "mkdir -p '${DEPLOY_PATH}' '${PUBLIC_HTML}'"
-          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${SSH_PORT} -o BatchMode=yes" \
+          rsync -az --delete --exclude "scripts/deploy.env" -e "ssh -i ~/.ssh/deploy_key -p ${SSH_PORT} -o BatchMode=yes" \
             release/ "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/"
 
       - name: Restart app on server

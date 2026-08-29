@@ -80,6 +80,41 @@ Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — с�
 
 После push в `main` Actions соберёт проект, загрузит `release/` на сервер и выполнит `scripts/restart-app.sh`.
 
+### Миграция со старой структуры (полный git-клон на сервере)
+
+Если на Timeweb уже лежит полный репозиторий (`src/`, `package.json`, `node_modules/` и т.д.), это **старый способ**. Первый artifact-деплой заменит его на runtime-структуру:
+
+```text
+postvmeste/
+  app/                     # готовый standalone-билд
+  ecosystem.config.cjs
+  scripts/
+    restart-app.sh
+    deploy.env.example
+    deploy.env             # ваш конфиг на сервере (сохраняется между деплоями)
+  public_html/
+    .htaccess              # генерируется при restart
+```
+
+Файлы `src/`, `docs/`, `prisma/`, старый `node_modules/` и прочие исходники **будут удалены** при первом `rsync --delete` — это нормально.
+
+**Не запускайте** на сервере `git pull`, `npm run build` или старый `bash deploy.sh` до первого artifact-деплоя.
+
+Перед деплоем на сервере создайте (опционально) `scripts/deploy.env` — он не перезаписывается при загрузке:
+
+```bash
+mkdir -p ~/postvmeste/scripts
+cat > ~/postvmeste/scripts/deploy.env << 'EOF'
+DEPLOY_PATH=/home/c/cm149295/postvmeste
+PUBLIC_HTML=/home/c/cm149295/postvmeste/public_html
+APP_NAME=postvmeste
+APP_PORT=3000
+NODE_ENV=production
+EOF
+```
+
+Если порт 3000 занят другим проектом (`filo`), поставьте `APP_PORT=3001`.
+
 ### Что делать на сервере (SSH Timeweb)
 
 Только подготовка окружения — **без** `npm run deploy`:
