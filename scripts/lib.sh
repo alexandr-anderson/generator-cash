@@ -23,6 +23,7 @@ load_server_env() {
     source "$env_file"
   fi
 
+  : "${DEPLOY_PATH:=/home/c/cm149295/public_html}"
   : "${GIT_BRANCH:=main}"
   : "${GIT_REMOTE:=origin}"
   : "${APP_NAME:=postvmeste}"
@@ -45,7 +46,7 @@ load_deploy_env() {
   : "${SSH_HOST:?SSH_HOST is required}"
   : "${SSH_USER:?SSH_USER is required}"
   : "${SSH_PORT:=22}"
-  : "${DEPLOY_PATH:?DEPLOY_PATH is required}"
+  : "${DEPLOY_PATH:=/home/c/cm149295/public_html}"
   : "${GIT_BRANCH:=main}"
   : "${GIT_REMOTE:=origin}"
   : "${APP_NAME:=postvmeste}"

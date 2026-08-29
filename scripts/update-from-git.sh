@@ -47,5 +47,11 @@ APP_NAME="${APP_NAME}" APP_PORT="${APP_PORT}" NODE_ENV="${NODE_ENV}" \
   "$PM2_BIN" startOrReload ecosystem.config.cjs --update-env
 "$PM2_BIN" save
 
+if [[ -f "${ROOT_DIR}/.htaccess" ]]; then
+  echo "==> Apache proxy config present: ${ROOT_DIR}/.htaccess"
+else
+  echo "Warning: .htaccess not found in ${ROOT_DIR}. Domain may not proxy to Node.js." >&2
+fi
+
 echo "==> Update finished"
 "$PM2_BIN" status "${APP_NAME}"

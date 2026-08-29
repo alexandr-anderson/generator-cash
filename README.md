@@ -35,12 +35,12 @@ npm run build
 
 ## Деплой на Timeweb
 
+На Timeweb домен отдаётся из каталога `public_html`. Поэтому проект должен лежать именно там, а Apache/nginx проксирует запросы на Next.js на порту `3000`.
+
 ### Ручной деплой на сервере через SSH
 
-Подключитесь к хостингу и запустите:
-
 ```bash
-bash /home/c/cm149295/postvmeste/deploy.sh
+bash /home/c/cm149295/public_html/deploy.sh
 ```
 
 Скрипт сам:
@@ -61,16 +61,24 @@ cp scripts/deploy.env.example scripts/deploy.env
 
 ```bash
 ssh cm149295@vh470.timeweb.ru
-mkdir -p /home/c/cm149295/postvmeste
-cd /home/c/cm149295/postvmeste
+mkdir -p /home/c/cm149295/public_html
+cd /home/c/cm149295/public_html
 git clone https://github.com/alexandr-anderson/generator-cash.git .
 cp scripts/deploy.env.example scripts/deploy.env
-bash scripts/update-from-git.sh
+bash /home/c/cm149295/public_html/deploy.sh
 ```
 
-Если видите `Permission denied (publickey)`, значит на сервере нет SSH-ключа для GitHub. Для публичного репозитория используйте HTTPS-клон, как выше. SSH нужен только если вы специально настроите deploy key.
+Если проект уже лежит в `/home/c/cm149295/postvmeste`, перенесите его так:
 
-Nginx уже должен проксировать домен на `127.0.0.1:3000`. Пример конфига: [`docs/nginx-postvmeste.example.conf`](docs/nginx-postvmeste.example.conf).
+```bash
+mv /home/c/cm149295/postvmeste /home/c/cm149295/public_html
+cd /home/c/cm149295/public_html
+bash deploy.sh
+```
+
+Если видите `Permission denied (publickey)`, используйте HTTPS-клон, как выше.
+
+Файл [`.htaccess`](.htaccess) в корне проекта проксирует сайт на `127.0.0.1:3000`. Пример nginx-конфига: [`docs/nginx-postvmeste.example.conf`](docs/nginx-postvmeste.example.conf).
 
 ### Деплой с локального компьютера
 
