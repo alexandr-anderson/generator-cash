@@ -49,7 +49,7 @@ const steps: { id: ProjectStep; label: string }[] = [
 ];
 
 const emptyBrief: CreativeBrief = {
-  topic: "",
+  topic: "5 ошибок личного бренда",
   audience: "Креаторы и эксперты",
   goal: "Дать пользу и получить сохранения",
   cta: "Сохраните, чтобы не потерять",
