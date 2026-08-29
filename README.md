@@ -37,12 +37,10 @@ npm run build
 
 ### Ручной деплой на сервере через SSH
 
-Подключитесь к хостингу:
+Подключитесь к хостингу и запустите:
 
 ```bash
-ssh cm149295@vh470.timeweb.ru
-cd /home/c/cm149295/postvmeste
-bash scripts/update-from-git.sh
+bash /home/c/cm149295/postvmeste/deploy.sh
 ```
 
 Скрипт сам:
