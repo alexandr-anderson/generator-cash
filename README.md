@@ -35,17 +35,23 @@ npm run build
 
 ## Деплой на Timeweb
 
-На аккаунте может быть несколько проектов. Для `postvmeste.ru` используйте такую структуру:
+На shared hosting Timeweb **нельзя надёжно собирать Next.js на сервере** (`next build` падает с `uv_thread_create`). Поэтому используется artifact-based деплой:
+
+1. **Сборка** — локально или в GitHub Actions.
+2. **На сервер** — только готовый standalone-бандл + перезапуск PM2.
+3. **SSH** — с локальной машины или через терминал в панели Timeweb.
+
+### Структура на сервере
 
 ```text
 /home/c/cm149295/
-  filo-src/                         # другой проект
-  postvmeste/                        # корень этого проекта
-    deploy.sh
-    package.json
-    src/
-    public_html/                     # сюда должен смотреть Timeweb
-      .htaccess
+  postvmeste/
+    app/                     # standalone Next.js (server.js, .next, public)
+    ecosystem.config.cjs
+    scripts/
+      restart-app.sh
+    public_html/             # document root в панели Timeweb
+      .htaccess              # генерируется из шаблона при restart
 ```
 
 В панели Timeweb для домена `postvmeste.ru` укажите корень сайта:
@@ -54,63 +60,72 @@ npm run build
 /home/c/cm149295/postvmeste/public_html
 ```
 
-Next.js запускается из `/home/c/cm149295/postvmeste` через PM2 на порту `3000`, а `public_html/.htaccess` проксирует запросы на приложение.
+PM2 запускает `app/server.js` на `APP_PORT` (по умолчанию `3000`). Apache в `public_html/.htaccess` проксирует запросы на этот порт.
 
-### Ручной деплой на сервере через SSH
+### GitHub Actions (рекомендуется)
 
-```bash
-bash /home/c/cm149295/postvmeste/deploy.sh
-```
+Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — срабатывает на push в `main` или вручную.
 
-Скрипт сам:
-1. подтянет актуальный код из `git` (`main`);
-2. установит зависимости;
-3. соберёт проект;
-4. перезапустит приложение через PM2;
-5. проверит наличие `public_html/.htaccess`.
+Добавьте secrets в репозитории (`Settings → Secrets and variables → Actions`):
 
-При первом запуске на сервере создайте конфиг:
+| Secret | Значение |
+|--------|----------|
+| `SSH_PRIVATE_KEY` | приватный ключ с доступом к Timeweb SSH |
+| `SSH_HOST` | `vh470.timeweb.ru` |
+| `SSH_USER` | `cm149295` |
+| `SSH_PORT` | `22` (опционально) |
 
-```bash
-cp scripts/deploy.env.example scripts/deploy.env
-```
-
-Если `node`, `npm` или `pm2` не находятся автоматически, пропишите полные пути в `scripts/deploy.env`.
-
-### Первый запуск, если проекта ещё нет на сервере
-
-```bash
-ssh cm149295@vh470.timeweb.ru
-mkdir -p /home/c/cm149295/postvmeste
-cd /home/c/cm149295/postvmeste
-git clone https://github.com/alexandr-anderson/generator-cash.git .
-cp scripts/deploy.env.example scripts/deploy.env
-bash /home/c/cm149295/postvmeste/deploy.sh
-```
-
-Если проект уже был разложен прямо в `public_html`, верните правильную структуру:
-
-```bash
-mkdir -p /home/c/cm149295/postvmeste
-mv /home/c/cm149295/public_html/* /home/c/cm149295/postvmeste/ 2>/dev/null || true
-mv /home/c/cm149295/public_html/.[!.]* /home/c/cm149295/postvmeste/ 2>/dev/null || true
-cd /home/c/cm149295/postvmeste
-git pull origin main
-bash deploy.sh
-```
-
-Если видите `Permission denied (publickey)`, используйте HTTPS-клон, как выше.
-
-Пример nginx-конфига: [`docs/nginx-postvmeste.example.conf`](docs/nginx-postvmeste.example.conf).
+После push в `main` Actions соберёт проект, загрузит `release/` на сервер и выполнит `scripts/restart-app.sh`.
 
 ### Деплой с локального компьютера
 
-Если нужно запускать деплой не на сервере, а с вашей машины:
+```bash
+cp scripts/deploy.env.example scripts/deploy.env
+# при необходимости укажите SSH_IDENTITY_FILE
+npm run deploy
+```
+
+Скрипт:
+1. `npm ci` + `npm run build`;
+2. упакует standalone в `release/`;
+3. `rsync` на сервер;
+4. перезапустит PM2 через SSH.
+
+### Первый запуск на сервере
+
+Подключитесь по SSH (локально или через панель Timeweb):
+
+```bash
+ssh cm149295@vh470.timeweb.ru
+bash /home/c/cm149295/postvmeste/scripts/setup-node-timeweb.sh
+```
+
+Подготовьте каталоги (с локальной машины):
 
 ```bash
 cp scripts/deploy.env.example scripts/deploy.env
+npm run deploy:bootstrap
 npm run deploy
 ```
+
+На сервере **не нужен** `git clone` всего репозитория — только Node.js, PM2 и загруженный release.
+
+### Перезапуск без новой сборки
+
+Если release уже на сервере:
+
+```bash
+ssh cm149295@vh470.timeweb.ru
+bash /home/c/cm149295/postvmeste/scripts/restart-app.sh
+```
+
+Или через SSH с локальной машины:
+
+```bash
+npm run deploy:server
+```
+
+(при наличии `scripts/deploy.env` и настроенного SSH-ключа)
 
 ### Проверка на сервере
 
@@ -121,64 +136,29 @@ pm2 logs postvmeste
 curl -I http://127.0.0.1:3000
 ```
 
+### Если порт 3000 занят
+
+На аккаунте может уже работать другое приложение на `:3000`. Проверьте:
+
+```bash
+ss -ltn | grep ':3000 '
+curl -I http://127.0.0.1:3000
+```
+
+Если порт занят, задайте другой порт в `scripts/deploy.env` на сервере и в GitHub Actions env (`APP_PORT=3001`), затем выполните deploy/restart — `.htaccess` перегенерируется автоматически.
+
 ### Если `Node.js not found`
-
-На Timeweb `nvm` часто прописан в `.bashrc`, а не в `.bash_profile`. Поэтому `source ~/.bash_profile` может не активировать `nvm`.
-
-Выполните так:
 
 ```bash
 export NVM_DIR="$HOME/.nvm"
 . "$NVM_DIR/nvm.sh"
 nvm install 22
 nvm use 22
-cd /home/c/cm149295/postvmeste
-bash deploy.sh
-```
-
-Или одной командой установки:
-
-```bash
 bash /home/c/cm149295/postvmeste/scripts/setup-node-timeweb.sh
-bash /home/c/cm149295/postvmeste/deploy.sh
 ```
 
-### Если `pm2: command not found`
+### Устаревший способ (не использовать)
 
-На Timeweb PM2 часто не установлен глобально. Это нормально: проект ставит PM2 локально через `npm ci`.
+`git pull` + `next build` на сервере больше не поддерживается. Скрипт `deploy.sh` на сервере теперь только перезапускает уже загруженный release.
 
-```bash
-cd /home/c/cm149295/postvmeste
-git pull origin main
-bash deploy.sh
-```
-
-Или вручную:
-
-```bash
-cd /home/c/cm149295/postvmeste
-source ~/.nvm/nvm.sh 2>/dev/null || true
-npm ci
-./node_modules/.bin/pm2 -v
-./node_modules/.bin/pm2 startOrReload ecosystem.config.cjs --update-env
-./node_modules/.bin/pm2 save
-```
-
-Если `node` тоже не найден, включите Node.js в панели Timeweb или пропишите пути в `scripts/deploy.env`.
-
-### Если `npm ci` падает на `unrs-resolver` / `uv_thread_create`
-
-На shared hosting Timeweb postinstall-скрипты часто падают из-за лимита потоков. В `scripts/deploy.env` уже включено:
-
-```env
-NPM_CI_ARGS=--ignore-scripts
-```
-
-После обновления проекта выполните:
-
-```bash
-cd /home/c/cm149295/postvmeste
-git pull origin main
-rm -rf node_modules
-bash deploy.sh
-```
+Пример nginx-конфига: [`docs/nginx-postvmeste.example.conf`](docs/nginx-postvmeste.example.conf).
