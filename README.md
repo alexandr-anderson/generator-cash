@@ -136,6 +136,8 @@ bash ~/postvmeste/scripts/restart-app.sh
 
 ### Деплой с локального компьютера
 
+**Windows:** Git Bash часто «замирает» на `npm ci` (антивирус, медленный диск) или не имеет `rsync`. Если деплой висит больше 5 минут без новых строк — нажмите `Ctrl+C` и см. раздел «Если deploy завис» ниже. Проще всего на Windows — **GitHub Actions**.
+
 ```bash
 git clone https://github.com/alexandr-anderson/generator-cash.git
 cd generator-cash
@@ -143,6 +145,27 @@ cp scripts/deploy.env.example scripts/deploy.env
 # при необходимости: SSH_IDENTITY_FILE=~/.ssh/id_ed25519
 npm run deploy
 ```
+
+Только сборка без загрузки на сервер:
+
+```bash
+npm run deploy:build
+```
+
+### Если deploy завис (Windows)
+
+1. `Ctrl+C` — остановить.
+2. Проверить по шагам в **PowerShell** или **cmd** (не Git Bash):
+
+```bat
+node -v
+npm -v
+npm ci
+npm run build
+```
+
+3. Если `npm ci` висит — удалите `node_modules`, затем снова `npm ci`.
+4. Если сборка прошла, но нет `rsync` — используйте **GitHub Actions** (Settings → Secrets → `SSH_PRIVATE_KEY`, `SSH_HOST`, `SSH_USER`, затем Actions → Deploy to Timeweb → Run workflow).
 
 Скрипт:
 1. `npm ci` + `npm run build`;

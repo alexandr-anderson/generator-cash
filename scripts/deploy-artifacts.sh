@@ -9,19 +9,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
 source "${SCRIPT_DIR}/lib.sh"
 load_deploy_env "$SCRIPT_DIR"
+preflight_deploy_tools
 
 export NEXT_TELEMETRY_DISABLED=1
 
-echo "==> Building postvmeste.ru release"
-echo "==> Node: $(node -v)"
-echo "==> npm: $(npm -v)"
+step "Checking deploy tools"
+echo "ssh: $(command -v ssh)"
+echo "rsync: $(command -v rsync)"
 
-echo "==> Installing dependencies"
-npm ci
+step "Building postvmeste.ru release"
+echo "Node: $(node -v)"
+echo "npm: $(npm -v)"
 
-echo "==> Running production build"
+step "Installing dependencies (npm ci — can take several minutes on Windows)"
+npm ci --no-audit --fund=false --loglevel=info
+
+step "Running production build"
 npm run build
 
+step "Packaging standalone release"
 bash "${SCRIPT_DIR}/package-standalone.sh"
 
 ssh_target="${SSH_USER}@${SSH_HOST}"
@@ -43,15 +49,15 @@ rsync_opts=(
   --exclude "scripts/deploy.env"
 )
 
-echo "==> Uploading release to ${ssh_target}:${DEPLOY_PATH}"
+step "Uploading release to ${ssh_target}:${DEPLOY_PATH}"
 ssh "${ssh_opts[@]}" "$ssh_target" "mkdir -p '${DEPLOY_PATH}' '${PUBLIC_HTML}'"
 
 # shellcheck disable=SC2086
 rsync "${rsync_opts[@]}" -e "$rsync_ssh" "${ROOT_DIR}/release/" "${ssh_target}:${DEPLOY_PATH}/"
 
-echo "==> Restarting app on server"
+step "Restarting app on server"
 run_remote "$SCRIPT_DIR" "$(export_remote_env)
 cd '${DEPLOY_PATH}' && bash scripts/restart-app.sh"
 
-echo "==> Deploy finished"
+step "Deploy finished"
 echo "Check https://postvmeste.ru after DNS/proxy reload if needed."
