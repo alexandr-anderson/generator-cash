@@ -33,41 +33,57 @@ npm run build
 
 В MVP используется deterministic local provider, поэтому приложение работает без API-ключей и не отправляет пользовательские файлы третьим сторонам. Границы production-интеграции и retention описаны в [`docs/architecture.md`](docs/architecture.md), а сценарий проверки спроса — в [`docs/concierge-playbook.md`](docs/concierge-playbook.md).
 
-## Деплой на Timeweb через SSH
+## Деплой на Timeweb
 
-### 1. Подготовка локально
+### Ручной деплой на сервере через SSH
+
+Подключитесь к хостингу:
+
+```bash
+ssh cm149295@vh470.timeweb.ru
+cd /home/c/cm149295/postvmeste
+bash scripts/update-from-git.sh
+```
+
+Скрипт сам:
+1. подтянет актуальный код из `git` (`main`);
+2. установит зависимости;
+3. соберёт проект;
+4. перезапустит приложение через PM2.
+
+При первом запуске на сервере создайте конфиг:
 
 ```bash
 cp scripts/deploy.env.example scripts/deploy.env
 ```
 
-Проверь значения в `scripts/deploy.env`. Если на сервере `node`, `npm` или `pm2` не в `PATH`, укажи полные пути в `NODE_BIN`, `NPM_BIN`, `PM2_BIN`.
+Если `node`, `npm` или `pm2` не находятся автоматически, пропишите полные пути в `scripts/deploy.env`.
 
-### 2. Первый запуск на сервере
-
-На сервере должны быть установлены `git`, `node`, `npm` и `pm2`. Nginx уже должен проксировать домен на `127.0.0.1:3000`. Пример конфига: [`docs/nginx-postvmeste.example.conf`](docs/nginx-postvmeste.example.conf).
-
-```bash
-npm run deploy:bootstrap
-```
-
-Скрипт создаст `/home/c/cm149295/postvmeste`, сделает `git clone`, соберёт приложение и запустит его через PM2.
-
-### 3. Обычный деплой
-
-После каждого merge в `main`:
-
-```bash
-npm run deploy
-```
-
-Скрипт по SSH зайдёт на сервер, выполнит `git pull`, `npm ci`, `npm run build` и `pm2 startOrReload`.
-
-### 4. Проверка на сервере
+### Первый запуск, если проекта ещё нет на сервере
 
 ```bash
 ssh cm149295@vh470.timeweb.ru
+mkdir -p /home/c/cm149295/postvmeste
 cd /home/c/cm149295/postvmeste
+git clone git@github.com:alexandr-anderson/generator-cash.git .
+cp scripts/deploy.env.example scripts/deploy.env
+bash scripts/update-from-git.sh
+```
+
+Nginx уже должен проксировать домен на `127.0.0.1:3000`. Пример конфига: [`docs/nginx-postvmeste.example.conf`](docs/nginx-postvmeste.example.conf).
+
+### Деплой с локального компьютера
+
+Если нужно запускать деплой не на сервере, а с вашей машины:
+
+```bash
+cp scripts/deploy.env.example scripts/deploy.env
+npm run deploy
+```
+
+### Проверка на сервере
+
+```bash
 pm2 status
 pm2 logs postvmeste
 ```

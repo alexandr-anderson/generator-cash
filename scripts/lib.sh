@@ -14,6 +14,22 @@ resolve_bin() {
   command -v "$fallback"
 }
 
+load_server_env() {
+  local script_dir="$1"
+  local env_file="${script_dir}/deploy.env"
+
+  if [[ -f "$env_file" ]]; then
+    # shellcheck disable=SC1090
+    source "$env_file"
+  fi
+
+  : "${GIT_BRANCH:=main}"
+  : "${GIT_REMOTE:=origin}"
+  : "${APP_NAME:=postvmeste}"
+  : "${APP_PORT:=3000}"
+  : "${NODE_ENV:=production}"
+}
+
 load_deploy_env() {
   local script_dir="$1"
   local env_file="${script_dir}/deploy.env"
