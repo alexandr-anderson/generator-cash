@@ -35,6 +35,9 @@ npm run build
 
 ## Деплой на Timeweb
 
+> **Важно:** `npm run deploy` запускается **с вашего компьютера** (Mac/Windows/Linux), где есть клон репозитория.  
+> **Не** запускайте его в SSH-сессии Timeweb — на сервере нет исходников и `package.json`.
+
 На shared hosting Timeweb **нельзя надёжно собирать Next.js на сервере** (`next build` падает с `uv_thread_create`). Поэтому используется artifact-based деплой:
 
 1. **Сборка** — локально или в GitHub Actions.
@@ -77,11 +80,32 @@ Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — с�
 
 После push в `main` Actions соберёт проект, загрузит `release/` на сервер и выполнит `scripts/restart-app.sh`.
 
+### Что делать на сервере (SSH Timeweb)
+
+Только подготовка окружения — **без** `npm run deploy`:
+
+```bash
+mkdir -p ~/postvmeste/public_html
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+nvm install 22
+nvm use 22
+node -v
+```
+
+После загрузки release (с локальной машины или GitHub Actions) перезапуск:
+
+```bash
+bash ~/postvmeste/scripts/restart-app.sh
+```
+
 ### Деплой с локального компьютера
 
 ```bash
+git clone https://github.com/alexandr-anderson/generator-cash.git
+cd generator-cash
 cp scripts/deploy.env.example scripts/deploy.env
-# при необходимости укажите SSH_IDENTITY_FILE
+# при необходимости: SSH_IDENTITY_FILE=~/.ssh/id_ed25519
 npm run deploy
 ```
 
