@@ -123,15 +123,24 @@ curl -I http://127.0.0.1:3000
 
 ### Если `Node.js not found`
 
-На Timeweb Node.js обычно ставится через `nvm`, а не глобально.
+На Timeweb `nvm` часто прописан в `.bashrc`, а не в `.bash_profile`. Поэтому `source ~/.bash_profile` может не активировать `nvm`.
 
-Один раз выполните:
+Выполните так:
 
 ```bash
+export NVM_DIR="$HOME/.nvm"
+. "$NVM_DIR/nvm.sh"
+nvm install 22
+nvm use 22
 cd /home/c/cm149295/postvmeste
-bash scripts/setup-node-timeweb.sh
-source ~/.bash_profile
 bash deploy.sh
+```
+
+Или одной командой установки:
+
+```bash
+bash /home/c/cm149295/postvmeste/scripts/setup-node-timeweb.sh
+bash /home/c/cm149295/postvmeste/deploy.sh
 ```
 
 ### Если `pm2: command not found`

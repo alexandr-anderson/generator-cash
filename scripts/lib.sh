@@ -35,25 +35,12 @@ resolve_bin() {
 }
 
 load_nvm_if_needed() {
-  local profile_file
+  # shellcheck source=load-nvm.sh
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/load-nvm.sh"
 
-  for profile_file in "${HOME}/.bash_profile" "${HOME}/.profile" "${HOME}/.bashrc"; do
-    if [[ -s "$profile_file" ]]; then
-      # shellcheck disable=SC1090
-      source "$profile_file" 2>/dev/null || true
-    fi
-  done
-
-  if [[ -s "${HOME}/.nvm/nvm.sh" ]]; then
-    export NVM_DIR="${HOME}/.nvm"
-    # shellcheck disable=SC1091
-    source "${NVM_DIR}/nvm.sh"
-    unset NPM_CONFIG_PREFIX 2>/dev/null || true
-
-    if [[ -f ".nvmrc" ]]; then
-      nvm install >/dev/null 2>&1 || true
-      nvm use >/dev/null 2>&1 || true
-    fi
+  if [[ -f ".nvmrc" ]] && command -v nvm >/dev/null 2>&1; then
+    nvm install >/dev/null 2>&1 || true
+    nvm use >/dev/null 2>&1 || true
   fi
 }
 
@@ -62,16 +49,17 @@ print_node_setup_help() {
 Node.js not found on this Timeweb account.
 
 Run once:
+  export NVM_DIR="$HOME/.nvm"
+  . "$NVM_DIR/nvm.sh"
+  nvm install 22
+  nvm use 22
+
+Or:
   bash /home/c/cm149295/postvmeste/scripts/setup-node-timeweb.sh
 
-Then reload shell or run:
-  source ~/.bash_profile
+Then deploy:
   cd /home/c/cm149295/postvmeste
   bash deploy.sh
-
-If Node is already installed via nvm, add paths to scripts/deploy.env:
-  NODE_BIN=/home/c/cm149295/.nvm/versions/node/v22.20.0/bin/node
-  NPM_BIN=/home/c/cm149295/.nvm/versions/node/v22.20.0/bin/npm
 EOF
 }
 

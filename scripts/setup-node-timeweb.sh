@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=load-nvm.sh
+source "${SCRIPT_DIR}/load-nvm.sh"
+
 echo "==> Timeweb Node.js setup"
 
 touch "${HOME}/.bash_profile"
@@ -9,13 +13,21 @@ touch "${HOME}/.bash_profile"
 if [[ ! -s "${HOME}/.nvm/nvm.sh" ]]; then
   echo "==> Installing nvm"
   curl -Ls https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+  # shellcheck source=load-nvm.sh
+  source "${SCRIPT_DIR}/load-nvm.sh"
 else
   echo "==> nvm already installed"
 fi
 
-export NVM_DIR="${HOME}/.nvm"
-# shellcheck disable=SC1091
-source "${NVM_DIR}/nvm.sh"
+if ! grep -q 'NVM_DIR' "${HOME}/.bash_profile" 2>/dev/null; then
+  cat >> "${HOME}/.bash_profile" <<'EOF'
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+EOF
+fi
+
 unset NPM_CONFIG_PREFIX 2>/dev/null || true
 
 NODE_VERSION="${NODE_VERSION:-22}"
