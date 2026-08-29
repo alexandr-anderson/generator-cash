@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Forma — ваш контент, только быстрее",
+  title: "postvmeste.ru — ваш контент, только быстрее",
   description: "AI-студия визуального контента для независимых креаторов.",
 };
 

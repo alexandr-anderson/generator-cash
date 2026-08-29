@@ -136,6 +136,6 @@ export function creativeToSvg(creative: CreativeDirection, slide = 0) {
   ${lines.map((line, index) => `<text x="72" y="${startY + index * 118}" font-family="Arial, sans-serif" font-size="102" font-weight="800" letter-spacing="-4" fill="${creative.foreground}">${escapeXml(line)}</text>`).join("")}
   <line x1="72" y1="${height - 220}" x2="${width - 72}" y2="${height - 220}" stroke="${creative.foreground}" stroke-width="3" opacity="0.3"/>
   <text x="72" y="${height - 140}" font-family="Arial, sans-serif" font-size="32" font-weight="600" fill="${creative.foreground}">${escapeXml(creative.body)}</text>
-  <text x="${width - 72}" y="${height - 140}" text-anchor="end" font-family="Arial, sans-serif" font-size="26" fill="${creative.foreground}" opacity="0.6">STUDIO · ${slide + 1}</text>
+  <text x="${width - 72}" y="${height - 140}" text-anchor="end" font-family="Arial, sans-serif" font-size="26" fill="${creative.foreground}" opacity="0.6">POSTVMESTE · ${slide + 1}</text>
 </svg>`;
 }
