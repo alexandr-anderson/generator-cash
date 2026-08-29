@@ -27,7 +27,7 @@ echo "==> PM2: $("$PM2_BIN" -v)"
 if [[ ! -d .git ]]; then
   echo "Git repository not found in ${ROOT_DIR}." >&2
   echo "Clone the project first, for example:" >&2
-  echo "  git clone git@github.com:alexandr-anderson/generator-cash.git ${ROOT_DIR}" >&2
+  echo "  git clone https://github.com/alexandr-anderson/generator-cash.git ${ROOT_DIR}" >&2
   exit 1
 fi
 
