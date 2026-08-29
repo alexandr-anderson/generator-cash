@@ -214,7 +214,7 @@ export default function StudioApp() {
     const url = URL.createObjectURL(archive);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "creator-studio-pack.zip";
+    anchor.download = "postvmeste-content-pack.zip";
     anchor.click();
     URL.revokeObjectURL(url);
     notify("Пакет экспортирован");
@@ -323,7 +323,7 @@ function Sidebar() {
     <aside className="sidebar">
       <div className="logo">
         <span><Sparkles size={18} /></span>
-        <b>forma</b>
+        <b>postvmeste.ru</b>
       </div>
       <nav>
         <button className="nav-item active"><Grid2X2 size={18} />Проекты</button>
@@ -341,7 +341,7 @@ function Sidebar() {
         <button className="nav-item"><Settings2 size={18} />Настройки</button>
         <div className="user-card">
           <span>А</span>
-          <div><b>Алекс</b><small>creator@studio.ru</small></div>
+          <div><b>Алекс</b><small>hello@postvmeste.ru</small></div>
           <MoreHorizontal size={17} />
         </div>
       </div>
@@ -755,7 +755,7 @@ function CreativeCanvas({ creative, slide = 0 }: { creative: CreativeDirection; 
       <div className="art-circle" style={{ background: creative.accent }} />
       <span className="art-eyebrow" style={{ background: creative.accent }}>{creative.eyebrow}</span>
       <strong>{headline}</strong>
-      <div className="art-footer"><span>{creative.body}</span><small>STUDIO · {slide + 1}</small></div>
+      <div className="art-footer"><span>{creative.body}</span><small>POSTVMESTE · {slide + 1}</small></div>
     </div>
   );
 }
