@@ -5,9 +5,8 @@ module.exports = {
   apps: [
     {
       name: appName,
-      cwd: __dirname,
-      script: "node_modules/next/dist/bin/next",
-      args: `start -p ${appPort}`,
+      cwd: `${__dirname}/app`,
+      script: "server.js",
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
@@ -16,6 +15,7 @@ module.exports = {
       env: {
         NODE_ENV: process.env.NODE_ENV || "production",
         PORT: appPort,
+        HOSTNAME: "127.0.0.1",
         NEXT_TELEMETRY_DISABLED: "1",
       },
     },

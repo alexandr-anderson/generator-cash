@@ -43,8 +43,14 @@ else
   echo "node_modules: missing"
 fi
 
+if [[ -d app && -f app/server.js ]]; then
+  echo "standalone app: present (${ROOT_DIR}/app/server.js)"
+else
+  echo "standalone app: missing (deploy release first)"
+fi
+
 if [[ -d .next ]]; then
-  echo ".next build: present"
+  echo ".next build: present (dev only; production uses app/)"
 else
   echo ".next build: missing"
 fi

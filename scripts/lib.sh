@@ -98,14 +98,37 @@ ensure_public_html() {
   resolve_public_html
 
   mkdir -p "${PUBLIC_HTML}"
+}
 
-  if [[ ! -f "${PUBLIC_HTML}/.htaccess" ]]; then
-    if [[ -f "${root_dir}/public_html/.htaccess" ]]; then
-      cp "${root_dir}/public_html/.htaccess" "${PUBLIC_HTML}/.htaccess"
-    else
-      echo "Warning: ${PUBLIC_HTML}/.htaccess is missing." >&2
-    fi
+render_public_html_htaccess() {
+  local root_dir="$1"
+  local template="${root_dir}/public_html/.htaccess.template"
+
+  resolve_public_html
+
+  if [[ ! -f "$template" ]]; then
+    template="${root_dir}/public_html/.htaccess"
   fi
+
+  if [[ ! -f "$template" ]]; then
+    echo "Warning: Apache proxy template not found in ${root_dir}/public_html." >&2
+    return
+  fi
+
+  sed "s/__APP_PORT__/${APP_PORT}/g" "$template" > "${PUBLIC_HTML}/.htaccess"
+  echo "==> Apache proxy config: ${PUBLIC_HTML}/.htaccess -> 127.0.0.1:${APP_PORT}"
+}
+
+ensure_pm2_runtime() {
+  local root_dir="$1"
+
+  if PM2_BIN="$(resolve_bin "${PM2_BIN:-}" pm2 "$root_dir" 2>/dev/null)"; then
+    return
+  fi
+
+  echo "==> Installing PM2 runtime (pm2 only)"
+  "$NPM_BIN" install --no-save --ignore-scripts pm2
+  resolve_pm2_bin "$root_dir"
 }
 
 load_server_env() {

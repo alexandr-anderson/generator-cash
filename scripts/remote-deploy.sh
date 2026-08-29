@@ -2,4 +2,4 @@
 
 set -euo pipefail
 
-exec "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/update-from-git.sh" "$@"
+exec "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/restart-app.sh" "$@"

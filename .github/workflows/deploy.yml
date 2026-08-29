@@ -1,0 +1,72 @@
+name: Deploy to Timeweb
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-timeweb
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_PATH: /home/c/cm149295/postvmeste
+      PUBLIC_HTML: /home/c/cm149295/postvmeste/public_html
+      APP_NAME: postvmeste
+      APP_PORT: "3000"
+      NODE_ENV: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build standalone app
+        run: npm run build
+
+      - name: Package release
+        run: bash scripts/package-standalone.sh
+
+      - name: Configure SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          SSH_PORT="${SSH_PORT:-22}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Upload release
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          SSH_PORT="${SSH_PORT:-22}"
+          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT}" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" \
+            "mkdir -p '${DEPLOY_PATH}' '${PUBLIC_HTML}'"
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${SSH_PORT} -o BatchMode=yes" \
+            release/ "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/"
+
+      - name: Restart app on server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          SSH_PORT="${SSH_PORT:-22}"
+          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT}" -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" \
+            "export DEPLOY_PATH='${DEPLOY_PATH}' PUBLIC_HTML='${PUBLIC_HTML}' APP_NAME='${APP_NAME}' APP_PORT='${APP_PORT}' NODE_ENV='${NODE_ENV}' NPM_CI_ARGS='--ignore-scripts' && cd '${DEPLOY_PATH}' && bash scripts/restart-app.sh"
