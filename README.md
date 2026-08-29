@@ -65,10 +65,12 @@ cp scripts/deploy.env.example scripts/deploy.env
 ssh cm149295@vh470.timeweb.ru
 mkdir -p /home/c/cm149295/postvmeste
 cd /home/c/cm149295/postvmeste
-git clone git@github.com:alexandr-anderson/generator-cash.git .
+git clone https://github.com/alexandr-anderson/generator-cash.git .
 cp scripts/deploy.env.example scripts/deploy.env
 bash scripts/update-from-git.sh
 ```
+
+Если видите `Permission denied (publickey)`, значит на сервере нет SSH-ключа для GitHub. Для публичного репозитория используйте HTTPS-клон, как выше. SSH нужен только если вы специально настроите deploy key.
 
 Nginx уже должен проксировать домен на `127.0.0.1:3000`. Пример конфига: [`docs/nginx-postvmeste.example.conf`](docs/nginx-postvmeste.example.conf).
 
