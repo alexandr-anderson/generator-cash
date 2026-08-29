@@ -5,13 +5,65 @@ set -euo pipefail
 resolve_bin() {
   local override="$1"
   local fallback="$2"
+  local root_dir="${3:-}"
 
-  if [[ -n "$override" ]]; then
+  if [[ -n "$override" && -x "$override" ]]; then
     printf '%s\n' "$override"
     return
   fi
 
-  command -v "$fallback"
+  if [[ -n "$root_dir" && -x "${root_dir}/node_modules/.bin/${fallback}" ]]; then
+    printf '%s\n' "${root_dir}/node_modules/.bin/${fallback}"
+    return
+  fi
+
+  if [[ -d "${HOME}/.nvm/versions/node" ]]; then
+    local latest_node_dir
+    latest_node_dir="$(ls -1 "${HOME}/.nvm/versions/node" 2>/dev/null | sort -V | tail -n 1 || true)"
+    if [[ -n "$latest_node_dir" && -x "${HOME}/.nvm/versions/node/${latest_node_dir}/bin/${fallback}" ]]; then
+      printf '%s\n' "${HOME}/.nvm/versions/node/${latest_node_dir}/bin/${fallback}"
+      return
+    fi
+  fi
+
+  if command -v "$fallback" >/dev/null 2>&1; then
+    command -v "$fallback"
+    return
+  fi
+
+  return 1
+}
+
+load_nvm_if_needed() {
+  if [[ -s "${HOME}/.nvm/nvm.sh" ]]; then
+    # shellcheck disable=SC1090
+    source "${HOME}/.nvm/nvm.sh"
+  fi
+}
+
+prepare_host_bins() {
+  local root_dir="$1"
+
+  load_nvm_if_needed
+
+  NODE_BIN="$(resolve_bin "${NODE_BIN:-}" node "$root_dir")" || {
+    echo "Node.js not found. Install Node or set NODE_BIN in scripts/deploy.env." >&2
+    exit 1
+  }
+
+  NPM_BIN="$(resolve_bin "${NPM_BIN:-}" npm "$root_dir")" || {
+    echo "npm not found. Install npm or set NPM_BIN in scripts/deploy.env." >&2
+    exit 1
+  }
+}
+
+resolve_pm2_bin() {
+  local root_dir="$1"
+
+  PM2_BIN="$(resolve_bin "${PM2_BIN:-}" pm2 "$root_dir")" || {
+    echo "PM2 not found. Run npm ci in ${root_dir} or set PM2_BIN in scripts/deploy.env." >&2
+    exit 1
+  }
 }
 
 resolve_public_html() {

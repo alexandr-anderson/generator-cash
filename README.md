@@ -115,6 +115,31 @@ npm run deploy
 ### Проверка на сервере
 
 ```bash
+bash /home/c/cm149295/postvmeste/scripts/doctor.sh
 pm2 status
 pm2 logs postvmeste
+curl -I http://127.0.0.1:3000
 ```
+
+### Если `pm2: command not found`
+
+На Timeweb PM2 часто не установлен глобально. Это нормально: проект ставит PM2 локально через `npm ci`.
+
+```bash
+cd /home/c/cm149295/postvmeste
+git pull origin main
+bash deploy.sh
+```
+
+Или вручную:
+
+```bash
+cd /home/c/cm149295/postvmeste
+source ~/.nvm/nvm.sh 2>/dev/null || true
+npm ci
+./node_modules/.bin/pm2 -v
+./node_modules/.bin/pm2 startOrReload ecosystem.config.cjs --update-env
+./node_modules/.bin/pm2 save
+```
+
+Если `node` тоже не найден, включите Node.js в панели Timeweb или пропишите пути в `scripts/deploy.env`.
