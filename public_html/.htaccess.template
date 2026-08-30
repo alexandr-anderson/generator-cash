@@ -1,11 +1,9 @@
 # postvmeste-node-proxy
 # Timeweb document root: postvmeste/public_html
-# Next.js standalone app runs from project root on APP_PORT via PM2.
+# Always proxy to the Next.js standalone process (including /).
+# public_html is a directory, so !-d would skip the homepage rewrite.
 
 <IfModule mod_rewrite.c>
 RewriteEngine On
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ http://127.0.0.1:__APP_PORT__/$1 [P,L]
 </IfModule>
