@@ -37,11 +37,6 @@ resolve_bin() {
 load_nvm_if_needed() {
   # shellcheck source=load-nvm.sh
   source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/load-nvm.sh"
-
-  if [[ -f ".nvmrc" ]] && command -v nvm >/dev/null 2>&1; then
-    nvm install >/dev/null 2>&1 || true
-    nvm use >/dev/null 2>&1 || true
-  fi
 }
 
 print_node_setup_help() {
@@ -81,11 +76,49 @@ prepare_host_bins() {
 
 resolve_pm2_bin() {
   local root_dir="$1"
+  local candidate
 
-  PM2_BIN="$(resolve_bin "${PM2_BIN:-}" pm2 "$root_dir")" || {
-    echo "PM2 not found. Run npm ci in ${root_dir} or set PM2_BIN in scripts/deploy.env." >&2
-    exit 1
-  }
+  if [[ -n "${PM2_BIN:-}" && -x "${PM2_BIN}" ]]; then
+    return
+  fi
+
+  for candidate in \
+    "${HOME}/filo-src/node_modules/.bin/pm2" \
+    "${HOME}/filo/node_modules/.bin/pm2"
+  do
+    if [[ -x "$candidate" ]]; then
+      PM2_BIN="$candidate"
+      return
+    fi
+  done
+
+  if [[ -d "${HOME}/.nvm/versions/node" ]]; then
+    local node_dir
+    for node_dir in "${HOME}/.nvm/versions/node"/*; do
+      if [[ -x "${node_dir}/bin/pm2" ]]; then
+        PM2_BIN="${node_dir}/bin/pm2"
+        return
+      fi
+    done
+  fi
+
+  if command -v pm2 >/dev/null 2>&1; then
+    PM2_BIN="$(command -v pm2)"
+    return
+  fi
+
+  if [[ -x "${root_dir}/node_modules/.bin/pm2" ]]; then
+    PM2_BIN="${root_dir}/node_modules/.bin/pm2"
+    return
+  fi
+
+  echo "PM2 not found. Do not npm install on Timeweb." >&2
+  echo "Use the existing PM2 from filo or set PM2_BIN in scripts/deploy.env." >&2
+  exit 1
+}
+
+ensure_pm2_runtime() {
+  resolve_pm2_bin "$1"
 }
 
 resolve_public_html() {
@@ -117,18 +150,6 @@ render_public_html_htaccess() {
 
   sed "s/__APP_PORT__/${APP_PORT}/g" "$template" > "${PUBLIC_HTML}/.htaccess"
   echo "==> Apache proxy config: ${PUBLIC_HTML}/.htaccess -> 127.0.0.1:${APP_PORT}"
-}
-
-ensure_pm2_runtime() {
-  local root_dir="$1"
-
-  if PM2_BIN="$(resolve_bin "${PM2_BIN:-}" pm2 "$root_dir" 2>/dev/null)"; then
-    return
-  fi
-
-  echo "==> Installing PM2 runtime 6.x (matches existing Timeweb daemon)"
-  "$NPM_BIN" install --no-save --ignore-scripts pm2@6.0.14
-  resolve_pm2_bin "$root_dir"
 }
 
 load_server_env() {
