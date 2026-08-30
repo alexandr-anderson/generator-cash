@@ -145,7 +145,7 @@ load_server_env() {
   : "${GIT_BRANCH:=main}"
   : "${GIT_REMOTE:=origin}"
   : "${APP_NAME:=postvmeste}"
-  : "${APP_PORT:=3000}"
+  : "${APP_PORT:=3001}"
   : "${NODE_ENV:=production}"
   : "${NPM_CI_ARGS:=--ignore-scripts}"
 }
@@ -170,7 +170,7 @@ load_deploy_env() {
   : "${GIT_BRANCH:=main}"
   : "${GIT_REMOTE:=origin}"
   : "${APP_NAME:=postvmeste}"
-  : "${APP_PORT:=3000}"
+  : "${APP_PORT:=3001}"
   : "${NODE_ENV:=production}"
   : "${NPM_CI_ARGS:=--ignore-scripts}"
 }

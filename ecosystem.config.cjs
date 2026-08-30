@@ -1,5 +1,5 @@
 const appName = process.env.APP_NAME || "postvmeste";
-const appPort = Number(process.env.APP_PORT || 3000);
+const appPort = Number(process.env.APP_PORT || 3001);
 
 module.exports = {
   apps: [
