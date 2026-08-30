@@ -1,9 +1,10 @@
-# postvmeste-node-proxy
-# Timeweb document root: postvmeste/public_html
-# Always proxy to the Next.js standalone process (including /).
-# public_html is a directory, so !-d would skip the homepage rewrite.
+# postvmeste PHP proxy to Next.js on 127.0.0.1:__APP_PORT__
+# Timeweb shared hosting does not allow Apache [P] / mod_proxy.
+
+DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
 RewriteEngine On
-RewriteRule ^(.*)$ http://127.0.0.1:__APP_PORT__/$1 [P,L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [QSA,L]
 </IfModule>

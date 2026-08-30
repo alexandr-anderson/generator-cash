@@ -31,6 +31,7 @@ cp "${ROOT_DIR}/scripts/lib.sh" "${RELEASE_DIR}/scripts/"
 cp "${ROOT_DIR}/scripts/doctor.sh" "${RELEASE_DIR}/scripts/"
 cp "${ROOT_DIR}/scripts/deploy.env.example" "${RELEASE_DIR}/scripts/"
 cp "${ROOT_DIR}/public_html/.htaccess.template" "${RELEASE_DIR}/public_html/"
+cp "${ROOT_DIR}/public_html/index.php.template" "${RELEASE_DIR}/public_html/"
 
 echo "==> Release ready at ${RELEASE_DIR}"
 find "${RELEASE_DIR}" -maxdepth 3 -type f | sort

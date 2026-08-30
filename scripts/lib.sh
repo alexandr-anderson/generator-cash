@@ -149,7 +149,13 @@ render_public_html_htaccess() {
   fi
 
   sed "s/__APP_PORT__/${APP_PORT}/g" "$template" > "${PUBLIC_HTML}/.htaccess"
-  echo "==> Apache proxy config: ${PUBLIC_HTML}/.htaccess -> 127.0.0.1:${APP_PORT}"
+
+  local php_template="${root_dir}/public_html/index.php.template"
+  if [[ -f "$php_template" ]]; then
+    sed "s/__APP_PORT__/${APP_PORT}/g" "$php_template" > "${PUBLIC_HTML}/index.php"
+  fi
+
+  echo "==> Apache PHP proxy: ${PUBLIC_HTML}/index.php -> 127.0.0.1:${APP_PORT}"
 }
 
 load_server_env() {

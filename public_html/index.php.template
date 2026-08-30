@@ -1,0 +1,89 @@
+<?php
+declare(strict_types=1);
+
+$targetPort = (int) (__APP_PORT__);
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$uri = $_SERVER['REQUEST_URI'] ?? '/';
+$url = 'http://127.0.0.1:' . $targetPort . $uri;
+
+$skip = [
+    'host' => true,
+    'connection' => true,
+    'content-length' => true,
+    'accept-encoding' => true,
+];
+
+$headers = [];
+foreach ($_SERVER as $key => $value) {
+    if (!str_starts_with($key, 'HTTP_')) {
+        continue;
+    }
+    $name = strtolower(str_replace('_', '-', substr($key, 5)));
+    if (isset($skip[$name])) {
+        continue;
+    }
+    $headers[] = $name . ': ' . $value;
+}
+if (!empty($_SERVER['CONTENT_TYPE'])) {
+    $headers[] = 'content-type: ' . $_SERVER['CONTENT_TYPE'];
+}
+
+$body = file_get_contents('php://input');
+$ch = curl_init($url);
+$options = [
+    CURLOPT_CUSTOMREQUEST => $method,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HEADER => true,
+    CURLOPT_HTTPHEADER => $headers,
+    CURLOPT_TIMEOUT => 60,
+    CURLOPT_FOLLOWLOCATION => false,
+];
+if ($body !== false && $body !== '' && $method !== 'GET' && $method !== 'HEAD') {
+    $options[CURLOPT_POSTFIELDS] = $body;
+}
+curl_setopt_array($ch, $options);
+
+$response = curl_exec($ch);
+if ($response === false) {
+    http_response_code(502);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo 'Bad gateway: Next.js is not reachable on 127.0.0.1:' . $targetPort;
+    exit;
+}
+
+$headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+$status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$headerBlob = substr($response, 0, $headerSize);
+$bodyOut = substr($response, $headerSize);
+curl_close($ch);
+
+http_response_code($status > 0 ? $status : 502);
+
+$hopByHop = [
+    'connection' => true,
+    'keep-alive' => true,
+    'proxy-authenticate' => true,
+    'proxy-authorization' => true,
+    'te' => true,
+    'trailers' => true,
+    'transfer-encoding' => true,
+    'upgrade' => true,
+];
+
+foreach (preg_split("/\r\n|\n|\r/", $headerBlob) as $line) {
+    if ($line === '' || stripos($line, 'HTTP/') === 0) {
+        continue;
+    }
+    $pos = strpos($line, ':');
+    if ($pos === false) {
+        continue;
+    }
+    $name = substr($line, 0, $pos);
+    $value = ltrim(substr($line, $pos + 1));
+    if (isset($hopByHop[strtolower($name)])) {
+        continue;
+    }
+    header($name . ': ' . $value, false);
+}
+
+echo $bodyOut;
