@@ -229,19 +229,20 @@ npm run deploy:server
 bash /home/c/cm149295/postvmeste/scripts/doctor.sh
 pm2 status
 pm2 logs postvmeste
-curl -I http://127.0.0.1:3000
+curl -I http://127.0.0.1:3001
 ```
 
-### Если порт 3000 занят
+В ответе должны быть заголовки Next.js (`x-nextjs-*`), а не `X-Powered-By: Express` (это filo на порту 3000).
 
-На аккаунте может уже работать другое приложение на `:3000`. Проверьте:
+### Если порт 3001 занят
+
+Проверьте:
 
 ```bash
-ss -ltn | grep ':3000 '
-curl -I http://127.0.0.1:3000
+curl -I http://127.0.0.1:3001
 ```
 
-Если порт занят, задайте другой порт в `scripts/deploy.env` на сервере и в GitHub Actions env (`APP_PORT=3001`), затем выполните deploy/restart — `.htaccess` перегенерируется автоматически.
+Если порт занят, задайте другой порт в `scripts/deploy.env` на сервере и в GitHub Actions env, затем выполните deploy/restart — `.htaccess` перегенерируется автоматически.
 
 ### Если `Node.js not found`
 
