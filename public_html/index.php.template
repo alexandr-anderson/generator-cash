@@ -1,89 +1,68 @@
 <?php
-declare(strict_types=1);
-
 $targetPort = (int) (__APP_PORT__);
-$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-$uri = $_SERVER['REQUEST_URI'] ?? '/';
+$method = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET';
+$uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
 $url = 'http://127.0.0.1:' . $targetPort . $uri;
 
-$skip = [
-    'host' => true,
-    'connection' => true,
-    'content-length' => true,
-    'accept-encoding' => true,
-];
-
-$headers = [];
+$skipReq = array('host' => 1, 'connection' => 1, 'content-length' => 1, 'accept-encoding' => 1);
+$headers = array();
 foreach ($_SERVER as $key => $value) {
-    if (!str_starts_with($key, 'HTTP_')) {
-        continue;
-    }
-    $name = strtolower(str_replace('_', '-', substr($key, 5)));
-    if (isset($skip[$name])) {
-        continue;
-    }
-    $headers[] = $name . ': ' . $value;
+  if (strpos($key, 'HTTP_') !== 0) {
+    continue;
+  }
+  $name = strtolower(str_replace('_', '-', substr($key, 5)));
+  if (isset($skipReq[$name])) {
+    continue;
+  }
+  $headers[] = $name . ': ' . $value;
 }
 if (!empty($_SERVER['CONTENT_TYPE'])) {
-    $headers[] = 'content-type: ' . $_SERVER['CONTENT_TYPE'];
+  $headers[] = 'content-type: ' . $_SERVER['CONTENT_TYPE'];
 }
 
 $body = file_get_contents('php://input');
 $ch = curl_init($url);
-$options = [
-    CURLOPT_CUSTOMREQUEST => $method,
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_HEADER => true,
-    CURLOPT_HTTPHEADER => $headers,
-    CURLOPT_TIMEOUT => 60,
-    CURLOPT_FOLLOWLOCATION => false,
-];
+curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HEADER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
 if ($body !== false && $body !== '' && $method !== 'GET' && $method !== 'HEAD') {
-    $options[CURLOPT_POSTFIELDS] = $body;
-}
-curl_setopt_array($ch, $options);
-
-$response = curl_exec($ch);
-if ($response === false) {
-    http_response_code(502);
-    header('Content-Type: text/plain; charset=utf-8');
-    echo 'Bad gateway: Next.js is not reachable on 127.0.0.1:' . $targetPort;
-    exit;
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
 }
 
-$headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-$status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$headerBlob = substr($response, 0, $headerSize);
-$bodyOut = substr($response, $headerSize);
-curl_close($ch);
-
-http_response_code($status > 0 ? $status : 502);
-
-$hopByHop = [
-    'connection' => true,
-    'keep-alive' => true,
-    'proxy-authenticate' => true,
-    'proxy-authorization' => true,
-    'te' => true,
-    'trailers' => true,
-    'transfer-encoding' => true,
-    'upgrade' => true,
-];
-
-foreach (preg_split("/\r\n|\n|\r/", $headerBlob) as $line) {
-    if ($line === '' || stripos($line, 'HTTP/') === 0) {
-        continue;
-    }
-    $pos = strpos($line, ':');
-    if ($pos === false) {
-        continue;
-    }
-    $name = substr($line, 0, $pos);
-    $value = ltrim(substr($line, $pos + 1));
-    if (isset($hopByHop[strtolower($name)])) {
-        continue;
-    }
-    header($name . ': ' . $value, false);
+$resp = curl_exec($ch);
+if ($resp === false) {
+  http_response_code(502);
+  header('Content-Type: text/plain; charset=utf-8');
+  echo 'upstream down';
+  exit;
 }
 
-echo $bodyOut;
+$size = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+$code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+http_response_code($code > 0 ? $code : 502);
+
+$skipRes = array(
+  'connection' => 1,
+  'keep-alive' => 1,
+  'transfer-encoding' => 1,
+  'upgrade' => 1,
+);
+foreach (preg_split("/\r\n|\n|\r/", substr($resp, 0, $size)) as $line) {
+  if ($line === '' || stripos($line, 'HTTP/') === 0) {
+    continue;
+  }
+  $pos = strpos($line, ':');
+  if ($pos === false) {
+    continue;
+  }
+  $hname = strtolower(substr($line, 0, $pos));
+  if (isset($skipRes[$hname])) {
+    continue;
+  }
+  header($line, false);
+}
+
+echo substr($resp, $size);
