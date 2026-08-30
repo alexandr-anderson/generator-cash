@@ -126,8 +126,8 @@ ensure_pm2_runtime() {
     return
   fi
 
-  echo "==> Installing PM2 runtime (pm2 only)"
-  "$NPM_BIN" install --no-save --ignore-scripts pm2
+  echo "==> Installing PM2 runtime 6.x (matches existing Timeweb daemon)"
+  "$NPM_BIN" install --no-save --ignore-scripts pm2@6.0.14
   resolve_pm2_bin "$root_dir"
 }
 

@@ -35,8 +35,16 @@ render_public_html_htaccess "$ROOT_DIR"
 
 echo "==> Restarting PM2 process"
 APP_NAME="${APP_NAME}" APP_PORT="${APP_PORT}" NODE_ENV="${NODE_ENV}" \
-  "$PM2_BIN" startOrReload ecosystem.config.cjs --update-env
-"$PM2_BIN" save
+  "$PM2_BIN" startOrReload ecosystem.config.cjs --update-env --silent
+"$PM2_BIN" save --silent
 
 echo "==> Restart finished"
-"$PM2_BIN" status "${APP_NAME}"
+echo "==> PM2 pid: $("$PM2_BIN" pid "${APP_NAME}" || echo unknown)"
+
+echo "==> Health check http://127.0.0.1:${APP_PORT}"
+sleep 2
+if ! curl -sI --max-time 8 "http://127.0.0.1:${APP_PORT}/" | head -8; then
+  echo "App did not respond on port ${APP_PORT}." >&2
+  "$PM2_BIN" logs "${APP_NAME}" --lines 40 --nostream || true
+  exit 1
+fi
