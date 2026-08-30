@@ -44,6 +44,22 @@ npm run build
 2. **На сервер** — только готовый standalone-бандл + перезапуск PM2.
 3. **SSH** — с локальной машины или через терминал в панели Timeweb.
 
+На этом аккаунте порт `3000` занят проектом `filo`. postvmeste.ru слушает **`3001`**.
+
+### Чистый первый деплой
+
+Два окна, не смешивать команды:
+
+- **SSH Timeweb** — `cm149295@vh470:~$` (Linux bash)
+- **Локальный Windows** — PowerShell на вашем ПК
+
+**Не удаляйте** `~/filo` и `~/filo-src`.
+
+1. На сервере удалите только `postvmeste`, создайте пустые каталоги и `scripts/deploy.env` с `APP_PORT=3001`.
+2. В панели Timeweb корень сайта `postvmeste.ru` = `/home/c/cm149295/postvmeste/public_html`.
+3. На Windows удалите старый клон, затем `git clone https://github.com/alexandr-anderson/generator-cash.git`.
+4. Сборку и загрузку делайте **локально** (`npm run deploy`) или через **GitHub Actions**. На сервере `npm ci` / `npm run build` не запускайте.
+
 ### Структура на сервере
 
 ```text
@@ -63,7 +79,7 @@ npm run build
 /home/c/cm149295/postvmeste/public_html
 ```
 
-PM2 запускает `app/server.js` на `APP_PORT` (по умолчанию `3000`). Apache в `public_html/.htaccess` проксирует запросы на этот порт.
+PM2 запускает `app/server.js` на `APP_PORT` (на этом аккаунте `3001`). Apache в `public_html/.htaccess` проксирует запросы на этот порт.
 
 ### GitHub Actions (рекомендуется)
 
@@ -108,12 +124,10 @@ cat > ~/postvmeste/scripts/deploy.env << 'EOF'
 DEPLOY_PATH=/home/c/cm149295/postvmeste
 PUBLIC_HTML=/home/c/cm149295/postvmeste/public_html
 APP_NAME=postvmeste
-APP_PORT=3000
+APP_PORT=3001
 NODE_ENV=production
 EOF
 ```
-
-Если порт 3000 занят другим проектом (`filo`), поставьте `APP_PORT=3001`.
 
 ### Что делать на сервере (SSH Timeweb)
 
@@ -136,6 +150,8 @@ bash ~/postvmeste/scripts/restart-app.sh
 
 ### Деплой с локального компьютера
 
+**Windows:** Git Bash часто «замирает» на `npm ci` (антивирус, медленный диск) или не имеет `rsync`. Если деплой висит больше 5 минут без новых строк — нажмите `Ctrl+C` и см. раздел «Если deploy завис» ниже. Проще всего на Windows — **GitHub Actions**.
+
 ```bash
 git clone https://github.com/alexandr-anderson/generator-cash.git
 cd generator-cash
@@ -143,6 +159,27 @@ cp scripts/deploy.env.example scripts/deploy.env
 # при необходимости: SSH_IDENTITY_FILE=~/.ssh/id_ed25519
 npm run deploy
 ```
+
+Только сборка без загрузки на сервер:
+
+```bash
+npm run deploy:build
+```
+
+### Если deploy завис (Windows)
+
+1. `Ctrl+C` — остановить.
+2. Проверить по шагам в **PowerShell** или **cmd** (не Git Bash):
+
+```bat
+node -v
+npm -v
+npm ci
+npm run build
+```
+
+3. Если `npm ci` висит — удалите `node_modules`, затем снова `npm ci`.
+4. Если сборка прошла, но нет `rsync` — используйте **GitHub Actions** (Settings → Secrets → `SSH_PRIVATE_KEY`, `SSH_HOST`, `SSH_USER`, затем Actions → Deploy to Timeweb → Run workflow).
 
 Скрипт:
 1. `npm ci` + `npm run build`;

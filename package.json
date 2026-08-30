@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "deploy": "bash scripts/deploy-artifacts.sh",
+    "deploy:build": "bash scripts/build-release.sh",
     "deploy:bootstrap": "bash scripts/bootstrap-server.sh",
     "deploy:server": "bash scripts/remote-restart.sh",
     "deploy:package": "bash scripts/package-standalone.sh",

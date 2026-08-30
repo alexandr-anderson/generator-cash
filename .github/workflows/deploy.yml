@@ -17,7 +17,7 @@ jobs:
       DEPLOY_PATH: /home/c/cm149295/postvmeste
       PUBLIC_HTML: /home/c/cm149295/postvmeste/public_html
       APP_NAME: postvmeste
-      APP_PORT: "3000"
+      APP_PORT: "3001"
     steps:
       - name: Checkout
         uses: actions/checkout@v4

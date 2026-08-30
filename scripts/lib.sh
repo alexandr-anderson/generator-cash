@@ -145,7 +145,7 @@ load_server_env() {
   : "${GIT_BRANCH:=main}"
   : "${GIT_REMOTE:=origin}"
   : "${APP_NAME:=postvmeste}"
-  : "${APP_PORT:=3000}"
+  : "${APP_PORT:=3001}"
   : "${NODE_ENV:=production}"
   : "${NPM_CI_ARGS:=--ignore-scripts}"
 }
@@ -170,7 +170,7 @@ load_deploy_env() {
   : "${GIT_BRANCH:=main}"
   : "${GIT_REMOTE:=origin}"
   : "${APP_NAME:=postvmeste}"
-  : "${APP_PORT:=3000}"
+  : "${APP_PORT:=3001}"
   : "${NODE_ENV:=production}"
   : "${NPM_CI_ARGS:=--ignore-scripts}"
 }
@@ -207,4 +207,24 @@ export NPM_BIN='${NPM_BIN:-}'
 export PM2_BIN='${PM2_BIN:-}'
 export NPM_CI_ARGS='${NPM_CI_ARGS}'
 EOF
+}
+
+step() {
+  printf '\n==> %s\n' "$1"
+}
+
+require_command() {
+  local name="$1"
+  local hint="$2"
+
+  if ! command -v "$name" >/dev/null 2>&1; then
+    echo "Missing required command: ${name}" >&2
+    echo "${hint}" >&2
+    exit 1
+  fi
+}
+
+preflight_deploy_tools() {
+  require_command ssh "Install OpenSSH client or use GitHub Actions deploy instead."
+  require_command rsync "On Windows install rsync (WSL, cwRsync, or Git for Windows with rsync) or use GitHub Actions."
 }
