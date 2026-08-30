@@ -1,12 +1,10 @@
-# postvmeste-node-proxy
-# Timeweb document root: postvmeste/public_html
-# Next.js app runs from project root on port 3001 via PM2.
-# Port 3000 is occupied by another project (filo) on this account.
+# Timeweb shared hosting does not allow Apache [P] / mod_proxy.
+# PHP index.php forwards requests to Next.js on 127.0.0.1:3001.
+
+DirectoryIndex index.php
 
 <IfModule mod_rewrite.c>
 RewriteEngine On
-
 RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ http://127.0.0.1:3001/$1 [P,L]
+RewriteRule ^ index.php [QSA,L]
 </IfModule>

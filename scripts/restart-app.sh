@@ -26,7 +26,7 @@ if [[ ! -f "${ROOT_DIR}/app/server.js" ]]; then
 fi
 
 if ! PM2_BIN="$(resolve_bin "${PM2_BIN:-}" pm2 "$ROOT_DIR" 2>/dev/null)"; then
-  ensure_pm2_runtime "$ROOT_DIR"
+  resolve_pm2_bin "$ROOT_DIR"
 fi
 echo "==> PM2: $("$PM2_BIN" -v)"
 
