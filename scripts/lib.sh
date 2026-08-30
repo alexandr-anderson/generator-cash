@@ -82,6 +82,11 @@ resolve_pm2_bin() {
     return
   fi
 
+  if [[ -x "${root_dir}/node_modules/.bin/pm2" ]]; then
+    PM2_BIN="${root_dir}/node_modules/.bin/pm2"
+    return
+  fi
+
   for candidate in \
     "${HOME}/filo-src/node_modules/.bin/pm2" \
     "${HOME}/filo/node_modules/.bin/pm2"
@@ -104,11 +109,6 @@ resolve_pm2_bin() {
 
   if command -v pm2 >/dev/null 2>&1; then
     PM2_BIN="$(command -v pm2)"
-    return
-  fi
-
-  if [[ -x "${root_dir}/node_modules/.bin/pm2" ]]; then
-    PM2_BIN="${root_dir}/node_modules/.bin/pm2"
     return
   fi
 
@@ -149,7 +149,13 @@ render_public_html_htaccess() {
   fi
 
   sed "s/__APP_PORT__/${APP_PORT}/g" "$template" > "${PUBLIC_HTML}/.htaccess"
-  echo "==> Apache proxy config: ${PUBLIC_HTML}/.htaccess -> 127.0.0.1:${APP_PORT}"
+
+  local php_template="${root_dir}/public_html/index.php.template"
+  if [[ -f "$php_template" ]]; then
+    sed "s/__APP_PORT__/${APP_PORT}/g" "$php_template" > "${PUBLIC_HTML}/index.php"
+  fi
+
+  echo "==> Apache PHP proxy: ${PUBLIC_HTML} -> 127.0.0.1:${APP_PORT}"
 }
 
 load_server_env() {
