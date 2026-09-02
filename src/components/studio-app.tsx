@@ -26,12 +26,13 @@ import {
 } from "lucide-react";
 import JSZip from "jszip";
 import { ChangeEvent, DragEvent, useEffect, useMemo, useState } from "react";
-import { analyzeBrandSources } from "@/lib/brand-analysis";
+import { analyzeBrandSources, profileConfidence } from "@/lib/brand-analysis";
 import {
   createDirections,
   creativeToSvg,
   duplicateForFormat,
 } from "@/lib/creative";
+import { readReferenceSignals } from "@/lib/reference-signals";
 import type {
   CreativeBrief,
   CreativeDirection,
@@ -76,6 +77,7 @@ export default function StudioApp() {
   const [creative, setCreative] = useState<CreativeDirection | null>(null);
   const [activeSlide, setActiveSlide] = useState(0);
   const [toast, setToast] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
 
   const selectedDirection = useMemo(
     () => directions.find((direction) => direction.id === selectedId),
@@ -114,20 +116,22 @@ export default function StudioApp() {
     });
   }
 
-  function analyzeSources() {
+  async function analyzeSources() {
     if (!consent) return notify("Подтвердите права на материалы");
     if (!sources.length) return notify("Добавьте хотя бы один референс");
 
-    const nextProfile = analyzeBrandSources(
-      sources.map(({ file }) => ({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-      })),
-      brandName,
-    );
-    setProfile(nextProfile);
-    setStep("dna");
+    setAnalyzing(true);
+    try {
+      const signals = await Promise.all(
+        sources.map(({ file }) => readReferenceSignals(file)),
+      );
+      setProfile(analyzeBrandSources(signals, brandName));
+      setStep("dna");
+    } catch {
+      notify("Не удалось прочитать референсы. Попробуйте PNG, JPEG или WEBP.");
+    } finally {
+      setAnalyzing(false);
+    }
   }
 
   function approveProfile() {
@@ -265,6 +269,7 @@ export default function StudioApp() {
               onDrop={handleDrop}
               onRemove={removeSource}
               onAnalyze={analyzeSources}
+              analyzing={analyzing}
             />
           )}
           {step === "dna" && profile && (
@@ -374,6 +379,7 @@ type SourcesStageProps = {
   onDrop: (event: DragEvent<HTMLLabelElement>) => void;
   onRemove: (id: string) => void;
   onAnalyze: () => void;
+  analyzing: boolean;
 };
 
 function SourcesStage(props: SourcesStageProps) {
@@ -436,8 +442,8 @@ function SourcesStage(props: SourcesStageProps) {
       </label>
 
       <div className="stage-actions end">
-        <button className="primary-button" onClick={props.onAnalyze}>
-          Найти мой Brand DNA <ArrowRight size={17} />
+        <button className="primary-button" onClick={props.onAnalyze} disabled={props.analyzing}>
+          {props.analyzing ? "Читаю референсы…" : "Найти мой Brand DNA"} <ArrowRight size={17} />
         </button>
       </div>
     </div>
@@ -465,7 +471,7 @@ function DnaStage({
           <h2>Вот что делает ваш контент узнаваемым</h2>
           <p>Проверьте выводы и поправьте формулировки. Этот профиль станет основой всех генераций.</p>
         </div>
-        <div className="confidence-ring"><b>86%</b><span>точность</span></div>
+        <div className="confidence-ring"><b>{profileConfidence(profile)}%</b><span>точность</span></div>
       </div>
 
       <div className="dna-layout">
