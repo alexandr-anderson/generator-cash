@@ -5,14 +5,15 @@ import { LANDING_VARIANTS } from "@/lib/landing-variants";
 
 export const metadata: Metadata = {
   title: "Референсы лендинга - postvmeste",
-  description: "Четыре визуальных направления главной страницы AI-студии.",
+  description: "Три визуальных направления главной страницы AI-студии.",
 };
 
 export default function LandingIndexPage() {
   return (
-    <div className="lp-page" data-variant="signal">
+    <div className="lp-page" data-variant="halo">
       <header className="lp-nav">
         <Link className="lp-mark" href="/landing">
+          <span className="lp-mark-star" aria-hidden="true" />
           postvmeste
         </Link>
         <span />
@@ -21,10 +22,10 @@ export default function LandingIndexPage() {
         </Link>
       </header>
       <main className="lp-index">
-        <h1>Четыре входа в студию</h1>
+        <h1>Три входа в студию</h1>
         <p>
-          Живые референсы главной: ИИ-формат, лёгкий параллакс на CSS, без
-          тяжёлых библиотек анимации. Выберите направление.
+          Живые референсы главной по двум образцам: тёмный глобус со стеклом и
+          воздушное нейронное ядро. Параллакс на CSS, без тяжёлых библиотек.
         </p>
         <div className="lp-board">
           {LANDING_VARIANTS.map((variant) => (
@@ -33,7 +34,7 @@ export default function LandingIndexPage() {
                 src={variant.hero}
                 alt={variant.heroAlt}
                 fill
-                sizes="(max-width: 900px) 100vw, 50vw"
+                sizes="(max-width: 900px) 100vw, 33vw"
               />
               <span>
                 <b>{variant.name}</b>
