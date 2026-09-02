@@ -60,7 +60,9 @@ export function LandingPage({ variant }: { variant: LandingVariant }) {
         </div>
         <div className="lp-hero-stage" aria-hidden="true">
           <div className="lp-hero-glow" />
-          <div className="lp-hero-orbit" />
+          <div className="lp-hero-orbit">
+            <span className="lp-hero-orbit-ring" />
+          </div>
           <div className="lp-hero-media">
             <Image
               src={variant.hero}

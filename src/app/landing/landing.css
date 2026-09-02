@@ -6,8 +6,14 @@
   --lp-accent: #ff5c35;
   background: var(--lp-bg);
   color: var(--lp-fg);
+  flex: 1;
   font-family: var(--font-geist-sans), Arial, sans-serif;
   min-height: 100dvh;
+}
+
+html:has(.lp-root),
+body:has(.lp-root) {
+  background: var(--lp-bg, #141311);
 }
 
 .lp-page[data-variant="signal"] {
@@ -47,6 +53,26 @@
   min-height: 100dvh;
   overflow: clip;
   position: relative;
+}
+
+.lp-page::before {
+  animation: lp-drift 26s ease-in-out infinite alternate;
+  background:
+    radial-gradient(
+      48% 42% at 18% 12%,
+      color-mix(in srgb, var(--lp-accent) 22%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      42% 38% at 88% 78%,
+      color-mix(in srgb, var(--lp-accent) 12%, transparent),
+      transparent 62%
+    );
+  content: "";
+  inset: -18%;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
 }
 
 .lp-page[data-variant="grain"]::after {
@@ -197,18 +223,24 @@
 }
 
 .lp-hero-orbit {
-  border: 1px solid color-mix(in srgb, var(--lp-accent) 35%, transparent);
-  border-radius: 50%;
   height: 118%;
   left: 8%;
-  opacity: 0.45;
   top: -12%;
   transform: translate3d(calc(var(--mx) * 14px), calc(var(--my) * 10px), 0);
   width: 86%;
   z-index: 1;
 }
 
-.lp-page[data-variant="orbit"] .lp-hero-orbit {
+.lp-hero-orbit-ring {
+  border: 1px solid color-mix(in srgb, var(--lp-accent) 35%, transparent);
+  border-radius: 50%;
+  display: block;
+  height: 100%;
+  opacity: 0.45;
+  width: 100%;
+}
+
+.lp-page[data-variant="orbit"] .lp-hero-orbit-ring {
   animation: lp-spin 48s linear infinite;
 }
 
@@ -337,21 +369,18 @@
 .lp-board {
   display: grid;
   gap: 14px;
-  grid-template-columns: 1.4fr 1fr;
-  grid-template-rows: 340px 280px;
+  grid-template-columns: 1.2fr 1fr;
+  grid-template-rows: minmax(260px, 32vh) minmax(220px, 28vh);
 }
 
 .lp-tile {
   border-radius: 24px;
   color: inherit;
   display: grid;
+  min-height: 220px;
   overflow: hidden;
   position: relative;
   text-decoration: none;
-}
-
-.lp-tile:first-child {
-  grid-row: 1 / 3;
 }
 
 .lp-tile img {
@@ -390,6 +419,15 @@
   }
 }
 
+@keyframes lp-drift {
+  from {
+    transform: translate3d(-3%, 2%, 0) scale(1.02);
+  }
+  to {
+    transform: translate3d(4%, -3%, 0) scale(1.08);
+  }
+}
+
 @supports (animation-timeline: scroll()) {
   .lp-hero-glow {
     animation: lp-fall linear both;
@@ -406,11 +444,12 @@
 
 @media (max-width: 900px) {
   .lp-nav {
-    grid-template-columns: auto auto;
+    grid-template-columns: 1fr auto;
     height: auto;
     padding: 14px 16px 8px;
   }
 
+  .lp-nav > span,
   .lp-nav nav {
     display: none;
   }
@@ -444,8 +483,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .lp-page::before,
   .lp-hero-glow,
   .lp-hero-orbit,
+  .lp-hero-orbit-ring,
   .lp-hero-media,
   .lp-tile img {
     animation: none !important;

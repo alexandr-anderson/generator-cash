@@ -17,7 +17,7 @@ export const LANDING_VARIANTS: LandingVariant[] = [
     name: "Signal",
     pitch: "Тёмное поле, коралловый импульс, сетка нитей.",
     headline: "Сначала ваш стиль. Потом кадр.",
-    sub: "Загрузите референсы. Студия соберёт Brand DNA и соберёт Reels, посты и карусели в этом языке.",
+    sub: "Загрузите референсы. Студия прочитает Brand DNA и соберёт Reels, посты и карусели в этом языке.",
     cta: "Открыть студию",
     hero: "/landing/landing-signal-hero.png",
     heroAlt: "Тёмное нейронное поле с коралловым светом",
