@@ -310,6 +310,45 @@ Maintain consistent voice, colors, and messaging.
 function main() {
   const args = process.argv.slice(2);
   const jsonOutput = args.includes("--json");
+  const profileIdx = args.indexOf("--profile");
+  if (profileIdx !== -1) {
+    const profilePath = args[profileIdx + 1];
+    if (!profilePath) {
+      console.error("Usage: node inject-brand-context.cjs --profile <style-profile.json>");
+      process.exit(1);
+    }
+    const resolvedProfile = path.isAbsolute(profilePath)
+      ? profilePath
+      : path.join(process.cwd(), profilePath);
+    if (!fs.existsSync(resolvedProfile)) {
+      console.error(`Error: StyleProfile not found at ${resolvedProfile}`);
+      process.exit(1);
+    }
+    const profile = JSON.parse(fs.readFileSync(resolvedProfile, "utf-8"));
+    const trait = (id) =>
+      (profile.traits || []).find((item) => item.id === id)?.value || "";
+    const prompt = `
+BRAND DNA FROM USER REFERENCES:
+================================
+Name: ${profile.name || "Untitled"}
+Summary: ${profile.summary || ""}
+Colors: ${(profile.colors || []).join(", ")}
+Voice: ${trait("voice")}
+Composition: ${trait("composition")}
+Density: ${trait("density")}
+Imagery: ${trait("imagery")}
+Approved: ${profile.approved === true}
+
+Produce content only in this visual and verbal language.
+Do not substitute the product chrome of postvmeste.
+`.trim();
+    if (jsonOutput) {
+      console.log(JSON.stringify(profile, null, 2));
+    } else {
+      console.log(prompt);
+    }
+    return;
+  }
   const guidelinesPath = args.find((a) => !a.startsWith("--")) || DEFAULT_GUIDELINES_PATH;
 
   // Resolve path

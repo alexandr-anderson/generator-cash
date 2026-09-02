@@ -629,6 +629,16 @@ textarea:focus {
   border-color: var(--accent);
 }
 
+.primary-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.primary-button:disabled:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
 .secondary-button {
   background: white;
   border: 1px solid var(--line);

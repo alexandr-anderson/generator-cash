@@ -31,6 +31,8 @@ export type CreativeBrief = {
 
 export type CreativeFormat = "reel" | "post" | "carousel";
 
+export type CreativeLayout = "poster" | "band" | "centered";
+
 export type CreativeDirection = {
   id: string;
   name: string;
@@ -42,6 +44,8 @@ export type CreativeDirection = {
   background: string;
   foreground: string;
   format: CreativeFormat;
+  layout: CreativeLayout;
+  brandLabel: string;
   slides: string[];
 };
 

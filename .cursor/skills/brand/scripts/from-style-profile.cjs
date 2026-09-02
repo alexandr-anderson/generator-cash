@@ -13,8 +13,6 @@
 const fs = require("fs");
 const path = require("path");
 
-const DEFAULT_OUT = "docs/brand-guidelines.md";
-
 function trait(profile, id, fallback = "") {
   const found = (profile.traits || []).find((item) => item.id === id);
   return (found && found.value ? String(found.value).trim() : "") || fallback;
@@ -184,14 +182,14 @@ ${name}. ${summary} Palette ${primary}, ${secondary}, ${paper}, ${ink}. ${voice}
 function main() {
   const args = process.argv.slice(2);
   const outIdx = args.indexOf("--out");
-  const outPath = outIdx !== -1 ? args[outIdx + 1] : DEFAULT_OUT;
+  const outPath = outIdx !== -1 ? args[outIdx + 1] : null;
   const inputPath = args.find(
     (arg, index) => !arg.startsWith("--") && args[index - 1] !== "--out",
   );
 
   if (!inputPath) {
     console.error(
-      "Usage: node from-style-profile.cjs <profile.json|-> [--out docs/brand-guidelines.md]",
+      "Usage: node from-style-profile.cjs <profile.json|-> [--out .brand/user-guidelines.md]",
     );
     process.exit(1);
   }
@@ -215,6 +213,10 @@ function main() {
   }
 
   const markdown = render(profile);
+  if (!outPath) {
+    process.stdout.write(markdown);
+    return;
+  }
   const resolvedOut = path.isAbsolute(outPath)
     ? outPath
     : path.join(process.cwd(), outPath);

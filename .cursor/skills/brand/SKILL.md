@@ -1,88 +1,61 @@
 ---
 name: brand
-description: Brand DNA, voice, visual identity, and guidelines for postvmeste studio creatives. Use when defining or updating a brand, reviewing tone of voice, palette, logo usage, StyleProfile, brand-guidelines.md, or checking creative assets against brand rules.
+description: Universal Brand DNA from user-uploaded references. Use when extracting a visual/voice profile from reference images, adapting palette and traits to those files, and producing Reels/Post/Carousel content in that language. Triggers: Brand DNA, референсы, палитра из картинок, стиль автора, генерация в стиле загруженных материалов.
 ---
 
-# Brand
+# Brand DNA
 
-Рабочий скилл бренда для этой студии. Источник правды — `docs/brand-guidelines.md`. В продукте тот же смысл живёт в `StyleProfile` (`src/lib/types.ts`): имя, summary, палитра, признаки с evidence.
+Универсальный инструмент студии: **референсы пользователя → Brand DNA → контент**. Не подставляй палитру postvmeste и не используй `docs/brand-guidelines.md` как бренд автора.
 
-## Когда применять
+Движок в коде: `src/lib/brand-analysis.ts`, чтение картинок в браузере: `src/lib/reference-signals.ts`, сборка макетов: `src/lib/creative.ts`.
 
-- Голос, тон, запрещённые формулировки
-- Палитра, типографика, логотип, imagery
-- Сверка креатива (Reels / Post / Carousel) с Brand DNA
-- Обновление гайдлайнов и синхронизация токенов
-- Подготовка бренда пользователя к генерации в студии
+## Пайплайн
 
-## Контракт студии
+1. Пользователь загружает 1–20 своих PNG/JPEG/WEBP.
+2. Считай пиксели референсов (доминантные цвета, тепло/холод, контраст, пропорции кадра). Имена файлов — только доп. evidence, не источник палитры.
+3. Собери `StyleProfile`: имя, summary, 4 цвета (accent, secondary, paper, ink), признаки `voice` / `composition` / `density` / `imagery` с evidence.
+4. Покажи профиль на шаге Brand DNA. Пользователь правит и утверждает. Не утверждай за него.
+5. После брифа генерируй контент **только** из утверждённого профиля: цвета, голос, плотность текста, композиция макета.
 
-`StyleProfile` ↔ гайдлайны:
+## Правила
 
-| StyleProfile | Гайдлайны |
+- Разные референсы → разный профиль. Не копируй один и тот же «тёплый экспертный» текст.
+- Нет пикселей → нейтральная палитра и честно напиши, что изображения не прочитаны.
+- Chrome студии (`src/app/globals.css`) не менять под клиента.
+- Исходники не отправлять третьим сторонам в local-demo.
+
+## Контракт `StyleProfile`
+
+| Поле | Смысл в контенте |
 | --- | --- |
-| `name` | название бренда |
-| `summary` | голос и характер |
-| `colors[0]` | primary / accent |
-| `colors[1]` | secondary |
-| `colors[2]` | фон / paper |
-| `colors[3]` | текст / ink |
-| `traits` id `voice` | Voice & Tone |
-| `traits` id `composition` | композиция обложек |
-| `traits` id `density` | лимит слов на обложке |
-| `traits` id `imagery` | Imagery Guidelines |
-| `approved` | бренд можно отправлять в генерацию |
+| `colors[0]` | акцент обложки |
+| `colors[1]` | второй акцент |
+| `colors[2]` | фон |
+| `colors[3]` | текст |
+| `voice` | тон заголовка и eyebrow |
+| `composition` | poster / band / centered |
+| `density` | длина текста на слайдах |
+| `imagery` | мотивы и rationale |
+| `approved` | можно генерировать |
 
-Код: `src/lib/types.ts`, `src/lib/brand-analysis.ts`, шаг «Brand DNA» в `src/components/studio-app.tsx`.
+## Скрипты
 
-Не выдумывай признаки без evidence. Не утверждай бренд за пользователя.
-
-## Быстрый старт
-
-Скрипты запускать из корня репозитория.
+Из корня репозитория, на вход — **профиль пользователя**, не бренд продукта:
 
 ```bash
-# Контекст бренда для промпта или JSON
-node .cursor/skills/brand/scripts/inject-brand-context.cjs
-node .cursor/skills/brand/scripts/inject-brand-context.cjs --json
+# StyleProfile → текст для промпта
+node .cursor/skills/brand/scripts/inject-brand-context.cjs --profile path/to/profile.json
 
-# StyleProfile JSON → docs/brand-guidelines.md
-node .cursor/skills/brand/scripts/from-style-profile.cjs path/to/profile.json
+# StyleProfile → markdown гайдлайны автора (не docs/brand-guidelines.md)
+node .cursor/skills/brand/scripts/from-style-profile.cjs path/to/profile.json --out .brand/user-guidelines.md
 
-# Палитра из гайдлайнов
+# Сверить готовый файл с палитрой профиля
 node .cursor/skills/brand/scripts/extract-colors.cjs --palette
-
-# Проверка имени/размера/формата файла
 node .cursor/skills/brand/scripts/validate-asset.cjs <asset-path>
-
-# Гайдлайны → assets/design-tokens.json и .css
-node .cursor/skills/brand/scripts/sync-brand-to-tokens.cjs
 ```
 
-Если `docs/brand-guidelines.md` нет — скопируй `templates/brand-guidelines-starter.md` или сгенерируй из профиля.
+`extract-colors.cjs --palette` читает `docs/brand-guidelines.md` только если это продукт студии. Для автора передай его гайдлайны: `--brand-file .brand/user-guidelines.md`.
 
-## Обновить бренд
+## Справки по методологии
 
-1. Спроси у пользователя имя, primary/secondary/accent (hex), голос, mood. Не используй несуществующие инструменты вроде `AskUserQuestion`.
-2. Запиши значения в `docs/brand-guidelines.md` (шаблон: `references/brand-guideline-template.md`, детали: `references/update.md`).
-3. Синхронизируй токены скриптом выше.
-4. Проверь: `node .cursor/skills/brand/scripts/inject-brand-context.cjs --json`
-
-Для бренда **пользователя студии** правь StyleProfile в коде/данных студии, затем при необходимости пересобери гайдлайны через `from-style-profile.cjs`. Продуктовый UI postvmeste (`src/app/globals.css`) не подменяй палитрой клиентского бренда.
-
-## Справки
-
-| Тема | Файл |
-| --- | --- |
-| Обновление | `references/update.md` |
-| Голос | `references/voice-framework.md` |
-| Визуал | `references/visual-identity.md` |
-| Сообщения | `references/messaging-framework.md` |
-| Цвет | `references/color-palette-management.md` |
-| Типографика | `references/typography-specifications.md` |
-| Логотип | `references/logo-usage-rules.md` |
-| Ассеты | `references/asset-organization.md` |
-| Согласование | `references/approval-checklist.md` |
-| Консистентность | `references/consistency-checklist.md` |
-
-Читай справку только по текущей задаче, не грузи все сразу.
+Читай по задаче, не все сразу: `references/voice-framework.md`, `visual-identity.md`, `color-palette-management.md`, `approval-checklist.md`.
