@@ -5,7 +5,7 @@ function appUrl() {
 }
 
 function fromAddress() {
-  return process.env.MAIL_FROM || "postvmeste <noreply@postvmeste.ru>";
+  return process.env.MAIL_FROM || "postvmeste <service@postvmeste.ru>";
 }
 
 function transporter() {
