@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { SERVICE_ACCOUNT } from "@/lib/demo-account";
 import { NICHES } from "@/lib/types";
 import Link from "next/link";
 
@@ -108,6 +109,22 @@ export function AuthPage() {
             {mode === "register" ? "Создать аккаунт" : "Войти"} <ArrowRight size={16} />
           </button>
         </form>
+
+        <div className="auth-demo">
+          <p>Сервисный аккаунт для изучения продукта</p>
+          <code>{SERVICE_ACCOUNT.email}</code>
+          <code>пароль: {SERVICE_ACCOUNT.password}</code>
+          <button
+            type="button"
+            className="btn-secondary btn-full"
+            onClick={() => {
+              store.loginService();
+              router.push("/dashboard");
+            }}
+          >
+            Войти как demo
+          </button>
+        </div>
 
         <div className="auth-switch">
           {mode === "register" ? (

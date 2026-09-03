@@ -244,6 +244,22 @@ input:disabled { background: #f5f4f0; color: var(--muted); }
 .auth-switch { text-align: center; margin-top: 20px; font-size: 12px; color: var(--muted); }
 .auth-switch button { background: none; border: none; color: var(--accent); font-weight: 600; }
 
+.auth-demo {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--line);
+  display: grid;
+  gap: 8px;
+}
+.auth-demo p { margin: 0; font-size: 12px; color: var(--muted); }
+.auth-demo code {
+  background: #f4f2ed;
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 6px 8px;
+  display: block;
+}
+
 .niche-grid { display: flex; flex-wrap: wrap; gap: 6px; }
 .niche-chip {
   background: #fff; border: 1px solid var(--line); border-radius: 20px;
@@ -333,6 +349,17 @@ input:disabled { background: #f5f4f0; color: var(--muted); }
    HOME PAGE
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .home-page { padding: 32px 28px 80px; max-width: 900px; }
+
+.demo-banner {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  color: #9a3412;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  padding: 12px 14px;
+}
 
 .home-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32px; }
 .home-header h1 { font-size: 24px; letter-spacing: -0.5px; margin: 0; }
