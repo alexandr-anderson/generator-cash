@@ -1,0 +1,122 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowRight, Sparkles } from "lucide-react";
+import { useStore } from "@/lib/store";
+import { NICHES } from "@/lib/types";
+import Link from "next/link";
+
+export function AuthPage() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const store = useStore();
+  const [mode, setMode] = useState<"login" | "register">(
+    params.get("mode") === "register" ? "register" : "login"
+  );
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [niche, setNiche] = useState("");
+  const [customNiche, setCustomNiche] = useState("");
+  const [error, setError] = useState("");
+
+  if (store.user) {
+    router.push("/dashboard");
+    return null;
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+
+    if (mode === "register") {
+      if (!email || !password) return setError("Заполните все поля");
+      const selectedNiche = niche === "custom" ? customNiche : NICHES.find((n) => n.id === niche)?.label;
+      if (!selectedNiche) return setError("Выберите нишу");
+      store.register(email, password, selectedNiche);
+      router.push("/dashboard");
+    } else {
+      if (!store.login(email, password)) {
+        setError("Неверный email или пароль");
+        return;
+      }
+      router.push("/dashboard");
+    }
+  }
+
+  return (
+    <div className="auth-wrapper">
+      <div className="auth-card">
+        <Link href="/" className="auth-logo">
+          <span><Sparkles size={16} /></span>
+          <b>postvmeste.ru</b>
+        </Link>
+
+        <h1>{mode === "register" ? "Создать аккаунт" : "Войти"}</h1>
+        <p className="auth-subtitle">
+          {mode === "register"
+            ? "Начните с 5 бесплатных генераций"
+            : "Введите email и пароль"}
+        </p>
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="field">
+            <label htmlFor="email">Email</label>
+            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+          </div>
+          <div className="field">
+            <label htmlFor="password">Пароль</label>
+            <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Минимум 6 символов" />
+          </div>
+
+          {mode === "register" && (
+            <div className="field">
+              <label>Ваша ниша</label>
+              <div className="niche-grid">
+                {NICHES.map((n) => (
+                  <button
+                    type="button"
+                    key={n.id}
+                    className={`niche-chip ${niche === n.id ? "selected" : ""}`}
+                    onClick={() => setNiche(n.id)}
+                  >
+                    {n.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={`niche-chip ${niche === "custom" ? "selected" : ""}`}
+                  onClick={() => setNiche("custom")}
+                >
+                  Своя ниша
+                </button>
+              </div>
+              {niche === "custom" && (
+                <input
+                  className="custom-niche-input"
+                  value={customNiche}
+                  onChange={(e) => setCustomNiche(e.target.value)}
+                  placeholder="Например: нутрициология"
+                />
+              )}
+            </div>
+          )}
+
+          {error && <div className="auth-error">{error}</div>}
+
+          <button type="submit" className="btn-primary btn-full">
+            {mode === "register" ? "Создать аккаунт" : "Войти"} <ArrowRight size={16} />
+          </button>
+        </form>
+
+        <div className="auth-switch">
+          {mode === "register" ? (
+            <span>Уже есть аккаунт? <button onClick={() => setMode("login")}>Войти</button></span>
+          ) : (
+            <span>Нет аккаунта? <button onClick={() => setMode("register")}>Зарегистрироваться</button></span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,57 +1,139 @@
-export type ProjectStep = "sources" | "dna" | "brief" | "generate" | "edit";
-
-export type Evidence = {
-  label: string;
-  source: string;
-};
-
-export type StyleTrait = {
-  id: string;
-  label: string;
-  value: string;
-  confidence: number;
-  evidence: Evidence[];
-};
-
-export type StyleProfile = {
-  name: string;
-  summary: string;
-  colors: string[];
-  traits: StyleTrait[];
-  approved: boolean;
-};
-
-export type CreativeBrief = {
-  topic: string;
-  audience: string;
-  goal: string;
-  cta: string;
-  mood: string;
-};
-
-export type CreativeFormat = "reel" | "post" | "carousel";
+export type CreativeFormat = "carousel" | "post" | "reel";
 
 export type CreativeLayout = "poster" | "band" | "centered";
 
-export type CreativeDirection = {
+export type NicheOption = {
   id: string;
-  name: string;
-  rationale: string;
-  headline: string;
-  eyebrow: string;
-  body: string;
-  accent: string;
-  background: string;
-  foreground: string;
-  format: CreativeFormat;
-  layout: CreativeLayout;
-  brandLabel: string;
-  slides: string[];
+  label: string;
+  suggestedRubrics: string[];
 };
 
-export type ProjectMetrics = {
-  startedAt: number;
-  exportedAssets: number;
-  generations: number;
-  edits: number;
+export type UserProfile = {
+  id: string;
+  email: string;
+  niche: string;
+  audience?: string;
+  tone?: string;
+  colors?: string[];
+  logoUrl?: string;
+  profileCompleted: boolean;
+  profilePopupShown: boolean;
+};
+
+export type Subscription = {
+  tier: "free" | "starter" | "pro" | "business";
+  generationsPerWeek: number;
+  priceRub: number;
+  generationsUsed: number;
+  weekStartedAt: number;
+  initialFreeRemaining: number;
+};
+
+export type Rubric = {
+  id: string;
+  name: string;
+  references?: string[];
+  colors?: string[];
+  templates?: Partial<Record<CreativeFormat, Template>>;
+  createdAt: number;
+};
+
+export type Template = {
+  layout: CreativeLayout;
+  scenario: string;
+  decorStyle: string;
+  font: string;
+  colors: string[];
+  slideCount: number;
+};
+
+export type SlideContent = {
+  text: string;
+  fontSize: number;
+  textColor: string;
+  positionX: number;
+  positionY: number;
+};
+
+export type CreativeWork = {
+  id: string;
+  format: CreativeFormat;
+  rubricId: string;
+  topic: string;
+  slides: SlideContent[];
+  caption: string;
+  hashtags: string[];
+  reelScript?: string;
+  layout: CreativeLayout;
+  background: string;
+  accent: string;
+  foreground: string;
+  eyebrow: string;
+  brandLabel: string;
+  createdAt: number;
+};
+
+export type ArchiveItem = {
+  id: string;
+  workId: string;
+  format: CreativeFormat;
+  rubricId: string;
+  rubricName: string;
+  topic: string;
+  previewSlide: SlideContent;
+  background: string;
+  createdAt: number;
+};
+
+export type CreateFlowState = {
+  step: "format" | "rubric" | "topic" | "references" | "text" | "generate" | "variants" | "editor" | "save";
+  format: CreativeFormat | null;
+  rubricId: string | null;
+  topic: string;
+  references: string[];
+  colors: string[];
+  userText: string;
+  generatedText: string;
+  variants: CreativeWork[];
+  selectedVariantId: string | null;
+  work: CreativeWork | null;
+};
+
+export const NICHES: NicheOption[] = [
+  { id: "psychology", label: "Психология", suggestedRubrics: ["Разборы", "Мифы", "Упражнения", "Кейсы"] },
+  { id: "marketing", label: "Маркетинг", suggestedRubrics: ["Ошибки", "Кейсы", "Инструменты", "Тренды"] },
+  { id: "fitness", label: "Фитнес и здоровье", suggestedRubrics: ["Тренировки", "Питание", "Мифы", "Мотивация"] },
+  { id: "business", label: "Бизнес и предпринимательство", suggestedRubrics: ["Кейсы", "Ошибки", "Инструменты", "Финансы"] },
+  { id: "education", label: "Образование", suggestedRubrics: ["Лайфхаки", "Разборы", "Методики", "Мотивация"] },
+  { id: "beauty", label: "Красота и уход", suggestedRubrics: ["Уход", "Тренды", "Разборы средств", "До/После"] },
+  { id: "design", label: "Дизайн", suggestedRubrics: ["Разборы", "Тренды", "До/После", "Инструменты"] },
+  { id: "finance", label: "Финансы", suggestedRubrics: ["Ошибки", "Советы", "Разборы", "Кейсы"] },
+  { id: "cooking", label: "Кулинария", suggestedRubrics: ["Рецепты", "Лайфхаки", "Разборы", "Подборки"] },
+  { id: "parenting", label: "Родительство", suggestedRubrics: ["Советы", "Ошибки", "Разборы", "Истории"] },
+];
+
+export const TONES = [
+  "Спокойный и уверенный",
+  "Тёплый и дружелюбный",
+  "Смелый и провокационный",
+  "Строгий и экспертный",
+];
+
+export const SUBSCRIPTION_TIERS = [
+  { tier: "free" as const, label: "Бесплатно", generationsPerWeek: 1, priceRub: 0, description: "1 генерация в неделю" },
+  { tier: "starter" as const, label: "Старт", generationsPerWeek: 10, priceRub: 50, description: "10 генераций в неделю" },
+  { tier: "pro" as const, label: "Про", generationsPerWeek: 50, priceRub: 200, description: "50 генераций в неделю" },
+  { tier: "business" as const, label: "Бизнес", generationsPerWeek: 100, priceRub: 500, description: "100 генераций в неделю" },
+];
+
+export const FORMAT_LABELS: Record<CreativeFormat, string> = {
+  carousel: "Карусель",
+  post: "Пост",
+  reel: "Обложка Reels",
+};
+
+export const FORMAT_SIZES: Record<CreativeFormat, { width: number; height: number; label: string }> = {
+  carousel: { width: 1080, height: 1350, label: "1080×1350" },
+  post: { width: 1080, height: 1080, label: "1080×1080" },
+  reel: { width: 1080, height: 1920, label: "1080×1920" },
 };
