@@ -10,6 +10,7 @@ import type {
   Template,
   UserProfile,
 } from "./types";
+import { createDemoState, isServiceAccount } from "./demo-account";
 
 type AppState = {
   user: UserProfile | null;
@@ -19,9 +20,16 @@ type AppState = {
   works: CreativeWork[];
 };
 
+type SavedAccount = {
+  email: string;
+  password: string;
+  user: UserProfile;
+};
+
 type AppActions = {
   register: (email: string, password: string, niche: string) => void;
   login: (email: string, password: string) => boolean;
+  loginService: () => void;
   logout: () => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
   markProfilePopupShown: () => void;
@@ -39,6 +47,7 @@ type AppActions = {
 const StoreContext = createContext<(AppState & AppActions) | null>(null);
 
 const STORAGE_KEY = "postvmeste_state";
+const ACCOUNTS_KEY = "postvmeste_accounts";
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 function defaultSubscription(): Subscription {
@@ -72,6 +81,32 @@ function saveState(state: AppState) {
   }
 }
 
+function loadAccounts(): SavedAccount[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(ACCOUNTS_KEY);
+    return raw ? (JSON.parse(raw) as SavedAccount[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAccounts(accounts: SavedAccount[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+  } catch {
+    // quota exceeded
+  }
+}
+
+function upsertAccount(account: SavedAccount) {
+  const accounts = loadAccounts().filter(
+    (item) => item.email.toLowerCase() !== account.email.toLowerCase(),
+  );
+  saveAccounts([...accounts, account]);
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>({
     user: null,
@@ -99,24 +134,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((prev) => fn(prev));
   }, []);
 
-  const register = useCallback((email: string, _pw: string, niche: string) => {
+  const register = useCallback((email: string, password: string, niche: string) => {
+    const user: UserProfile = {
+      id: crypto.randomUUID(),
+      email,
+      niche,
+      profileCompleted: false,
+      profilePopupShown: false,
+    };
+    upsertAccount({ email, password, user });
     update((s) => ({
       ...s,
-      user: {
-        id: crypto.randomUUID(),
-        email,
-        niche,
-        profileCompleted: false,
-        profilePopupShown: false,
-      },
+      user,
       subscription: defaultSubscription(),
+      rubrics: [],
+      archive: [],
+      works: [],
     }));
   }, [update]);
 
-  const login = useCallback((email: string, _pw: string) => {
-    if (state.user?.email === email) return true;
-    return false;
-  }, [state.user]);
+  const login = useCallback((email: string, password: string) => {
+    if (isServiceAccount(email, password)) {
+      update(() => createDemoState());
+      return true;
+    }
+    const account = loadAccounts().find(
+      (item) => item.email.toLowerCase() === email.trim().toLowerCase() && item.password === password,
+    );
+    if (!account) return false;
+    update((s) => ({ ...s, user: account.user }));
+    return true;
+  }, [update]);
+
+  const loginService = useCallback(() => {
+    update(() => createDemoState());
+  }, [update]);
 
   const logout = useCallback(() => {
     update((s) => ({ ...s, user: null }));
@@ -125,7 +177,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const updateProfile = useCallback((updates: Partial<UserProfile>) => {
     update((s) => {
       if (!s.user) return s;
-      return { ...s, user: { ...s.user, ...updates } };
+      const user = { ...s.user, ...updates };
+      const accounts = loadAccounts();
+      const existing = accounts.find((item) => item.email.toLowerCase() === user.email.toLowerCase());
+      if (existing) upsertAccount({ ...existing, user });
+      return { ...s, user };
     });
   }, [update]);
 
@@ -259,6 +315,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...state,
       register,
       login,
+      loginService,
       logout,
       updateProfile,
       markProfilePopupShown,
