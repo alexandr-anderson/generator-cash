@@ -70,7 +70,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <span>из {total} осталось</span>
             <div className="gen-bar"><div style={{ width: `${total > 0 ? ((total - used) / total) * 100 : 0}%` }} /></div>
           </div>
-          <button className="dash-nav-item" onClick={() => { store.logout(); router.push("/"); }}>
+          <button className="dash-nav-item" onClick={async () => { await store.logout(); router.push("/"); }}>
             <LogOut size={18} />Выйти
           </button>
           <div className="dash-user">

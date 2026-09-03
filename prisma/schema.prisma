@@ -7,107 +7,169 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum SubscriptionTier {
+  free
+  starter
+  pro
+  business
+}
+
+enum CreativeFormat {
+  carousel
+  post
+  reel
+}
+
+enum FileKind {
+  logo
+  reference
+  photo
+  export
+}
+
 model User {
-  id         String      @id @default(cuid())
-  email      String      @unique
-  projects   Project[]
-  createdAt  DateTime    @default(now())
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String
+  emailVerifiedAt    DateTime?
+  niche              String
+  audience           String?
+  tone               String?
+  colors             Json?
+  logoFileId         String?
+  profileCompleted   Boolean   @default(false)
+  profilePopupShown  Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  sessions           Session[]
+  emailTokens        EmailToken[]
+  resetTokens        PasswordReset[]
+  usage              UsageState?
+  rubrics            Rubric[]
+  works              Work[]
+  files              FileAsset[]
 }
 
-model Project {
-  id             String           @id @default(cuid())
-  name           String
-  ownerId        String
-  owner          User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  sourceAssets   SourceAsset[]
-  consentRecords ConsentRecord[]
-  styleProfile   StyleProfile?
-  briefs         CreativeBrief[]
-  runs           GenerationRun[]
-  documents      EditorDocument[]
-  exports        Export[]
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-}
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
-model SourceAsset {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  objectKey   String
-  mimeType    String
-  byteSize    Int
-  sha256      String
-  license     String
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-
-  @@index([projectId])
+  @@index([userId])
   @@index([expiresAt])
 }
 
-model ConsentRecord {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  actorId     String
-  basis       String
-  policy      String
-  acceptedAt  DateTime @default(now())
-  revokedAt   DateTime?
+model EmailToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
-model StyleProfile {
-  id          String   @id @default(cuid())
-  projectId   String   @unique
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  schema      Json
-  approvedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
-model CreativeBrief {
-  id          String          @id @default(cuid())
-  projectId   String
-  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  schema      Json
-  runs        GenerationRun[]
-  createdAt   DateTime        @default(now())
+model UsageState {
+  id                    String            @id @default(cuid())
+  userId                String            @unique
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier                  SubscriptionTier  @default(free)
+  generationsPerWeek    Int               @default(1)
+  priceRub              Int               @default(0)
+  generationsUsed       Int               @default(0)
+  weekStartedAt         DateTime          @default(now())
+  initialFreeRemaining  Int               @default(5)
+  updatedAt             DateTime          @updatedAt
 }
 
-model GenerationRun {
-  id            String        @id @default(cuid())
-  projectId     String
-  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  briefId       String
-  brief         CreativeBrief @relation(fields: [briefId], references: [id], onDelete: Cascade)
-  provider      String
-  model         String
-  modelVersion  String
-  prompt        String
-  seed          String
-  inputManifest Json
-  costUsd       Decimal       @db.Decimal(10, 4)
-  createdAt     DateTime      @default(now())
+model Rubric {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  colors         Json?
+  inspirationUrl String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  templates      RubricTemplate[]
+  works          Work[]
+  files          FileAsset[]
+
+  @@index([userId])
 }
 
-model EditorDocument {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  format      String
-  schema      Json
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model RubricTemplate {
+  id         String         @id @default(cuid())
+  rubricId   String
+  rubric     Rubric         @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  format     CreativeFormat
+  layout     String
+  scenario   String
+  decorStyle String
+  font       String
+  colors     Json
+  slideCount Int
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  @@unique([rubricId, format])
 }
 
-model Export {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  objectKey   String
-  mimeType    String
-  manifest    Json
-  createdAt   DateTime @default(now())
+model Work {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rubricId    String
+  rubric      Rubric         @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  format      CreativeFormat
+  topic       String
+  slides      Json
+  caption     String
+  hashtags    Json
+  reelScript  String?
+  layout      String
+  background  String
+  accent      String
+  foreground  String
+  eyebrow     String
+  brandLabel  String
+  createdAt   DateTime       @default(now())
+
+  @@index([userId, createdAt])
+  @@index([rubricId])
+}
+
+model FileAsset {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rubricId  String?
+  rubric    Rubric?   @relation(fields: [rubricId], references: [id], onDelete: SetNull)
+  kind      FileKind
+  objectKey String
+  mimeType  String
+  byteSize  Int
+  createdAt DateTime  @default(now())
+
+  @@index([userId, kind])
+  @@index([rubricId])
 }

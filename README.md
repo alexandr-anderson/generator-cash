@@ -1,11 +1,15 @@
 # postvmeste.ru
 
-Рабочий MVP AI-студии для соло-креаторов. Пользователь загружает собственные референсы, проверяет извлечённый Brand DNA и получает согласованный пакет: обложку Reels, пост 4:5 и карусель.
+Instagram-студия для экспертов: карусели, посты и обложки Reels. Данные аккаунта живут в PostgreSQL, вход — по почте с подтверждением.
 
 ## Запуск
 
+Скопируйте `.env.example` в `.env`, укажите `DATABASE_URL` и при необходимости SMTP.
+
 ```bash
 npm install
+npx prisma migrate deploy
+npx prisma db seed   # demo@postvmeste.ru / demo1234
 npm run dev
 ```
 
@@ -21,17 +25,14 @@ npm run build
 
 ## Что реализовано
 
-- drag-and-drop загрузка PNG/JPEG/WEBP с подтверждением прав;
-- evidence-backed Brand DNA с редактируемыми признаками и палитрой;
-- контент-бриф и три визуальных направления;
-- переключение Reel/Post/Carousel в лёгком редакторе;
-- редактирование текста и цветов;
-- экспорт PNG-файлов в ZIP вместе с `provenance.json`;
-- удаление локальных материалов и сброс проекта;
-- защищённые API-контракты для анализа и генерации;
-- PostgreSQL-модель production-данных в `prisma/schema.prisma`.
+- лендинг, ЛК, три формата, редактор, архив, шаблоны рубрик;
+- PostgreSQL: пользователи, сессии, рубрики, работы, файлы, лимиты генераций;
+- регистрация / вход / выход с httpOnly cookie;
+- подтверждение почты и сброс пароля (SMTP или ссылка в логе сервера);
+- файлы на диск `uploads/`;
+- лимит генераций считается на сервере.
 
-В MVP используется deterministic local provider, поэтому приложение работает без API-ключей и не отправляет пользовательские файлы третьим сторонам. Границы production-интеграции и retention описаны в [`docs/architecture.md`](docs/architecture.md), а сценарий проверки спроса — в [`docs/concierge-playbook.md`](docs/concierge-playbook.md).
+План до запуска: [`docs/work-plan.md`](docs/work-plan.md).
 
 ## Деплой на Timeweb
 
