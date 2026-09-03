@@ -52,7 +52,7 @@ export function ArchivePage() {
                     >
                       <RefreshCw size={12} /> Создать похожую
                     </Link>
-                    <button className="btn-danger btn-xs" onClick={() => store.deleteWork(item.workId)}>
+                    <button className="btn-danger btn-xs" onClick={() => void store.deleteWork(item.workId)}>
                       <Trash2 size={12} /> Удалить
                     </button>
                   </div>
