@@ -37,6 +37,13 @@ console.info(
 
 const appName = process.env.APP_NAME || "postvmeste";
 const appPort = Number(process.env.APP_PORT || 3001);
+const nodeBin = process.env.NODE_BIN && process.env.NODE_BIN !== "node"
+  ? process.env.NODE_BIN
+  : "node";
+const nodeDir = nodeBin.includes("/") ? path.dirname(nodeBin) : "";
+const childPath = nodeDir
+  ? `${nodeDir}${path.delimiter}${process.env.PATH || ""}`
+  : process.env.PATH || "";
 
 module.exports = {
   apps: [
@@ -44,6 +51,7 @@ module.exports = {
       name: appName,
       cwd: `${rootDir}/app`,
       script: "server.js",
+      interpreter: nodeBin,
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
@@ -57,6 +65,8 @@ module.exports = {
         NEXT_TELEMETRY_DISABLED: "1",
         UV_THREADPOOL_SIZE: "2",
         NODE_OPTIONS: "--max-old-space-size=192",
+        PATH: childPath,
+        NODE_BIN: nodeBin,
         DATABASE_URL: process.env.DATABASE_URL || "",
         SESSION_SECRET: process.env.SESSION_SECRET || "",
         APP_URL: process.env.APP_URL || "https://postvmeste.ru",

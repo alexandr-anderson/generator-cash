@@ -19,7 +19,7 @@ echo "Node: ${NODE_BIN} ($("${NODE_BIN}" -v))"
 echo "npm: ${NPM_BIN} ($("${NPM_BIN}" -v))"
 
 if PM2_BIN="$(resolve_bin "${PM2_BIN:-}" pm2 "$ROOT_DIR" 2>/dev/null)"; then
-  echo "PM2: ${PM2_BIN} ($("${PM2_BIN}" -v))"
+  echo "PM2: ${PM2_BIN} ($(run_pm2 -v))"
 else
   echo "PM2: not found yet (will appear after npm ci)"
 fi
