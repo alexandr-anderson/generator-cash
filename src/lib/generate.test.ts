@@ -22,5 +22,26 @@ describe("generateVariants", () => {
     expect(variants[1].eyebrow).toBe("Миф → Правда → CTA");
     expect(variants[0].caption).toBe("Листайте — там разбор");
     expect(variants[2].hashtags).toContain("#маркетинг");
+    expect(variants[0].slides).toHaveLength(7);
+  });
+
+  it("does not pad a one-slide preview into a carousel", () => {
+    const preview: ComposedCopy = {
+      ...copy,
+      scenarios: copy.scenarios.map((item) => ({ name: item.name, slides: [item.slides[0]] })),
+    };
+    const variants = generateVariants("carousel", "Охваты", preview.text, undefined, null, [], preview);
+    expect(variants[0].slides).toHaveLength(1);
+    expect(variants[0].slides[0].text).toBe("Охваты не равны доверию");
+  });
+
+  it("keeps a post as a single slide", () => {
+    const postCopy: ComposedCopy = {
+      ...copy,
+      scenarios: copy.scenarios.map((item) => ({ name: item.name, slides: [item.slides[0]] })),
+    };
+    const variants = generateVariants("post", "Охваты", postCopy.text, undefined, null, [], postCopy);
+    expect(variants).toHaveLength(3);
+    expect(variants.every((item) => item.slides.length === 1)).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeComposedCopy, normalizeHashtags } from "./ai-copy";
+import { normalizeComposedCopy, normalizeExpandedSlides, normalizeHashtags } from "./ai-copy";
 
 describe("normalizeHashtags", () => {
   it("adds hash, drops empties, caps at 15", () => {
@@ -13,7 +13,7 @@ describe("normalizeHashtags", () => {
 });
 
 describe("normalizeComposedCopy", () => {
-  it("pads three carousel scenarios to 7 slides", () => {
+  it("keeps one preview slide per carousel scenario", () => {
     const copy = normalizeComposedCopy(
       {
         text: "Эксперты часто путают охваты и доверие. Сначала смысл, потом охваты.",
@@ -24,15 +24,28 @@ describe("normalizeComposedCopy", () => {
           { name: "Миф → Правда → CTA", slides: ["Миф", "Правда"] },
         ],
       },
-      { format: "carousel", topic: "Охваты не равны доверию" },
+      { format: "carousel", topic: "Охваты не равны доверию", slideCount: 1 },
     );
 
     expect(copy.scenarios).toHaveLength(3);
-    expect(copy.scenarios[0].slides).toHaveLength(7);
+    expect(copy.scenarios[0].slides).toHaveLength(1);
+    expect(copy.scenarios[0].slides[0]).toBe("Крючок");
     expect(copy.scenarios[1].name).toBe("Миф → Правда → CTA");
     expect(copy.scenarios[2].name).toBe("Ошибка → Решение → CTA");
     expect(copy.caption).toContain("Листайте");
     expect(copy.hashtags[0].startsWith("#")).toBe(true);
+  });
+
+  it("keeps the chosen first slide when expanding a carousel", () => {
+    const slides = normalizeExpandedSlides(
+      ["Другой крючок", "Разбор 1", "Разбор 2"],
+      "Охваты не равны доверию",
+      "Охваты",
+      "Сначала смысл, потом охваты. Потом доверие.",
+      "Крючок → Разбор → CTA",
+    );
+    expect(slides).toHaveLength(7);
+    expect(slides[0]).toBe("Охваты не равны доверию");
   });
 
   it("keeps a single slide for a post", () => {

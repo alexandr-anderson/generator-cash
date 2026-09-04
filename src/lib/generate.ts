@@ -50,7 +50,6 @@ export function generateVariants(
   copy?: ComposedCopy,
 ): CreativeWork[] {
   const { bg, fg, accent } = pickColors(rubric, profile, userColors);
-  const slideCount = format === "carousel" ? 7 : 1;
 
   return SCENARIOS.map((scenario, i) => {
     const layout = LAYOUTS[i % LAYOUTS.length];
@@ -61,17 +60,13 @@ export function generateVariants(
         ? generateSlideTexts(topic, text, scenario)
         : [topic];
 
-    const slides: SlideContent[] = slideTexts.slice(0, slideCount).map((t) => ({
+    const slides: SlideContent[] = slideTexts.map((t) => ({
       text: t,
       fontSize: format === "reel" ? 64 : 48,
       textColor: fg,
       positionX: 50,
       positionY: 50,
     }));
-
-    while (slides.length < slideCount) {
-      slides.push({ text: "", fontSize: 48, textColor: fg, positionX: 50, positionY: 50 });
-    }
 
     const hashtags = copy?.hashtags?.length
       ? copy.hashtags
@@ -95,6 +90,23 @@ export function generateVariants(
       createdAt: Date.now(),
     };
   });
+}
+
+export function applySlideTexts(work: CreativeWork, texts: string[]): CreativeWork {
+  const template = work.slides[0] || {
+    text: "",
+    fontSize: work.format === "reel" ? 64 : 48,
+    textColor: work.foreground,
+    positionX: 50,
+    positionY: 50,
+  };
+  return {
+    ...work,
+    slides: texts.map((text, index) => ({
+      ...(work.slides[index] || template),
+      text,
+    })),
+  };
 }
 
 function generateCaption(topic: string, text: string, format: CreativeFormat): string {

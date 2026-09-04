@@ -28,7 +28,7 @@ import {
   type SlideContent,
   type Template,
 } from "@/lib/types";
-import { generateVariants } from "@/lib/generate";
+import { applySlideTexts, generateVariants } from "@/lib/generate";
 import { slideToSvg, svgToPngBlob } from "@/lib/render";
 
 type Step = "format" | "rubric" | "topic" | "text" | "variants" | "editor";
@@ -58,6 +58,7 @@ export function CreateFlow() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [expanding, setExpanding] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
@@ -125,15 +126,9 @@ export function CreateFlow() {
       });
       if (!userText.trim()) setUserText(copy.text);
       const v = generateVariants(format, topic.trim(), copy.text, rubric, store.user, colors, copy);
-      if (rubric?.templates?.[format]) {
-        setWork(v[0]);
-        setActiveSlide(0);
-        setStep("editor");
-      } else {
-        setVariants(v);
-        setSelectedId(v[0].id);
-        setStep("variants");
-      }
+      setVariants(v);
+      setSelectedId(v[0].id);
+      setStep("variants");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Не удалось создать варианты. Попробуйте ещё раз.");
     } finally {
@@ -141,12 +136,35 @@ export function CreateFlow() {
     }
   }
 
-  function selectVariant() {
+  async function selectVariant() {
     const v = variants.find((x) => x.id === selectedId);
-    if (!v) return;
-    setWork(v);
-    setActiveSlide(0);
-    setStep("editor");
+    if (!v || !format) return;
+
+    if (format !== "carousel") {
+      setWork(v);
+      setActiveSlide(0);
+      setError("");
+      setStep("editor");
+      return;
+    }
+
+    setExpanding(true);
+    setError("");
+    try {
+      const slides = await store.expandCarousel({
+        topic: topic.trim(),
+        text: userText.trim() || v.caption,
+        scenario: v.eyebrow,
+        firstSlide: v.slides[0]?.text || topic.trim(),
+      });
+      setWork(applySlideTexts(v, slides));
+      setActiveSlide(0);
+      setStep("editor");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось дописать слайды. Попробуйте ещё раз.");
+    } finally {
+      setExpanding(false);
+    }
   }
 
   function updateSlide(index: number, updates: Partial<SlideContent>) {
@@ -338,7 +356,7 @@ export function CreateFlow() {
           {error && <div className="flow-error"><AlertCircle size={14} /> {error}</div>}
 
           {generating && (
-            <div className="flow-warning">Модель раскладывает слайды — обычно около минуты, не закрывайте вкладку</div>
+            <div className="flow-warning">Собираю три варианта обложки — обычно 20–40 секунд</div>
           )}
 
           {remaining <= 1 && remaining > 0 && (
@@ -387,20 +405,24 @@ export function CreateFlow() {
           <button className="flow-back" onClick={() => setStep("topic")}><ArrowLeft size={16} /> Изменить тему</button>
           <div className="flow-heading flow-center-heading">
             <span className="flow-kicker"><Sparkles size={14} /> 3 ВАРИАНТА</span>
-            <h1>Какой вариант ближе?</h1>
-            <p>Каждый использует ваши цвета и тему. В редакторе можно будет поправить.</p>
+            <h1>Какой сценарий ближе?</h1>
+            <p>
+              {format === "carousel"
+                ? "Сейчас только обложка каждого сценария. Остальные 6 слайдов допишем после выбора."
+                : "Три готовых кадра в разных сценариях. В редакторе можно будет поправить."}
+            </p>
           </div>
           <div className="variants-grid">
             {variants.map((v, i) => (
               <button
                 key={v.id}
                 className={`variant-card ${selectedId === v.id ? "selected" : ""}`}
-                onClick={() => setSelectedId(v.id)}
+                onClick={() => !expanding && setSelectedId(v.id)}
               >
                 <div className="variant-preview" style={{ background: v.background, color: v.foreground }}>
                   <span className="variant-accent" style={{ background: v.accent }} />
                   <span className="variant-eyebrow" style={{ background: v.accent }}>{v.eyebrow}</span>
-                  <strong>{v.topic}</strong>
+                  <strong>{v.slides[0]?.text || v.topic}</strong>
                   <span className="variant-num">0{i + 1}</span>
                   {selectedId === v.id && <span className="variant-check"><Check size={14} /></span>}
                 </div>
@@ -411,9 +433,18 @@ export function CreateFlow() {
               </button>
             ))}
           </div>
+          {error && <div className="flow-error"><AlertCircle size={14} /> {error}</div>}
+          {expanding && (
+            <div className="flow-warning">Дописываю остальные слайды выбранного сценария…</div>
+          )}
           <div className="flow-actions">
-            <button className="btn-primary btn-lg" onClick={selectVariant}>
-              Открыть в редакторе <ArrowRight size={16} />
+            <button className="btn-primary btn-lg" onClick={selectVariant} disabled={expanding || !selectedId}>
+              {expanding
+                ? "Дописываю слайды…"
+                : format === "carousel"
+                  ? "Собрать карусель"
+                  : "Открыть в редакторе"}
+              <ArrowRight size={16} />
             </button>
           </div>
         </div>

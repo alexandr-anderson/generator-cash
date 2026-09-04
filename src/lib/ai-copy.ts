@@ -32,14 +32,13 @@ export async function draftExpertText(input: {
   return text;
 }
 
-export async function composeExpertCopy(input: {
+export async function composeVariantPreviews(input: {
   format: CreativeFormat;
   topic: string;
   text: string;
   niche: string;
   tone?: string;
 }): Promise<ComposedCopy> {
-  const slideCount = input.format === "carousel" ? 7 : 1;
   const source = input.text.trim();
   const payload = await openaiJson<Record<string, unknown>>({
     system: SYSTEM,
@@ -49,40 +48,69 @@ export async function composeExpertCopy(input: {
       `Ниша: ${input.niche || "экспертный контент"}`,
       `Тон: ${input.tone || "спокойный и уверенный"}`,
       source
-        ? `Исходный текст автора — не переписывай заново, только слегка вычитай и разложи:\n${source}`
-        : "Исходного текста нет — напиши короткий экспертный текст и разложи его.",
+        ? `Исходный текст автора — не переписывай заново:\n${source}`
+        : "Исходного текста нет — придумай короткий экспертный смысл.",
       "",
-      "Нужно компактный JSON, без воды:",
-      "- text: верни исходный текст (или короткий черновик, если исходника не было)",
-      `- caption: 2–4 предложения подписи. Для карусели добавь «листайте».`,
-      "- hashtags: массив из 10 хештегов без пробелов внутри",
-      input.format === "reel"
-        ? "- reelScript: хук и 4 тезиса к ролику"
-        : "- reelScript можно опустить",
-      `- scenarios: ровно 3 объекта. У каждого name из списка ниже и slides: ровно ${slideCount} коротких строк.`,
-      "Смысл один, меняется только драматургия.",
-      ...SCENARIO_SPECS.map((spec) => `  • ${spec.name}: ${spec.hint}`),
+      "Это только выбор сценария. Ровно один слайд на сценарий. Не делай карусель из 7 слайдов.",
       input.format === "carousel"
-        ? "Каждый слайд — 1 мысль, до 90 символов, без нумерации «слайд 1»."
-        : "Единственный слайд — сильный заголовок, до 80 символов.",
-      "CTA на последнем слайде карусели: сохранить / написать в директ / попробовать, без ссылок.",
-      'Верни JSON: { "text", "caption", "hashtags", "reelScript", "scenarios": [{ "name", "slides": [] }] }',
+        ? "Слайд = крючок/обложка. Остальные слайды карусели будут позже, после выбора человека."
+        : "Этот слайд и есть готовый кадр публикации.",
+      "",
+      "Компактный JSON:",
+      "- text: исходный текст или короткий черновик",
+      `- caption: 2–4 предложения. ${input.format === "carousel" ? "Добавь «листайте»." : "Для поста это подпись к кадру."}`,
+      "- hashtags: массив из 10 хештегов без пробелов",
+      input.format === "reel" ? "- reelScript: хук и 4 тезиса к ролику" : "- reelScript опусти",
+      "- scenarios: ровно 3 объекта, у каждого name и slides из ОДНОЙ короткой строки (до 80 символов)",
+      "Смысл один, меняется только драматургия крючка.",
+      ...SCENARIO_SPECS.map((spec) => `  • ${spec.name}: ${spec.hint.split(",")[0]}`),
+      'Верни JSON: { "text", "caption", "hashtags", "reelScript", "scenarios": [{ "name", "slides": ["..."] }] }',
     ].join("\n"),
-    timeoutMs: 120_000,
+    timeoutMs: 60_000,
   });
 
   return normalizeComposedCopy(payload, {
     format: input.format,
     topic: input.topic,
     fallbackText: source,
+    slideCount: 1,
   });
+}
+
+export async function expandCarouselSlides(input: {
+  topic: string;
+  text: string;
+  niche: string;
+  tone?: string;
+  scenario: string;
+  firstSlide: string;
+}): Promise<string[]> {
+  const source = input.text.trim();
+  const spec = SCENARIO_SPECS.find((item) => item.name === input.scenario) || SCENARIO_SPECS[0];
+  const payload = await openaiJson<Record<string, unknown>>({
+    system: SYSTEM,
+    user: [
+      "Допиши карусель из 7 слайдов. Первый слайд уже выбран — не меняй его формулировку.",
+      `Тема: ${input.topic}`,
+      `Ниша: ${input.niche || "экспертный контент"}`,
+      `Тон: ${input.tone || "спокойный и уверенный"}`,
+      `Сценарий: ${spec.name}. ${spec.hint}`,
+      `Первый слайд: ${input.firstSlide}`,
+      source ? `Исходный текст:\n${source}` : "",
+      "Слайды 2–6 — разбор по одной мысли, до 90 символов. Слайд 7 — CTA без ссылки.",
+      'Верни JSON: { "slides": ["первый слайд как есть", "...", "...", "...", "...", "...", "CTA"] }',
+    ].filter(Boolean).join("\n"),
+    timeoutMs: 75_000,
+  });
+
+  return normalizeExpandedSlides(payload.slides, input.firstSlide, input.topic, source, spec.name);
 }
 
 export function normalizeComposedCopy(
   raw: Record<string, unknown>,
-  opts: { format: CreativeFormat; topic: string; fallbackText?: string },
+  opts: { format: CreativeFormat; topic: string; fallbackText?: string; slideCount?: number },
 ): ComposedCopy {
-  const slideCount = opts.format === "carousel" ? 7 : 1;
+  const slideCount = opts.slideCount ?? 1;
   const text = pickText(raw) || opts.fallbackText?.trim() || "";
   const caption = String(raw.caption || "").trim() || defaultCaption(opts.topic, text, opts.format);
   const hashtags = normalizeHashtags(raw.hashtags);
@@ -169,6 +197,18 @@ function normalizeSlides(
   return slides.slice(0, count).map((item) => item.slice(0, 180));
 }
 
+export function normalizeExpandedSlides(
+  raw: unknown,
+  firstSlide: string,
+  topic: string,
+  text: string,
+  scenarioNameValue: string,
+): string[] {
+  const slides = normalizeSlides({ slides: raw }, 7, topic, text, scenarioNameValue);
+  slides[0] = firstSlide.replace(/\s+/g, " ").trim().slice(0, 180) || slides[0];
+  return slides;
+}
+
 function pickText(payload: Record<string, unknown>) {
   const value = payload.text || payload.body || payload.draft;
   return typeof value === "string" ? value.trim() : "";
@@ -180,7 +220,7 @@ function scenarioName(raw: unknown) {
 }
 
 function formatLabel(format: CreativeFormat) {
-  if (format === "carousel") return "карусель, 7 слайдов 1080×1350";
+  if (format === "carousel") return "карусель 1080×1350, на этом шаге только обложка сценария";
   if (format === "post") return "пост, один кадр 1080×1080";
   return "обложка Reels 1080×1920";
 }

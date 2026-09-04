@@ -1,10 +1,10 @@
-import { composeExpertCopy } from "@/lib/ai-copy";
+import { composeVariantPreviews } from "@/lib/ai-copy";
 import { authed, json } from "@/lib/http";
 import { AiError } from "@/lib/openai";
 import { consumeGeneration, quotaAvailable } from "@/lib/quota";
 import type { CreativeFormat } from "@/lib/types";
 
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 const FORMATS = new Set<CreativeFormat>(["carousel", "post", "reel"]);
 
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   if (text.length > 5000) return json({ error: "Текст слишком длинный" }, 400);
 
   try {
-    const copy = await composeExpertCopy({
+    const copy = await composeVariantPreviews({
       format,
       topic,
       text,

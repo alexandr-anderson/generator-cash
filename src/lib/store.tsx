@@ -38,6 +38,7 @@ type AppActions = {
   useGeneration: () => Promise<boolean>;
   draftText: (topic: string) => Promise<string>;
   composeCopy: (input: { format: CreativeFormat; topic: string; text: string }) => Promise<ComposedCopy>;
+  expandCarousel: (input: { topic: string; text: string; scenario: string; firstSlide: string }) => Promise<string[]>;
   getGenerationsRemaining: () => number;
   upgradeTier: (tier: Subscription["tier"]) => Promise<void>;
 };
@@ -249,6 +250,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return result;
   }, []);
 
+  const expandCarousel = useCallback(async (input: {
+    topic: string;
+    text: string;
+    scenario: string;
+    firstSlide: string;
+  }) => {
+    const result = await api<{ slides: string[] }>("/api/ai/expand", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return result.slides;
+  }, []);
+
   const getGenerationsRemaining = useCallback(() => state.remaining, [state.remaining]);
 
   const upgradeTier = useCallback(async (tier: Subscription["tier"]) => {
@@ -283,6 +297,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         useGeneration,
         draftText,
         composeCopy,
+        expandCarousel,
         getGenerationsRemaining,
         upgradeTier,
       }}
