@@ -59,7 +59,7 @@ jobs:
             -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o RequestTTY=no \
             "${SSH_USER}@${SSH_HOST}" \
             "mkdir -p '${DEPLOY_PATH}' '${PUBLIC_HTML}'"
-          rsync -az --delete --exclude "scripts/deploy.env" \
+          rsync -az --delete --exclude-from=scripts/rsync-excludes.txt \
             -e "ssh -i ~/.ssh/deploy_key -p ${SSH_PORT} -o BatchMode=yes -o ConnectTimeout=20" \
             release/ "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/"
 
@@ -70,7 +70,7 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
           SSH_PORT="${SSH_PORT:-22}"
-          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT}" -o BatchMode=yes -o ConnectTimeout=20 \
+          timeout 120 ssh -i ~/.ssh/deploy_key -p "${SSH_PORT}" -o BatchMode=yes -o ConnectTimeout=20 \
             -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o RequestTTY=no \
             "${SSH_USER}@${SSH_HOST}" \
-            "export DEPLOY_PATH='${DEPLOY_PATH}' PUBLIC_HTML='${PUBLIC_HTML}' APP_NAME='${APP_NAME}' APP_PORT='${APP_PORT}' NODE_ENV='production' NPM_CI_ARGS='--ignore-scripts' && cd '${DEPLOY_PATH}' && bash scripts/restart-app.sh"
+            "export DEPLOY_PATH='${DEPLOY_PATH}' PUBLIC_HTML='${PUBLIC_HTML}' APP_NAME='${APP_NAME}' APP_PORT='${APP_PORT}' NODE_ENV='production' NPM_CI_ARGS='--ignore-scripts' && cd '${DEPLOY_PATH}' && if command -v timeout >/dev/null; then timeout 90 bash scripts/restart-app.sh; else bash scripts/restart-app.sh; fi"

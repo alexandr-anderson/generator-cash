@@ -97,6 +97,8 @@ Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — с�
 
 После push в `main` Actions соберёт проект, загрузит `release/` на сервер и выполнит `scripts/restart-app.sh`.
 
+`rsync --delete` не трогает `~/postvmeste/.env`, `app/.env`, `uploads/` и `scripts/deploy.env`. Рестарт PM2 ограничен 90 секундами, чтобы зависший `pm2` не забивал лимит процессов Timeweb.
+
 Чтобы выкатить другую ветку, не дожидаясь merge: **Actions → Deploy to Timeweb → Run workflow → выбрать ветку**. Рестарт PM2 на сервере **не** подтягивает git — в проде только тот бандл, который последний раз залил Actions или `npm run deploy`.
 
 После деплоя проверьте `https://postvmeste.ru/api/health`: `mail: "ok"` значит ключ Resend попал в процесс, `404` — на сервере ещё старый UI-бандл без почты.
