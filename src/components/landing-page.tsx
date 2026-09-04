@@ -16,7 +16,7 @@ export function LandingPage() {
           <div className="landing-nav-links">
             <a href="#how">Как работает</a>
             <a href="#pricing">Тарифы</a>
-            <Link href="/auth" className="landing-cta-sm">Войти / demo</Link>
+            <Link href="/auth" className="landing-cta-sm">Войти</Link>
           </div>
         </div>
       </header>

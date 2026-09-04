@@ -3,7 +3,6 @@
 import { Plus, Sparkles, ChevronRight, Layers3, Image as ImageIcon, Video } from "lucide-react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { SERVICE_ACCOUNT } from "@/lib/demo-account";
 import { FORMAT_LABELS } from "@/lib/types";
 
 const formatIcons = {
@@ -21,13 +20,6 @@ export function HomePage() {
 
   return (
     <div className="home-page">
-      {store.user.email === SERVICE_ACCOUNT.email && (
-        <div className="demo-banner">
-          Сервисный аккаунт · {SERVICE_ACCOUNT.email} · пароль {SERVICE_ACCOUNT.password}.
-          Здесь уже есть рубрики, шаблоны и работы — можно ходить по всем экранам.
-        </div>
-      )}
-
       <div className="home-header">
         <div>
           <h1>Привет, {store.user.email.split("@")[0]}</h1>

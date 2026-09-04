@@ -10,7 +10,6 @@ import type {
   Template,
   UserProfile,
 } from "./types";
-import { SERVICE_ACCOUNT } from "./demo-account";
 
 type StudioPayload = {
   user: UserProfile | null;
@@ -26,7 +25,6 @@ type AppActions = {
   refresh: () => Promise<void>;
   register: (email: string, password: string, niche: string) => Promise<{ ok: boolean; error?: string; needsVerification?: boolean }>;
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string; needsVerification?: boolean }>;
-  loginService: () => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   markProfilePopupShown: () => Promise<void>;
@@ -128,10 +126,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       };
     }
   }, []);
-
-  const loginService = useCallback(async () => {
-    return login(SERVICE_ACCOUNT.email, SERVICE_ACCOUNT.password);
-  }, [login]);
 
   const logout = useCallback(async () => {
     await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
@@ -242,7 +236,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         refresh: hydrate,
         register,
         login,
-        loginService,
         logout,
         updateProfile,
         markProfilePopupShown,

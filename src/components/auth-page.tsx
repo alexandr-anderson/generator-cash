@@ -4,7 +4,6 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { SERVICE_ACCOUNT } from "@/lib/demo-account";
 import { NICHES } from "@/lib/types";
 import Link from "next/link";
 
@@ -142,26 +141,6 @@ function AuthForm() {
             <Link href="/auth/forgot">Забыли пароль?</Link>
           </div>
         )}
-
-        <div className="auth-demo">
-          <p>Сервисный аккаунт для изучения продукта</p>
-          <code>{SERVICE_ACCOUNT.email}</code>
-          <code>пароль: {SERVICE_ACCOUNT.password}</code>
-          <button
-            type="button"
-            className="btn-secondary btn-full"
-            disabled={pending}
-            onClick={async () => {
-              setPending(true);
-              const result = await store.loginService();
-              setPending(false);
-              if (!result.ok) return setError(result.error || "Не удалось войти");
-              router.push("/dashboard");
-            }}
-          >
-            Войти как demo
-          </button>
-        </div>
 
         <div className="auth-switch">
           {mode === "register" ? (
