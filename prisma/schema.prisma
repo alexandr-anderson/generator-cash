@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -141,11 +141,11 @@ model Work {
   rubricId    String
   rubric      Rubric         @relation(fields: [rubricId], references: [id], onDelete: Cascade)
   format      CreativeFormat
-  topic       String
+  topic       String        @db.Text
   slides      Json
-  caption     String
+  caption     String        @db.Text
   hashtags    Json
-  reelScript  String?
+  reelScript  String?       @db.Text
   layout      String
   background  String
   accent      String
@@ -165,7 +165,7 @@ model FileAsset {
   rubricId  String?
   rubric    Rubric?   @relation(fields: [rubricId], references: [id], onDelete: SetNull)
   kind      FileKind
-  objectKey String
+  objectKey String       @db.VarChar(512)
   mimeType  String
   byteSize  Int
   createdAt DateTime  @default(now())

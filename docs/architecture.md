@@ -12,7 +12,7 @@ postvmeste.ru реализован как модульный Next.js-монол�
 - `EditorDocument` — provider-independent JSON со слоями.
 - `Export` хранит manifest происхождения результата.
 
-Полная PostgreSQL-модель находится в `prisma/schema.prisma`.
+Полная модель данных находится в `prisma/schema.prisma` (MySQL).
 
 ## Production adapters
 
