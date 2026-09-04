@@ -337,6 +337,10 @@ export function CreateFlow() {
 
           {error && <div className="flow-error"><AlertCircle size={14} /> {error}</div>}
 
+          {generating && (
+            <div className="flow-warning">Модель раскладывает слайды — обычно около минуты, не закрывайте вкладку</div>
+          )}
+
           {remaining <= 1 && remaining > 0 && (
             <div className="flow-warning">Осталась {remaining} генерация</div>
           )}
@@ -353,7 +357,7 @@ export function CreateFlow() {
               onClick={handleGenerate}
               disabled={generating || drafting || remaining <= 0}
             >
-              {generating ? "Создаю..." : "Создать"} <ArrowRight size={16} />
+              {generating ? "Собираю варианты…" : "Создать"} <ArrowRight size={16} />
             </button>
           </div>
         </div>
@@ -372,7 +376,7 @@ export function CreateFlow() {
           />
           <div className="flow-actions">
             <button className="btn-primary" onClick={handleGenerate} disabled={generating}>
-              {generating ? "Создаю..." : "Создать"} <ArrowRight size={16} />
+              {generating ? "Собираю варианты…" : "Создать"} <ArrowRight size={16} />
             </button>
           </div>
         </div>

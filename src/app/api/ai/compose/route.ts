@@ -4,7 +4,7 @@ import { AiError } from "@/lib/openai";
 import { consumeGeneration, quotaAvailable } from "@/lib/quota";
 import type { CreativeFormat } from "@/lib/types";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const FORMATS = new Set<CreativeFormat>(["carousel", "post", "reel"]);
 

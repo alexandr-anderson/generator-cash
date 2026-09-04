@@ -1,4 +1,5 @@
 <?php
+set_time_limit(180);
 $targetPort = (int) (__APP_PORT__);
 $method = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET';
 $uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
@@ -26,7 +27,8 @@ curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method === 'HEAD' ? 'GET' : $method);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HEADER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+curl_setopt($ch, CURLOPT_TIMEOUT, 180);
+curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
 if ($body !== false && $body !== '' && $method !== 'GET' && $method !== 'HEAD') {
   curl_setopt($ch, CURLOPT_POSTFIELDS, $body);

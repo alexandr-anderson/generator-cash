@@ -59,7 +59,22 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
     headers: { "content-type": "application/json", ...(init?.headers || {}) },
     credentials: "include",
   });
-  const data = (await response.json().catch(() => ({}))) as T & { error?: string };
+  const raw = await response.text();
+  let data = {} as T & { error?: string };
+  try {
+    data = raw ? (JSON.parse(raw) as T & { error?: string }) : data;
+  } catch {
+    if (!response.ok) {
+      throw Object.assign(
+        new Error(
+          response.status >= 500
+            ? "Модель думала слишком долго. Нажмите «Создать» ещё раз."
+            : "Ошибка запроса",
+        ),
+        { status: response.status },
+      );
+    }
+  }
   if (!response.ok) {
     throw Object.assign(new Error(data.error || "Ошибка запроса"), { status: response.status, data });
   }

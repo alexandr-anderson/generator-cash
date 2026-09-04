@@ -41,38 +41,19 @@ export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 60_000);
+  const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 90_000);
   const messages = [
     { role: "system" as const, content: args.system },
     { role: "user" as const, content: args.user },
   ];
 
   try {
-    let response = await postChat(
-      {
-        model: openaiModel(),
-        temperature: 0.7,
-        max_tokens: 2500,
-        response_format: { type: "json_object" },
-        messages,
-      },
-      key,
-      controller.signal,
-    );
+    let response = await postChat(chatBody(messages, true), key, controller.signal);
 
     if (response.status === 400) {
       const firstBody = await response.text();
       console.error("[ai] 400, retry without json mode", openaiHost(), firstBody.slice(0, 400));
-      response = await postChat(
-        {
-          model: openaiModel(),
-          temperature: 0.7,
-          max_tokens: 2500,
-          messages,
-        },
-        key,
-        controller.signal,
-      );
+      response = await postChat(chatBody(messages, false), key, controller.signal);
     }
 
     if (!response.ok) {
@@ -88,9 +69,10 @@ export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
     }
 
     const payload = (await response.json()) as {
-      choices?: { message?: { content?: string } }[];
+      choices?: { message?: { content?: unknown }; finish_reason?: string }[];
+      output_text?: string;
     };
-    const content = payload.choices?.[0]?.message?.content?.trim();
+    const content = pickMessageContent(payload);
     if (!content) {
       throw new AiError("Пустой ответ модели. Попробуйте ещё раз.", 502);
     }
@@ -113,6 +95,48 @@ export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+function isGpt5(model: string) {
+  return /^gpt-5/i.test(model);
+}
+
+function chatBody(messages: { role: string; content: string }[], jsonMode: boolean) {
+  const model = openaiModel();
+  const body: Record<string, unknown> = { model, messages };
+  if (isGpt5(model)) {
+    body.max_completion_tokens = 4000;
+  } else {
+    body.temperature = 0.7;
+    body.max_tokens = 2500;
+  }
+  if (jsonMode) body.response_format = { type: "json_object" };
+  return body;
+}
+
+function pickMessageContent(payload: {
+  choices?: { message?: { content?: unknown } }[];
+  output_text?: string;
+}) {
+  const raw = payload.choices?.[0]?.message?.content;
+  if (typeof raw === "string" && raw.trim()) return raw.trim();
+  if (Array.isArray(raw)) {
+    const joined = raw
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part === "object" && "text" in part) {
+          return String((part as { text?: unknown }).text || "");
+        }
+        return "";
+      })
+      .join("")
+      .trim();
+    if (joined) return joined;
+  }
+  if (typeof payload.output_text === "string" && payload.output_text.trim()) {
+    return payload.output_text.trim();
+  }
+  return "";
 }
 
 async function postChat(body: unknown, key: string, signal: AbortSignal) {
