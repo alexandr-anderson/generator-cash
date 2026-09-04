@@ -25,20 +25,31 @@ if [[ ! -f "${ROOT_DIR}/app/server.js" ]]; then
   exit 1
 fi
 
-resolve_pm2_bin "$ROOT_DIR"
-pm2_version="$(run_pm2 -v)"
-echo "==> PM2: ${pm2_version} (${PM2_BIN})"
-
 ensure_public_html "$ROOT_DIR"
 render_public_html_htaccess "$ROOT_DIR"
 
+run_pm2_timeout() {
+  local seconds="$1"
+  shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout --signal=TERM --kill-after=8 "${seconds}" "$NODE_BIN" "$PM2_BIN" "$@"
+  else
+    "$NODE_BIN" "$PM2_BIN" "$@"
+  fi
+}
+
+resolve_pm2_bin "$ROOT_DIR"
+prepend_node_path
+pm2_version="$(run_pm2_timeout 15 -v)"
+echo "==> PM2: ${pm2_version} (${PM2_BIN})"
+
 echo "==> Restarting PM2 process (does not pull git or upload a new build)"
 APP_NAME="${APP_NAME}" APP_PORT="${APP_PORT}" NODE_ENV="${NODE_ENV}" NODE_BIN="${NODE_BIN}" \
-  run_pm2 startOrReload ecosystem.config.cjs --update-env --silent
-run_pm2 save --silent
+  run_pm2_timeout 60 startOrReload ecosystem.config.cjs --update-env
+run_pm2_timeout 20 save || echo "pm2 save timed out (non-fatal)"
 
 echo "==> Restart finished"
-echo "==> PM2 pid: $(run_pm2 pid "${APP_NAME}" || echo unknown)"
+echo "==> PM2 pid: $(run_pm2_timeout 10 pid "${APP_NAME}" || echo unknown)"
 
 echo "==> Health check http://127.0.0.1:${APP_PORT}"
 sleep 2

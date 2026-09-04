@@ -33,6 +33,14 @@ cp "${ROOT_DIR}/scripts/deploy.env.example" "${RELEASE_DIR}/scripts/"
 cp "${ROOT_DIR}/public_html/.htaccess.template" "${RELEASE_DIR}/public_html/"
 cp "${ROOT_DIR}/public_html/index.php.template" "${RELEASE_DIR}/public_html/"
 
+# Bake the Apache proxy into the artifact so a hung PM2 restart
+# cannot leave public_html without .htaccess / index.php.
+RELEASE_PORT="${APP_PORT:-3001}"
+sed "s/__APP_PORT__/${RELEASE_PORT}/g" "${ROOT_DIR}/public_html/.htaccess.template" \
+  > "${RELEASE_DIR}/public_html/.htaccess"
+sed "s/__APP_PORT__/${RELEASE_PORT}/g" "${ROOT_DIR}/public_html/index.php.template" \
+  > "${RELEASE_DIR}/public_html/index.php"
+
 echo "==> Bundling PM2 6.0.14 into release (installed in CI, not on Timeweb)"
 npm install --prefix "${RELEASE_DIR}" --omit=dev --ignore-scripts --no-fund --no-audit pm2@6.0.14
 if [[ ! -x "${RELEASE_DIR}/node_modules/.bin/pm2" ]]; then

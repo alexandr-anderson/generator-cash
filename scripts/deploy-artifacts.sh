@@ -46,7 +46,7 @@ rsync_opts=(
   -az
   --delete
   --exclude ".DS_Store"
-  --exclude "scripts/deploy.env"
+  --exclude-from "${SCRIPT_DIR}/rsync-excludes.txt"
 )
 
 step "Uploading release to ${ssh_target}:${DEPLOY_PATH}"
