@@ -33,6 +33,11 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# local uploads
+/uploads
+
 
 # generated user brand DNA (not the product chrome)
 .brand/

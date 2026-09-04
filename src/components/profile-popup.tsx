@@ -12,7 +12,7 @@ export function ProfilePopup({ onClose }: { onClose: () => void }) {
   const [colors, setColors] = useState<string[]>(store.user?.colors || ["#ff5c35", "#ffc857", "#f6f1e9", "#191817"]);
 
   function save() {
-    store.updateProfile({
+    void store.updateProfile({
       audience: audience || undefined,
       tone: tone || undefined,
       colors: colors.length ? colors : undefined,

@@ -17,7 +17,7 @@ export function ProfilePage() {
   if (!store.user) return null;
 
   function saveProfile() {
-    store.updateProfile({
+    void store.updateProfile({
       audience: audience || undefined,
       tone: tone || undefined,
       niche,
@@ -33,7 +33,7 @@ export function ProfilePage() {
 
   function saveRubric() {
     if (editingRubric && rubricName.trim()) {
-      store.updateRubric(editingRubric, { name: rubricName.trim() });
+      void store.updateRubric(editingRubric, { name: rubricName.trim() });
     }
     setEditingRubric(null);
   }
@@ -114,7 +114,7 @@ export function ProfilePage() {
               <p>{tier.description}</p>
               <button
                 className={store.subscription.tier === tier.tier ? "btn-secondary btn-sm" : "btn-primary btn-sm"}
-                onClick={() => store.upgradeTier(tier.tier)}
+                onClick={() => void store.upgradeTier(tier.tier)}
                 disabled={store.subscription.tier === tier.tier}
               >
                 {store.subscription.tier === tier.tier ? "Текущий" : "Выбрать"}
@@ -147,7 +147,7 @@ export function ProfilePage() {
                     </div>
                     <div className="rubric-manage-actions">
                       <button onClick={() => startEditRubric(r.id)}><Pencil size={14} /></button>
-                      <button onClick={() => store.deleteRubric(r.id)}><Trash2 size={14} /></button>
+                      <button onClick={() => void store.deleteRubric(r.id)}><Trash2 size={14} /></button>
                     </div>
                   </>
                 )}

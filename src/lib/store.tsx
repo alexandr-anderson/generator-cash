@@ -10,268 +10,253 @@ import type {
   Template,
   UserProfile,
 } from "./types";
+import { SERVICE_ACCOUNT } from "./demo-account";
 
-type AppState = {
+type StudioPayload = {
   user: UserProfile | null;
   subscription: Subscription;
+  remaining: number;
+  total: number;
   rubrics: Rubric[];
   archive: ArchiveItem[];
   works: CreativeWork[];
 };
 
 type AppActions = {
-  register: (email: string, password: string, niche: string) => void;
-  login: (email: string, password: string) => boolean;
-  logout: () => void;
-  updateProfile: (updates: Partial<UserProfile>) => void;
-  markProfilePopupShown: () => void;
-  addRubric: (name: string) => Rubric;
-  updateRubric: (id: string, updates: Partial<Rubric>) => void;
-  deleteRubric: (id: string) => void;
-  saveTemplate: (rubricId: string, format: CreativeFormat, template: Template) => void;
-  addWork: (work: CreativeWork) => ArchiveItem;
-  deleteWork: (id: string) => void;
-  useGeneration: () => boolean;
+  refresh: () => Promise<void>;
+  register: (email: string, password: string, niche: string) => Promise<{ ok: boolean; error?: string; needsVerification?: boolean }>;
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string; needsVerification?: boolean }>;
+  loginService: () => Promise<{ ok: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  markProfilePopupShown: () => Promise<void>;
+  addRubric: (name: string) => Promise<Rubric | null>;
+  updateRubric: (id: string, updates: Partial<Rubric>) => Promise<void>;
+  deleteRubric: (id: string) => Promise<void>;
+  saveTemplate: (rubricId: string, format: CreativeFormat, template: Template) => Promise<void>;
+  addWork: (work: CreativeWork) => Promise<ArchiveItem | null>;
+  deleteWork: (id: string) => Promise<void>;
+  useGeneration: () => Promise<boolean>;
   getGenerationsRemaining: () => number;
-  upgradeTier: (tier: Subscription["tier"]) => void;
+  upgradeTier: (tier: Subscription["tier"]) => Promise<void>;
 };
 
-const StoreContext = createContext<(AppState & AppActions) | null>(null);
+const emptySubscription: Subscription = {
+  tier: "free",
+  generationsPerWeek: 1,
+  priceRub: 0,
+  generationsUsed: 0,
+  weekStartedAt: Date.now(),
+  initialFreeRemaining: 5,
+};
 
-const STORAGE_KEY = "postvmeste_state";
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const StoreContext = createContext<(StudioPayload & AppActions & { ready: boolean }) | null>(null);
 
-function defaultSubscription(): Subscription {
+async function api<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    ...init,
+    headers: { "content-type": "application/json", ...(init?.headers || {}) },
+    credentials: "include",
+  });
+  const data = (await response.json().catch(() => ({}))) as T & { error?: string };
+  if (!response.ok) {
+    throw Object.assign(new Error(data.error || "Ошибка запроса"), { status: response.status, data });
+  }
+  return data;
+}
+
+function applyStudio(
+  payload: Partial<StudioPayload> | null,
+): Pick<StudioPayload, "user" | "subscription" | "remaining" | "total" | "rubrics" | "archive" | "works"> {
   return {
-    tier: "free",
-    generationsPerWeek: 1,
-    priceRub: 0,
-    generationsUsed: 0,
-    weekStartedAt: Date.now(),
-    initialFreeRemaining: 5,
+    user: payload?.user ?? null,
+    subscription: payload?.subscription ?? emptySubscription,
+    remaining: payload?.remaining ?? 0,
+    total: payload?.total ?? 0,
+    rubrics: payload?.rubrics ?? [],
+    archive: payload?.archive ?? [],
+    works: payload?.works ?? [],
   };
 }
 
-function loadState(): AppState | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function saveState(state: AppState) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // quota exceeded
-  }
-}
-
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AppState>({
-    user: null,
-    subscription: defaultSubscription(),
-    rubrics: [],
-    archive: [],
-    works: [],
-  });
-  const [hydrated, setHydrated] = useState(false);
+  const [state, setState] = useState(applyStudio(null));
+  const [ready, setReady] = useState(false);
 
-  useEffect(() => {
-    const saved = loadState();
-    if (saved) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setState(saved);
+  const hydrate = useCallback(async () => {
+    try {
+      const payload = await api<StudioPayload>("/api/auth/me");
+      setState(applyStudio(payload.user ? payload : null));
+    } catch {
+      setState(applyStudio(null));
+    } finally {
+      setReady(true);
     }
-    setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (hydrated) saveState(state);
-  }, [state, hydrated]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void hydrate();
+  }, [hydrate]);
 
-  const update = useCallback((fn: (prev: AppState) => AppState) => {
-    setState((prev) => fn(prev));
+  const register = useCallback(async (email: string, password: string, niche: string) => {
+    try {
+      const result = await api<{ ok: boolean; needsVerification?: boolean }>("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ email, password, niche }),
+      });
+      return { ok: true, needsVerification: result.needsVerification };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Не удалось зарегистрироваться" };
+    }
   }, []);
 
-  const register = useCallback((email: string, _pw: string, niche: string) => {
-    update((s) => ({
-      ...s,
-      user: {
-        id: crypto.randomUUID(),
-        email,
-        niche,
-        profileCompleted: false,
-        profilePopupShown: false,
-      },
-      subscription: defaultSubscription(),
-    }));
-  }, [update]);
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const payload = await api<StudioPayload>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      setState(applyStudio(payload));
+      return { ok: true };
+    } catch (error) {
+      const extra = error as Error & { data?: { needsVerification?: boolean } };
+      return {
+        ok: false,
+        error: extra.message || "Неверная почта или пароль",
+        needsVerification: extra.data?.needsVerification,
+      };
+    }
+  }, []);
 
-  const login = useCallback((email: string, _pw: string) => {
-    if (state.user?.email === email) return true;
-    return false;
-  }, [state.user]);
+  const loginService = useCallback(async () => {
+    return login(SERVICE_ACCOUNT.email, SERVICE_ACCOUNT.password);
+  }, [login]);
 
-  const logout = useCallback(() => {
-    update((s) => ({ ...s, user: null }));
-  }, [update]);
+  const logout = useCallback(async () => {
+    await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    setState(applyStudio(null));
+  }, []);
 
-  const updateProfile = useCallback((updates: Partial<UserProfile>) => {
-    update((s) => {
-      if (!s.user) return s;
-      return { ...s, user: { ...s.user, ...updates } };
+  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
+    const payload = await api<StudioPayload>("/api/profile", {
+      method: "PATCH",
+      body: JSON.stringify(updates),
     });
-  }, [update]);
+    setState(applyStudio(payload));
+  }, []);
 
-  const markProfilePopupShown = useCallback(() => {
-    update((s) => {
-      if (!s.user) return s;
-      return { ...s, user: { ...s.user, profilePopupShown: true } };
+  const markProfilePopupShown = useCallback(async () => {
+    await updateProfile({ profilePopupShown: true });
+  }, [updateProfile]);
+
+  const addRubric = useCallback(async (name: string) => {
+    const result = await api<{ rubric: Rubric }>("/api/rubrics", {
+      method: "POST",
+      body: JSON.stringify({ name }),
     });
-  }, [update]);
+    setState((current) => ({ ...current, rubrics: [result.rubric, ...current.rubrics] }));
+    return result.rubric;
+  }, []);
 
-  const addRubric = useCallback((name: string): Rubric => {
-    const rubric: Rubric = {
-      id: crypto.randomUUID(),
-      name,
-      createdAt: Date.now(),
-    };
-    update((s) => ({ ...s, rubrics: [...s.rubrics, rubric] }));
-    return rubric;
-  }, [update]);
-
-  const updateRubric = useCallback((id: string, updates: Partial<Rubric>) => {
-    update((s) => ({
-      ...s,
-      rubrics: s.rubrics.map((r) => (r.id === id ? { ...r, ...updates } : r)),
+  const updateRubric = useCallback(async (id: string, updates: Partial<Rubric>) => {
+    await api(`/api/rubrics/${id}`, { method: "PATCH", body: JSON.stringify(updates) });
+    setState((current) => ({
+      ...current,
+      rubrics: current.rubrics.map((item) => (item.id === id ? { ...item, ...updates } : item)),
     }));
-  }, [update]);
+  }, []);
 
-  const deleteRubric = useCallback((id: string) => {
-    update((s) => ({ ...s, rubrics: s.rubrics.filter((r) => r.id !== id) }));
-  }, [update]);
+  const deleteRubric = useCallback(async (id: string) => {
+    const payload = await api<StudioPayload>(`/api/rubrics/${id}`, { method: "DELETE" });
+    setState(applyStudio(payload));
+  }, []);
 
-  const saveTemplate = useCallback((rubricId: string, format: CreativeFormat, template: Template) => {
-    update((s) => ({
-      ...s,
-      rubrics: s.rubrics.map((r) =>
-        r.id === rubricId
-          ? { ...r, templates: { ...r.templates, [format]: template } }
-          : r,
+  const saveTemplate = useCallback(async (rubricId: string, format: CreativeFormat, template: Template) => {
+    await api(`/api/rubrics/${rubricId}/template`, {
+      method: "POST",
+      body: JSON.stringify({ format, ...template }),
+    });
+    setState((current) => ({
+      ...current,
+      rubrics: current.rubrics.map((item) =>
+        item.id === rubricId ? { ...item, templates: { ...item.templates, [format]: template } } : item,
       ),
     }));
-  }, [update]);
+  }, []);
 
-  const addWork = useCallback((work: CreativeWork): ArchiveItem => {
-    const rubric = state.rubrics.find((r) => r.id === work.rubricId);
-    const item: ArchiveItem = {
-      id: crypto.randomUUID(),
-      workId: work.id,
-      format: work.format,
-      rubricId: work.rubricId,
-      rubricName: rubric?.name || "",
-      topic: work.topic,
-      previewSlide: work.slides[0],
-      background: work.background,
-      createdAt: work.createdAt,
-    };
-    update((s) => ({
-      ...s,
-      works: [...s.works, work],
-      archive: [item, ...s.archive],
-    }));
-    return item;
-  }, [update, state.rubrics]);
-
-  const deleteWork = useCallback((id: string) => {
-    update((s) => ({
-      ...s,
-      works: s.works.filter((w) => w.id !== id),
-      archive: s.archive.filter((a) => a.workId !== id),
-    }));
-  }, [update]);
-
-  const getGenerationsRemaining = useCallback(() => {
-    const sub = state.subscription;
-    if (sub.initialFreeRemaining > 0) return sub.initialFreeRemaining;
-    const elapsed = Date.now() - sub.weekStartedAt;
-    if (elapsed >= WEEK_MS) return sub.generationsPerWeek;
-    return Math.max(0, sub.generationsPerWeek - sub.generationsUsed);
-  }, [state.subscription]);
-
-  const useGeneration = useCallback(() => {
-    let success = false;
-    update((s) => {
-      const sub = { ...s.subscription };
-      if (sub.initialFreeRemaining > 0) {
-        sub.initialFreeRemaining -= 1;
-        success = true;
-        return { ...s, subscription: sub };
-      }
-      const elapsed = Date.now() - sub.weekStartedAt;
-      if (elapsed >= WEEK_MS) {
-        sub.weekStartedAt = Date.now();
-        sub.generationsUsed = 1;
-        success = true;
-        return { ...s, subscription: sub };
-      }
-      if (sub.generationsUsed < sub.generationsPerWeek) {
-        sub.generationsUsed += 1;
-        success = true;
-        return { ...s, subscription: sub };
-      }
-      return s;
+  const addWork = useCallback(async (work: CreativeWork) => {
+    const result = await api<{ work: CreativeWork }>("/api/works", {
+      method: "POST",
+      body: JSON.stringify({ work }),
     });
-    return success;
-  }, [update]);
+    await hydrate();
+    const created = result.work;
+    return {
+      id: `archive-${created.id}`,
+      workId: created.id,
+      format: created.format,
+      rubricId: created.rubricId,
+      rubricName: state.rubrics.find((item) => item.id === created.rubricId)?.name || "",
+      topic: created.topic,
+      previewSlide: created.slides[0],
+      background: created.background,
+      createdAt: created.createdAt,
+    } satisfies ArchiveItem;
+  }, [hydrate, state.rubrics]);
 
-  const upgradeTier = useCallback((tier: Subscription["tier"]) => {
-    const tiers: Record<string, { gen: number; price: number }> = {
-      free: { gen: 1, price: 0 },
-      starter: { gen: 10, price: 50 },
-      pro: { gen: 50, price: 200 },
-      business: { gen: 100, price: 500 },
-    };
-    const t = tiers[tier] || tiers.free;
-    update((s) => ({
-      ...s,
-      subscription: {
-        ...s.subscription,
-        tier,
-        generationsPerWeek: t.gen,
-        priceRub: t.price,
-      },
-    }));
-  }, [update]);
+  const deleteWork = useCallback(async (id: string) => {
+    const payload = await api<StudioPayload>(`/api/works/${id}`, { method: "DELETE" });
+    setState(applyStudio(payload));
+  }, []);
 
-  if (!hydrated) {
+  const useGeneration = useCallback(async () => {
+    try {
+      const result = await api<{ remaining: number }>("/api/generations", { method: "POST" });
+      setState((current) => ({ ...current, remaining: result.remaining }));
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const getGenerationsRemaining = useCallback(() => state.remaining, [state.remaining]);
+
+  const upgradeTier = useCallback(async (tier: Subscription["tier"]) => {
+    const payload = await api<StudioPayload>("/api/usage/tier", {
+      method: "POST",
+      body: JSON.stringify({ tier }),
+    });
+    setState(applyStudio(payload));
+  }, []);
+
+  if (!ready) {
     return <div className="loading-screen"><div className="loading-spinner" /></div>;
   }
 
   return (
-    <StoreContext.Provider value={{
-      ...state,
-      register,
-      login,
-      logout,
-      updateProfile,
-      markProfilePopupShown,
-      addRubric,
-      updateRubric,
-      deleteRubric,
-      saveTemplate,
-      addWork,
-      deleteWork,
-      useGeneration,
-      getGenerationsRemaining,
-      upgradeTier,
-    }}>
+    <StoreContext.Provider
+      value={{
+        ...state,
+        ready,
+        refresh: hydrate,
+        register,
+        login,
+        loginService,
+        logout,
+        updateProfile,
+        markProfilePopupShown,
+        addRubric,
+        updateRubric,
+        deleteRubric,
+        saveTemplate,
+        addWork,
+        deleteWork,
+        useGeneration,
+        getGenerationsRemaining,
+        upgradeTier,
+      }}
+    >
       {children}
     </StoreContext.Provider>
   );

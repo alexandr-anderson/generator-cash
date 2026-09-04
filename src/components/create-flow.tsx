@@ -80,9 +80,10 @@ export function CreateFlow() {
     setStep("topic");
   }
 
-  function createRubric() {
+  async function createRubric() {
     if (!newRubricName.trim()) return;
-    const r = store.addRubric(newRubricName.trim());
+    const r = await store.addRubric(newRubricName.trim());
+    if (!r) return;
     setRubricId(r.id);
     setShowNewRubric(false);
     setNewRubricName("");
@@ -95,7 +96,7 @@ export function CreateFlow() {
     setUserText(text);
   }
 
-  function handleGenerate() {
+  async function handleGenerate() {
     if (!topic.trim()) { setError("Введите тему"); return; }
     if (!format) { setError("Выберите формат"); return; }
 
@@ -107,7 +108,7 @@ export function CreateFlow() {
 
     const hasTemplate = rubric?.templates?.[format];
     if (hasTemplate) {
-      const success = store.useGeneration();
+      const success = await store.useGeneration();
       if (!success) { setError("Генерации закончились"); return; }
       const text = userText || generateText(topic, store.user?.niche || "", store.user?.tone);
       const v = generateVariants(format, topic, text, rubric, store.user, colors);
@@ -119,17 +120,15 @@ export function CreateFlow() {
 
     setGenerating(true);
     setError("");
-    setTimeout(() => {
-      const success = store.useGeneration();
-      if (!success) { setError("Генерации закончились"); setGenerating(false); return; }
-      const text = userText || generateText(topic, store.user?.niche || "", store.user?.tone);
-      if (!userText) setUserText(text);
-      const v = generateVariants(format, topic, text, rubric, store.user, colors);
-      setVariants(v);
-      setSelectedId(v[0].id);
-      setGenerating(false);
-      setStep("variants");
-    }, 800);
+    const success = await store.useGeneration();
+    if (!success) { setError("Генерации закончились"); setGenerating(false); return; }
+    const text = userText || generateText(topic, store.user?.niche || "", store.user?.tone);
+    if (!userText) setUserText(text);
+    const v = generateVariants(format, topic, text, rubric, store.user, colors);
+    setVariants(v);
+    setSelectedId(v[0].id);
+    setGenerating(false);
+    setStep("variants");
   }
 
   function selectVariant() {
@@ -148,7 +147,7 @@ export function CreateFlow() {
     });
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!work || !rubricId) return;
     if (saveAsTemplate && format) {
       const template: Template = {
@@ -159,19 +158,19 @@ export function CreateFlow() {
         colors: [work.background, work.foreground, work.accent],
         slideCount: work.slides.length,
       };
-      store.saveTemplate(rubricId, format, template);
+      await store.saveTemplate(rubricId, format, template);
     }
     if (rubricId && colors.length) {
-      store.updateRubric(rubricId, { colors });
+      await store.updateRubric(rubricId, { colors });
     }
-    store.addWork(work);
+    await store.addWork(work);
   }
 
   async function handleExport() {
     if (!work) return;
     setExporting(true);
     try {
-      handleSave();
+      await handleSave();
 
       if (work.format === "carousel") {
         const zip = new JSZip();
