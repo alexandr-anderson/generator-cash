@@ -13,6 +13,7 @@ export async function POST(request: Request) {
   if (password.length < 6) return json({ error: "Пароль минимум 6 символов" }, 400);
   if (!niche) return json({ error: "Выберите нишу" }, 400);
   if (process.env.NODE_ENV === "production" && !mailConfigured()) {
+    console.error("[mail] register blocked: RESEND_API_KEY missing");
     return json({ error: "Почта на сервере ещё не настроена. Регистрация временно закрыта." }, 503);
   }
 

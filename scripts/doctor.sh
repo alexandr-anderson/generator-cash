@@ -64,3 +64,42 @@ elif command -v netstat >/dev/null 2>&1; then
 else
   echo "ss/netstat unavailable"
 fi
+
+echo
+echo "Env files (values are not printed):"
+if [[ -f "${ROOT_DIR}/.env" ]]; then echo ".env: present"; else echo ".env: missing"; fi
+if [[ -f "${ROOT_DIR}/app/.env" ]]; then echo "app/.env: present"; else echo "app/.env: missing"; fi
+
+env_key_present() {
+  local key="$1"
+  local file
+  for file in "${ROOT_DIR}/.env" "${ROOT_DIR}/app/.env"; do
+    [[ -f "$file" ]] || continue
+    if grep -qE "^[[:space:]]*${key}=" "$file"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+echo
+echo "Required secrets:"
+if [[ -n "${RESEND_API_KEY:-}" ]] || env_key_present RESEND_API_KEY; then
+  echo "RESEND_API_KEY: present"
+else
+  echo "RESEND_API_KEY: MISSING"
+fi
+if [[ -n "${DATABASE_URL:-}" ]] || env_key_present DATABASE_URL; then
+  echo "DATABASE_URL: present"
+else
+  echo "DATABASE_URL: MISSING"
+fi
+if [[ -n "${APP_URL:-}" ]] || env_key_present APP_URL; then
+  echo "APP_URL: present"
+else
+  echo "APP_URL: MISSING (default https://postvmeste.ru in PM2)"
+fi
+
+echo
+echo "Health check http://127.0.0.1:${APP_PORT}/api/health"
+curl -sS --max-time 8 "http://127.0.0.1:${APP_PORT}/api/health" || echo "health endpoint did not respond"

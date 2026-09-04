@@ -22,8 +22,18 @@ function loadEnvFile(filePath) {
 }
 
 const rootDir = __dirname;
-loadEnvFile(path.join(rootDir, ".env"));
-loadEnvFile(path.join(rootDir, "app", ".env"));
+const rootEnvFile = path.join(rootDir, ".env");
+const appEnvFile = path.join(rootDir, "app", ".env");
+loadEnvFile(rootEnvFile);
+loadEnvFile(appEnvFile);
+
+console.info(
+  "[pm2-env]",
+  `rootEnv=${fs.existsSync(rootEnvFile) ? "yes" : "no"}`,
+  `appEnv=${fs.existsSync(appEnvFile) ? "yes" : "no"}`,
+  `mail=${(process.env.RESEND_API_KEY || "").startsWith("re_") ? "ok" : "MISSING_RESEND_API_KEY"}`,
+  `db=${process.env.DATABASE_URL ? "set" : "MISSING_DATABASE_URL"}`,
+);
 
 const appName = process.env.APP_NAME || "postvmeste";
 const appPort = Number(process.env.APP_PORT || 3001);

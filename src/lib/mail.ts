@@ -26,6 +26,8 @@ async function sendMail(to: string, subject: string, text: string) {
     return;
   }
 
+  console.info("[mail] sending", { to, subject, from: fromAddress() });
+
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -45,6 +47,9 @@ async function sendMail(to: string, subject: string, text: string) {
     console.error("[mail] Resend error", response.status, body);
     throw new Error("Не удалось отправить письмо. Попробуйте ещё раз.");
   }
+
+  const payload = (await response.json().catch(() => ({}))) as { id?: string };
+  console.info("[mail] sent", { to, resendId: payload.id || "unknown" });
 }
 
 export async function sendVerificationEmail(email: string, token: string) {
