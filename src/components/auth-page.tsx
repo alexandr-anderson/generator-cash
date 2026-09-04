@@ -23,7 +23,7 @@ function AuthForm() {
   const [pending, setPending] = useState(false);
   const [checkEmail, setCheckEmail] = useState("");
 
-  if (store.user) {
+  if (store.user && mode === "login") {
     router.push("/dashboard");
     return null;
   }
@@ -57,6 +57,7 @@ function AuthForm() {
         if (!email || !password) return setError("Заполните все поля");
         const selectedNiche = niche === "custom" ? customNiche : NICHES.find((n) => n.id === niche)?.label;
         if (!selectedNiche) return setError("Выберите нишу");
+        if (store.user) await store.logout();
         const result = await store.register(email, password, selectedNiche);
         if (!result.ok) return setError(result.error || "Ошибка регистрации");
         setCheckEmail(email);

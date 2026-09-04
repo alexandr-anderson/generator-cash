@@ -21,7 +21,12 @@ export async function POST(request: Request) {
         expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
       },
     });
-    await sendVerificationEmail(email, token);
+    try {
+      await sendVerificationEmail(email, token);
+    } catch (error) {
+      console.error("[mail] verify resend failed", error);
+      return json({ error: "Не удалось отправить письмо" }, 502);
+    }
   } else {
     await prisma.passwordReset.create({
       data: {
@@ -30,7 +35,12 @@ export async function POST(request: Request) {
         expiresAt: new Date(Date.now() + 60 * 60 * 1000),
       },
     });
-    await sendPasswordResetEmail(email, token);
+    try {
+      await sendPasswordResetEmail(email, token);
+    } catch (error) {
+      console.error("[mail] reset resend failed", error);
+      return json({ error: "Не удалось отправить письмо" }, 502);
+    }
   }
 
   return json({ ok: true });

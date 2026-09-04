@@ -1,5 +1,3 @@
-import nodemailer from "nodemailer";
-
 function appUrl() {
   return (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
 }
@@ -8,27 +6,45 @@ function fromAddress() {
   return process.env.MAIL_FROM || "postvmeste <service@postvmeste.ru>";
 }
 
-function transporter() {
-  const host = process.env.SMTP_HOST?.trim();
-  if (!host) return null;
-  return nodemailer.createTransport({
-    host,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: Number(process.env.SMTP_PORT || 587) === 465,
-    auth:
-      process.env.SMTP_USER && process.env.SMTP_PASS
-        ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-        : undefined,
-  });
+function resendKey() {
+  const key = process.env.RESEND_API_KEY?.trim() || process.env.SMTP_PASS?.trim() || "";
+  return key.startsWith("re_") ? key : "";
+}
+
+export function mailConfigured() {
+  return Boolean(resendKey());
 }
 
 async function sendMail(to: string, subject: string, text: string) {
-  const transport = transporter();
-  if (!transport) {
-    console.info(`[mail:dev] to=${to} subject=${subject}\n${text}`);
+  const key = resendKey();
+  if (!key) {
+    const preview = `[mail:dev] to=${to} subject=${subject}\n${text}`;
+    console.info(preview);
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Почта не настроена: задайте RESEND_API_KEY");
+    }
     return;
   }
-  await transport.sendMail({ from: fromAddress(), to, subject, text });
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      from: fromAddress(),
+      to: [to],
+      subject,
+      text,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    console.error("[mail] Resend error", response.status, body);
+    throw new Error("Не удалось отправить письмо. Попробуйте ещё раз.");
+  }
 }
 
 export async function sendVerificationEmail(email: string, token: string) {
