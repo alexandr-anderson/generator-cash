@@ -42,8 +42,8 @@ yarn-error.log*
 # generated user brand DNA (not the product chrome)
 .brand/
 
-# local deploy config
-scripts/deploy.env
+# local mysql migrate temp
+.mysql-migrate-*.cnf
 
 # vercel
 .vercel

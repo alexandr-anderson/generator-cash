@@ -28,6 +28,15 @@ fi
 ensure_public_html "$ROOT_DIR"
 render_public_html_htaccess "$ROOT_DIR"
 
+if [[ -f "${SCRIPT_DIR}/apply-migrations.js" ]]; then
+  echo "==> Applying database migrations"
+  if command -v timeout >/dev/null 2>&1; then
+    timeout --signal=TERM --kill-after=8 45 "$NODE_BIN" "${SCRIPT_DIR}/apply-migrations.js"
+  else
+    "$NODE_BIN" "${SCRIPT_DIR}/apply-migrations.js"
+  fi
+fi
+
 run_pm2_timeout() {
   local seconds="$1"
   shift
