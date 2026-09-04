@@ -40,41 +40,37 @@ export async function composeVariantPreviews(input: {
   tone?: string;
 }): Promise<ComposedCopy> {
   const source = input.text.trim();
+  const excerpt = source.slice(0, 700);
   const payload = await openaiJson<Record<string, unknown>>({
     system: SYSTEM,
     user: [
-      `Формат: ${formatLabel(input.format)}`,
       `Тема: ${input.topic}`,
       `Ниша: ${input.niche || "экспертный контент"}`,
       `Тон: ${input.tone || "спокойный и уверенный"}`,
-      source
-        ? `Исходный текст автора — не переписывай заново:\n${source}`
-        : "Исходного текста нет — придумай короткий экспертный смысл.",
-      "",
-      "Это только выбор сценария. Ровно один слайд на сценарий. Не делай карусель из 7 слайдов.",
-      input.format === "carousel"
-        ? "Слайд = крючок/обложка. Остальные слайды карусели будут позже, после выбора человека."
-        : "Этот слайд и есть готовый кадр публикации.",
-      "",
-      "Компактный JSON:",
-      "- text: исходный текст или короткий черновик",
-      `- caption: 2–4 предложения. ${input.format === "carousel" ? "Добавь «листайте»." : "Для поста это подпись к кадру."}`,
-      "- hashtags: массив из 10 хештегов без пробелов",
-      input.format === "reel" ? "- reelScript: хук и 4 тезиса к ролику" : "- reelScript опусти",
-      "- scenarios: ровно 3 объекта, у каждого name и slides из ОДНОЙ короткой строки (до 80 символов)",
-      "Смысл один, меняется только драматургия крючка.",
-      ...SCENARIO_SPECS.map((spec) => `  • ${spec.name}: ${spec.hint.split(",")[0]}`),
-      'Верни JSON: { "text", "caption", "hashtags", "reelScript", "scenarios": [{ "name", "slides": ["..."] }] }',
-    ].join("\n"),
-    timeoutMs: 60_000,
+      excerpt ? `Опора (не пересказывать целиком):\n${excerpt}` : "",
+      "Нужны только 3 коротких крючка, по одному на сценарий. Каждый до 70 символов.",
+      ...SCENARIO_SPECS.map((spec) => `- ${spec.name}`),
+      'JSON: { "scenarios": [{ "name": "...", "slides": ["крючок"] }] }',
+    ].filter(Boolean).join("\n"),
+    timeoutMs: 90_000,
+    maxTokens: 500,
   });
 
-  return normalizeComposedCopy(payload, {
-    format: input.format,
-    topic: input.topic,
-    fallbackText: source,
-    slideCount: 1,
-  });
+  return normalizeComposedCopy(
+    {
+      ...payload,
+      text: source,
+      caption: defaultCaption(input.topic, source, input.format),
+      hashtags: localHashtags(input.topic, input.niche),
+      reelScript: input.format === "reel" ? source : undefined,
+    },
+    {
+      format: input.format,
+      topic: input.topic,
+      fallbackText: source,
+      slideCount: 1,
+    },
+  );
 }
 
 export async function expandCarouselSlides(input: {
@@ -100,7 +96,8 @@ export async function expandCarouselSlides(input: {
       "Слайды 2–6 — разбор по одной мысли, до 90 символов. Слайд 7 — CTA без ссылки.",
       'Верни JSON: { "slides": ["первый слайд как есть", "...", "...", "...", "...", "...", "CTA"] }',
     ].filter(Boolean).join("\n"),
-    timeoutMs: 75_000,
+    timeoutMs: 90_000,
+    maxTokens: 1200,
   });
 
   return normalizeExpandedSlides(payload.slides, input.firstSlide, input.topic, source, spec.name);
@@ -219,10 +216,14 @@ function scenarioName(raw: unknown) {
   return String((raw as Record<string, unknown>).name || "").trim();
 }
 
-function formatLabel(format: CreativeFormat) {
-  if (format === "carousel") return "карусель 1080×1350, на этом шаге только обложка сценария";
-  if (format === "post") return "пост, один кадр 1080×1080";
-  return "обложка Reels 1080×1920";
+function localHashtags(topic: string, niche: string) {
+  const words = `${topic} ${niche}`
+    .toLowerCase()
+    .replace(/[^а-яёa-z0-9\s]/g, "")
+    .split(/\s+/)
+    .filter((word) => word.length > 3)
+    .slice(0, 6);
+  return normalizeHashtags(words);
 }
 
 function defaultCaption(topic: string, text: string, format: CreativeFormat) {

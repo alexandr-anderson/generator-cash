@@ -32,6 +32,8 @@ type ChatJsonArgs = {
   system: string;
   user: string;
   timeoutMs?: number;
+  jsonMode?: boolean;
+  maxTokens?: number;
 };
 
 export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
@@ -42,18 +44,19 @@ export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 90_000);
+  const jsonMode = args.jsonMode !== false;
   const messages = [
     { role: "system" as const, content: args.system },
     { role: "user" as const, content: args.user },
   ];
 
   try {
-    let response = await postChat(chatBody(messages, true), key, controller.signal);
+    let response = await postChat(chatBody(messages, jsonMode, args.maxTokens), key, controller.signal);
 
-    if (response.status === 400) {
+    if (response.status === 400 && jsonMode) {
       const firstBody = await response.text();
       console.error("[ai] 400, retry without json mode", openaiHost(), firstBody.slice(0, 400));
-      response = await postChat(chatBody(messages, false), key, controller.signal);
+      response = await postChat(chatBody(messages, false, args.maxTokens), key, controller.signal);
     }
 
     if (!response.ok) {
@@ -101,14 +104,18 @@ function isGpt5(model: string) {
   return /^gpt-5/i.test(model);
 }
 
-function chatBody(messages: { role: string; content: string }[], jsonMode: boolean) {
+function chatBody(
+  messages: { role: string; content: string }[],
+  jsonMode: boolean,
+  maxTokens?: number,
+) {
   const model = openaiModel();
   const body: Record<string, unknown> = { model, messages };
   if (isGpt5(model)) {
-    body.max_completion_tokens = 4000;
+    body.max_completion_tokens = maxTokens ?? 1600;
   } else {
     body.temperature = 0.7;
-    body.max_tokens = 2500;
+    body.max_tokens = maxTokens ?? 1600;
   }
   if (jsonMode) body.response_format = { type: "json_object" };
   return body;

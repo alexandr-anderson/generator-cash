@@ -356,7 +356,7 @@ export function CreateFlow() {
           {error && <div className="flow-error"><AlertCircle size={14} /> {error}</div>}
 
           {generating && (
-            <div className="flow-warning">Собираю три варианта обложки — обычно 20–40 секунд</div>
+            <div className="flow-warning">Собираю три крючка — подождите, не закрывайте вкладку</div>
           )}
 
           {remaining <= 1 && remaining > 0 && (
