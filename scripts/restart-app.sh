@@ -28,7 +28,10 @@ fi
 ensure_public_html "$ROOT_DIR"
 render_public_html_htaccess "$ROOT_DIR"
 
-if [[ -f "${SCRIPT_DIR}/apply-migrations.js" ]]; then
+if [[ -f "${SCRIPT_DIR}/apply-migrations.php" ]]; then
+  echo "==> Applying database migrations"
+  php "${SCRIPT_DIR}/apply-migrations.php"
+elif [[ -f "${SCRIPT_DIR}/apply-migrations.js" ]]; then
   echo "==> Applying database migrations"
   if command -v timeout >/dev/null 2>&1; then
     timeout --signal=TERM --kill-after=8 45 "$NODE_BIN" "${SCRIPT_DIR}/apply-migrations.js"
