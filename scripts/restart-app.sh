@@ -33,7 +33,7 @@ echo "==> PM2: $("$PM2_BIN" -v)"
 ensure_public_html "$ROOT_DIR"
 render_public_html_htaccess "$ROOT_DIR"
 
-echo "==> Restarting PM2 process"
+echo "==> Restarting PM2 process (does not pull git or upload a new build)"
 APP_NAME="${APP_NAME}" APP_PORT="${APP_PORT}" NODE_ENV="${NODE_ENV}" \
   "$PM2_BIN" startOrReload ecosystem.config.cjs --update-env --silent
 "$PM2_BIN" save --silent
