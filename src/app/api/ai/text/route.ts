@@ -2,7 +2,7 @@ import { draftExpertText } from "@/lib/ai-copy";
 import { authed, json } from "@/lib/http";
 import { AiError } from "@/lib/openai";
 
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 export async function POST(request: Request) {
   const { user, error } = await authed();

@@ -24,7 +24,7 @@ export async function draftExpertText(input: {
       `Тон: ${input.tone || "спокойный и уверенный"}`,
       'Верни JSON: { "text": "..." }',
     ].join("\n"),
-    timeoutMs: 45_000,
+    timeoutMs: 180_000,
   });
 
   const text = pickText(payload);
@@ -52,7 +52,7 @@ export async function composeVariantPreviews(input: {
       ...SCENARIO_SPECS.map((spec) => `- ${spec.name}`),
       'JSON: { "scenarios": [{ "name": "...", "slides": ["крючок"] }] }',
     ].filter(Boolean).join("\n"),
-    timeoutMs: 90_000,
+    timeoutMs: 180_000,
     maxTokens: 500,
   });
 
@@ -96,7 +96,7 @@ export async function expandCarouselSlides(input: {
       "Слайды 2–6 — разбор по одной мысли, до 90 символов. Слайд 7 — CTA без ссылки.",
       'Верни JSON: { "slides": ["первый слайд как есть", "...", "...", "...", "...", "...", "CTA"] }',
     ].filter(Boolean).join("\n"),
-    timeoutMs: 90_000,
+    timeoutMs: 180_000,
     maxTokens: 1200,
   });
 

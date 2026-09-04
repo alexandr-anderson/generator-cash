@@ -43,7 +43,7 @@ export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 90_000);
+  const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 180_000);
   const jsonMode = args.jsonMode !== false;
   const messages = [
     { role: "system" as const, content: args.system },

@@ -3,7 +3,7 @@ import { authed, json } from "@/lib/http";
 import { AiError } from "@/lib/openai";
 import { SCENARIO_SPECS } from "@/lib/ai-types";
 
-export const maxDuration = 90;
+export const maxDuration = 180;
 
 const SCENARIO_NAMES = new Set<string>(SCENARIO_SPECS.map((item) => item.name));
 
