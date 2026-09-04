@@ -17,7 +17,7 @@ export function openaiBaseUrl() {
 }
 
 export function openaiModel() {
-  return process.env.OPENAI_MODEL?.trim() || "gpt-4o";
+  return process.env.OPENAI_MODEL?.trim() || "gpt-5.5";
 }
 
 export function openaiHost() {
