@@ -5,7 +5,7 @@ import { SCENARIO_SPECS } from "@/lib/ai-types";
 
 export const maxDuration = 90;
 
-const SCENARIO_NAMES = new Set(SCENARIO_SPECS.map((item) => item.name));
+const SCENARIO_NAMES = new Set<string>(SCENARIO_SPECS.map((item) => item.name));
 
 export async function POST(request: Request) {
   const { user, error } = await authed();
