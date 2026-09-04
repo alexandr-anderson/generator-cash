@@ -18,6 +18,8 @@ export async function GET() {
     ok: env.mailConfigured && database === "ok",
     mail: env.mailConfigured ? "ok" : "missing",
     database,
+    ai: env.openaiConfigured ? "ok" : "missing",
+    aiHost: env.openaiHost,
     appUrl: env.appUrl || null,
   });
 }

@@ -10,6 +10,7 @@ import type {
   Template,
   UserProfile,
 } from "./types";
+import type { ComposedCopy } from "./ai-types";
 
 type StudioPayload = {
   user: UserProfile | null;
@@ -35,6 +36,8 @@ type AppActions = {
   addWork: (work: CreativeWork) => Promise<ArchiveItem | null>;
   deleteWork: (id: string) => Promise<void>;
   useGeneration: () => Promise<boolean>;
+  draftText: (topic: string) => Promise<string>;
+  composeCopy: (input: { format: CreativeFormat; topic: string; text: string }) => Promise<ComposedCopy>;
   getGenerationsRemaining: () => number;
   upgradeTier: (tier: Subscription["tier"]) => Promise<void>;
 };
@@ -214,6 +217,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const draftText = useCallback(async (topic: string) => {
+    const result = await api<{ text: string }>("/api/ai/text", {
+      method: "POST",
+      body: JSON.stringify({ topic }),
+    });
+    return result.text;
+  }, []);
+
+  const composeCopy = useCallback(async (input: { format: CreativeFormat; topic: string; text: string }) => {
+    const result = await api<ComposedCopy & { remaining: number }>("/api/ai/compose", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    setState((current) => ({ ...current, remaining: result.remaining }));
+    return result;
+  }, []);
+
   const getGenerationsRemaining = useCallback(() => state.remaining, [state.remaining]);
 
   const upgradeTier = useCallback(async (tier: Subscription["tier"]) => {
@@ -246,6 +266,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addWork,
         deleteWork,
         useGeneration,
+        draftText,
+        composeCopy,
         getGenerationsRemaining,
         upgradeTier,
       }}

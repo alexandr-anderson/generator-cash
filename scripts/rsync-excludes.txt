@@ -1,6 +1,7 @@
 .env
 .env.*
 app/.env
+.openai-incoming
 uploads/
 app/uploads/
 scripts/deploy.env

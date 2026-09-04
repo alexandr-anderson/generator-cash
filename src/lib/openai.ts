@@ -1,0 +1,132 @@
+export class AiError extends Error {
+  constructor(
+    message: string,
+    readonly status = 502,
+  ) {
+    super(message);
+    this.name = "AiError";
+  }
+}
+
+export function openaiConfigured() {
+  return Boolean(process.env.OPENAI_API_KEY?.trim());
+}
+
+export function openaiBaseUrl() {
+  return (process.env.OPENAI_BASE_URL || "https://codex-free.com/v1").replace(/\/$/, "");
+}
+
+export function openaiModel() {
+  return process.env.OPENAI_MODEL?.trim() || "gpt-4o";
+}
+
+export function openaiHost() {
+  try {
+    return new URL(openaiBaseUrl()).host;
+  } catch {
+    return "invalid";
+  }
+}
+
+type ChatJsonArgs = {
+  system: string;
+  user: string;
+  timeoutMs?: number;
+};
+
+export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) {
+    throw new AiError("Генерация текста ещё не настроена. Задайте OPENAI_API_KEY.", 503);
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 60_000);
+  const messages = [
+    { role: "system" as const, content: args.system },
+    { role: "user" as const, content: args.user },
+  ];
+
+  try {
+    let response = await postChat(
+      {
+        model: openaiModel(),
+        temperature: 0.7,
+        max_tokens: 2500,
+        response_format: { type: "json_object" },
+        messages,
+      },
+      key,
+      controller.signal,
+    );
+
+    if (response.status === 400) {
+      const firstBody = await response.text();
+      console.error("[ai] 400, retry without json mode", openaiHost(), firstBody.slice(0, 400));
+      response = await postChat(
+        {
+          model: openaiModel(),
+          temperature: 0.7,
+          max_tokens: 2500,
+          messages,
+        },
+        key,
+        controller.signal,
+      );
+    }
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.error("[ai] error", openaiHost(), response.status, body.slice(0, 400));
+      if (response.status === 401 || response.status === 403) {
+        throw new AiError("Ключ модели отклонён. Проверьте OPENAI_API_KEY.", 502);
+      }
+      if (response.status === 429) {
+        throw new AiError("Модель временно недоступна. Попробуйте ещё раз через минуту.", 429);
+      }
+      throw new AiError("Не удалось сгенерировать текст. Попробуйте ещё раз.", 502);
+    }
+
+    const payload = (await response.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    const content = payload.choices?.[0]?.message?.content?.trim();
+    if (!content) {
+      throw new AiError("Пустой ответ модели. Попробуйте ещё раз.", 502);
+    }
+
+    try {
+      return JSON.parse(stripFence(content)) as T;
+    } catch {
+      throw new AiError("Модель вернула ответ в неожиданном формате. Попробуйте ещё раз.", 502);
+    }
+  } catch (error) {
+    if (error instanceof AiError) throw error;
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new AiError("Модель не ответила вовремя. Попробуйте ещё раз.", 504);
+    }
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new AiError("Модель не ответила вовремя. Попробуйте ещё раз.", 504);
+    }
+    console.error("[ai] request failed", openaiHost(), error);
+    throw new AiError("Не удалось сгенерировать текст. Попробуйте ещё раз.", 502);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function postChat(body: unknown, key: string, signal: AbortSignal) {
+  return fetch(`${openaiBaseUrl()}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+    },
+    signal,
+    body: JSON.stringify(body),
+  });
+}
+
+function stripFence(content: string) {
+  return content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+}

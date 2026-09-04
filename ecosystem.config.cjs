@@ -33,6 +33,8 @@ console.info(
   `appEnv=${fs.existsSync(appEnvFile) ? "yes" : "no"}`,
   `mail=${(process.env.RESEND_API_KEY || "").startsWith("re_") ? "ok" : "MISSING_RESEND_API_KEY"}`,
   `db=${process.env.DATABASE_URL ? "set" : "MISSING_DATABASE_URL"}`,
+  `ai=${process.env.OPENAI_API_KEY ? "ok" : "MISSING_OPENAI_API_KEY"}`,
+  `aiHost=${(process.env.OPENAI_BASE_URL || "https://codex-free.com/v1").replace(/^https?:\/\//, "").replace(/\/.*$/, "")}`,
 );
 
 const appName = process.env.APP_NAME || "postvmeste";
@@ -72,6 +74,9 @@ module.exports = {
         APP_URL: process.env.APP_URL || "https://postvmeste.ru",
         MAIL_FROM: process.env.MAIL_FROM || "postvmeste <service@postvmeste.ru>",
         RESEND_API_KEY: process.env.RESEND_API_KEY || "",
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+        OPENAI_BASE_URL: process.env.OPENAI_BASE_URL || "https://codex-free.com/v1",
+        OPENAI_MODEL: process.env.OPENAI_MODEL || "gpt-4o",
       },
     },
   ],

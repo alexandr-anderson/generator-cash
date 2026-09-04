@@ -28,7 +28,7 @@ import {
   type SlideContent,
   type Template,
 } from "@/lib/types";
-import { generateVariants, generateText } from "@/lib/generate";
+import { generateVariants } from "@/lib/generate";
 import { slideToSvg, svgToPngBlob } from "@/lib/render";
 
 type Step = "format" | "rubric" | "topic" | "text" | "variants" | "editor";
@@ -58,6 +58,7 @@ export function CreateFlow() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
 
@@ -90,45 +91,54 @@ export function CreateFlow() {
     setStep("topic");
   }
 
-  function handleGenerateText() {
+  async function handleGenerateText() {
     if (!topic.trim()) { setError("Введите тему"); return; }
-    const text = generateText(topic, store.user?.niche || "", store.user?.tone);
-    setUserText(text);
+    setDrafting(true);
+    setError("");
+    try {
+      const text = await store.draftText(topic.trim());
+      setUserText(text);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось сгенерировать текст");
+    } finally {
+      setDrafting(false);
+    }
   }
 
   async function handleGenerate() {
     if (!topic.trim()) { setError("Введите тему"); return; }
     if (!format) { setError("Выберите формат"); return; }
 
-    const remaining = store.getGenerationsRemaining();
-    if (remaining <= 0) {
+    const remainingNow = store.getGenerationsRemaining();
+    if (remainingNow <= 0) {
       setError("Генерации закончились. Обновите подписку.");
-      return;
-    }
-
-    const hasTemplate = rubric?.templates?.[format];
-    if (hasTemplate) {
-      const success = await store.useGeneration();
-      if (!success) { setError("Генерации закончились"); return; }
-      const text = userText || generateText(topic, store.user?.niche || "", store.user?.tone);
-      const v = generateVariants(format, topic, text, rubric, store.user, colors);
-      setWork(v[0]);
-      setActiveSlide(0);
-      setStep("editor");
       return;
     }
 
     setGenerating(true);
     setError("");
-    const success = await store.useGeneration();
-    if (!success) { setError("Генерации закончились"); setGenerating(false); return; }
-    const text = userText || generateText(topic, store.user?.niche || "", store.user?.tone);
-    if (!userText) setUserText(text);
-    const v = generateVariants(format, topic, text, rubric, store.user, colors);
-    setVariants(v);
-    setSelectedId(v[0].id);
-    setGenerating(false);
-    setStep("variants");
+    try {
+      const copy = await store.composeCopy({
+        format,
+        topic: topic.trim(),
+        text: userText.trim(),
+      });
+      if (!userText.trim()) setUserText(copy.text);
+      const v = generateVariants(format, topic.trim(), copy.text, rubric, store.user, colors, copy);
+      if (rubric?.templates?.[format]) {
+        setWork(v[0]);
+        setActiveSlide(0);
+        setStep("editor");
+      } else {
+        setVariants(v);
+        setSelectedId(v[0].id);
+        setStep("variants");
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось создать варианты. Попробуйте ещё раз.");
+    } finally {
+      setGenerating(false);
+    }
   }
 
   function selectVariant() {
@@ -320,8 +330,8 @@ export function CreateFlow() {
               onChange={(e) => setUserText(e.target.value)}
               placeholder="Вставьте свой текст или сгенерируйте..."
             />
-            <button className="btn-secondary btn-sm" onClick={handleGenerateText}>
-              <Sparkles size={14} /> Помочь с текстом
+            <button className="btn-secondary btn-sm" onClick={handleGenerateText} disabled={drafting || generating}>
+              <Sparkles size={14} /> {drafting ? "Пишу..." : "Помочь с текстом"}
             </button>
           </div>
 
@@ -341,7 +351,7 @@ export function CreateFlow() {
             <button
               className="btn-primary btn-lg"
               onClick={handleGenerate}
-              disabled={generating || remaining <= 0}
+              disabled={generating || drafting || remaining <= 0}
             >
               {generating ? "Создаю..." : "Создать"} <ArrowRight size={16} />
             </button>

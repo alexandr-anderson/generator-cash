@@ -17,6 +17,13 @@ export function totalFromUsage(usage: UsageState | null | undefined) {
   return usage.generationsPerWeek;
 }
 
+export function quotaAvailable(usage: UsageState | null | undefined) {
+  const remaining = remainingFromUsage(usage);
+  if (!usage) return { ok: false as const, remaining: 0, error: "Нет данных о лимите" };
+  if (remaining <= 0) return { ok: false as const, remaining: 0, error: "Генерации закончились" };
+  return { ok: true as const, remaining };
+}
+
 export async function consumeGeneration(userId: string) {
   return prisma.$transaction(async (tx) => {
     const usage = await tx.usageState.findUnique({ where: { userId } });

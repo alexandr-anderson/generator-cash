@@ -63,6 +63,34 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -p ${SSH_PORT} -o BatchMode=yes -o ConnectTimeout=20" \
             release/ "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/"
 
+      - name: Sync OpenAI env on server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+        run: |
+          SSH_PORT="${SSH_PORT:-22}"
+          if [ -z "${OPENAI_API_KEY}" ]; then
+            echo "OPENAI_API_KEY secret not set, skipping"
+            exit 0
+          fi
+          umask 077
+          {
+            printf 'OPENAI_BASE_URL=%s\n' "${OPENAI_BASE_URL:-https://codex-free.com/v1}"
+            printf 'OPENAI_API_KEY=%s\n' "${OPENAI_API_KEY}"
+            printf 'OPENAI_MODEL=%s\n' "${OPENAI_MODEL:-gpt-4o}"
+          } > openai-incoming
+          scp -i ~/.ssh/deploy_key -P "${SSH_PORT}" -o BatchMode=yes -o ConnectTimeout=20 \
+            openai-incoming "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/.openai-incoming"
+          rm -f openai-incoming
+          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT}" -o BatchMode=yes -o ConnectTimeout=20 \
+            -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o RequestTTY=no \
+            "${SSH_USER}@${SSH_HOST}" \
+            "bash --noprofile --norc -c 'php ${DEPLOY_PATH}/scripts/upsert-env-keys.php ${DEPLOY_PATH}/.env ${DEPLOY_PATH}/.openai-incoming && rm -f ${DEPLOY_PATH}/.openai-incoming'"
+
       - name: Restart app on server
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}

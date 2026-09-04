@@ -57,6 +57,7 @@ img { max-width: 100%; }
   border-color: var(--line);
 }
 .btn-secondary:hover { border-color: #ccc; }
+.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-danger { background: transparent; color: var(--danger); border-color: var(--danger); }
 .btn-danger:hover { background: #fef2f2; }

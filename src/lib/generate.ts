@@ -1,10 +1,15 @@
+import type { ComposedCopy } from "./ai-types";
+import { SCENARIO_SPECS } from "./ai-types";
 import type { CreativeFormat, CreativeLayout, CreativeWork, Rubric, SlideContent, UserProfile } from "./types";
 
-const SCENARIOS = [
-  { name: "Крючок → Разбор → CTA", structure: ["hook", "point", "point", "point", "point", "amplify", "cta"] },
-  { name: "Миф → Правда → CTA", structure: ["myth", "truth", "truth", "truth", "truth", "amplify", "cta"] },
-  { name: "Ошибка → Решение → CTA", structure: ["mistake", "fix", "fix", "fix", "fix", "amplify", "cta"] },
-];
+const SCENARIOS = SCENARIO_SPECS.map((spec, index) => ({
+  name: spec.name,
+  structure: index === 1
+    ? ["myth", "truth", "truth", "truth", "truth", "amplify", "cta"]
+    : index === 2
+      ? ["mistake", "fix", "fix", "fix", "fix", "amplify", "cta"]
+      : ["hook", "point", "point", "point", "point", "amplify", "cta"],
+}));
 
 const LAYOUTS: CreativeLayout[] = ["poster", "band", "centered"];
 
@@ -42,15 +47,19 @@ export function generateVariants(
   rubric: Rubric | undefined,
   profile: UserProfile | null,
   userColors: string[],
+  copy?: ComposedCopy,
 ): CreativeWork[] {
   const { bg, fg, accent } = pickColors(rubric, profile, userColors);
   const slideCount = format === "carousel" ? 7 : 1;
 
   return SCENARIOS.map((scenario, i) => {
     const layout = LAYOUTS[i % LAYOUTS.length];
-    const slideTexts = format === "carousel"
-      ? generateSlideTexts(topic, text, scenario)
-      : [topic];
+    const aiSlides = copy?.scenarios[i]?.slides;
+    const slideTexts = aiSlides?.length
+      ? aiSlides
+      : format === "carousel"
+        ? generateSlideTexts(topic, text, scenario)
+        : [topic];
 
     const slides: SlideContent[] = slideTexts.slice(0, slideCount).map((t) => ({
       text: t,
@@ -64,7 +73,9 @@ export function generateVariants(
       slides.push({ text: "", fontSize: 48, textColor: fg, positionX: 50, positionY: 50 });
     }
 
-    const hashtags = generateHashtags(topic, profile?.niche || "");
+    const hashtags = copy?.hashtags?.length
+      ? copy.hashtags
+      : generateHashtags(topic, profile?.niche || "");
 
     return {
       id: crypto.randomUUID(),
@@ -72,13 +83,14 @@ export function generateVariants(
       rubricId: rubric?.id || "",
       topic,
       slides,
-      caption: generateCaption(topic, text, format),
+      caption: copy?.caption || generateCaption(topic, text, format),
       hashtags,
+      reelScript: copy?.reelScript,
       layout,
       background: i === 1 ? fg : bg,
-      accent: i === 1 ? accent : accent,
+      accent,
       foreground: i === 1 ? bg : fg,
-      eyebrow: scenario.name,
+      eyebrow: copy?.scenarios[i]?.name || scenario.name,
       brandLabel: profile?.email?.split("@")[0] || "postvmeste",
       createdAt: Date.now(),
     };
