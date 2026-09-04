@@ -17,7 +17,7 @@ echo "==> postvmeste.ru restart"
 echo "==> Project: ${ROOT_DIR}"
 echo "==> Public web root: ${PUBLIC_HTML}"
 echo "==> App port: ${APP_PORT}"
-echo "==> Node: $("$NODE_BIN" -v)"
+echo "==> Node: $("$NODE_BIN" -v) (${NODE_BIN})"
 
 if [[ ! -f "${ROOT_DIR}/app/server.js" ]]; then
   echo "Missing ${ROOT_DIR}/app/server.js" >&2
@@ -25,21 +25,20 @@ if [[ ! -f "${ROOT_DIR}/app/server.js" ]]; then
   exit 1
 fi
 
-if ! PM2_BIN="$(resolve_bin "${PM2_BIN:-}" pm2 "$ROOT_DIR" 2>/dev/null)"; then
-  resolve_pm2_bin "$ROOT_DIR"
-fi
-echo "==> PM2: $("$PM2_BIN" -v)"
+resolve_pm2_bin "$ROOT_DIR"
+pm2_version="$(run_pm2 -v)"
+echo "==> PM2: ${pm2_version} (${PM2_BIN})"
 
 ensure_public_html "$ROOT_DIR"
 render_public_html_htaccess "$ROOT_DIR"
 
 echo "==> Restarting PM2 process (does not pull git or upload a new build)"
-APP_NAME="${APP_NAME}" APP_PORT="${APP_PORT}" NODE_ENV="${NODE_ENV}" \
-  "$PM2_BIN" startOrReload ecosystem.config.cjs --update-env --silent
-"$PM2_BIN" save --silent
+APP_NAME="${APP_NAME}" APP_PORT="${APP_PORT}" NODE_ENV="${NODE_ENV}" NODE_BIN="${NODE_BIN}" \
+  run_pm2 startOrReload ecosystem.config.cjs --update-env --silent
+run_pm2 save --silent
 
 echo "==> Restart finished"
-echo "==> PM2 pid: $("$PM2_BIN" pid "${APP_NAME}" || echo unknown)"
+echo "==> PM2 pid: $(run_pm2 pid "${APP_NAME}" || echo unknown)"
 
 echo "==> Health check http://127.0.0.1:${APP_PORT}"
 sleep 2

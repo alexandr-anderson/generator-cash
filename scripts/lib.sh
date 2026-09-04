@@ -2,6 +2,32 @@
 
 set -euo pipefail
 
+resolve_nvm_bin() {
+  local name="$1"
+  local versions_dir="${HOME}/.nvm/versions/node"
+  local match="" fallback="" dir
+
+  [[ -d "$versions_dir" ]] || return 1
+
+  for dir in "$versions_dir"/*; do
+    [[ -x "${dir}/bin/${name}" ]] || continue
+    fallback="${dir}/bin/${name}"
+    case "$(basename "$dir")" in
+      v22.*) match="$fallback" ;;
+    esac
+  done
+
+  if [[ -n "$match" ]]; then
+    printf '%s\n' "$match"
+    return 0
+  fi
+  if [[ -n "$fallback" ]]; then
+    printf '%s\n' "$fallback"
+    return 0
+  fi
+  return 1
+}
+
 resolve_bin() {
   local override="$1"
   local fallback="$2"
@@ -12,18 +38,15 @@ resolve_bin() {
     return
   fi
 
-  if [[ -n "$root_dir" && -x "${root_dir}/node_modules/.bin/${fallback}" ]]; then
+  # Never pick project .bin/node: those shims use `#!/usr/bin/env node`,
+  # and Timeweb's /usr/bin/node is present but not executable.
+  if [[ "$fallback" != "node" && -n "$root_dir" && -x "${root_dir}/node_modules/.bin/${fallback}" ]]; then
     printf '%s\n' "${root_dir}/node_modules/.bin/${fallback}"
     return
   fi
 
-  if [[ -d "${HOME}/.nvm/versions/node" ]]; then
-    local latest_node_dir
-    latest_node_dir="$(ls -1 "${HOME}/.nvm/versions/node" 2>/dev/null | sort -V | tail -n 1 || true)"
-    if [[ -n "$latest_node_dir" && -x "${HOME}/.nvm/versions/node/${latest_node_dir}/bin/${fallback}" ]]; then
-      printf '%s\n' "${HOME}/.nvm/versions/node/${latest_node_dir}/bin/${fallback}"
-      return
-    fi
+  if resolve_nvm_bin "$fallback"; then
+    return
   fi
 
   if command -v "$fallback" >/dev/null 2>&1; then
@@ -34,9 +57,30 @@ resolve_bin() {
   return 1
 }
 
+prepend_node_path() {
+  local node_dir
+  : "${NODE_BIN:?NODE_BIN is required}"
+  node_dir="$(dirname "$NODE_BIN")"
+  case ":${PATH}:" in
+    *":${node_dir}:"*) ;;
+    *) export PATH="${node_dir}:${PATH}" ;;
+  esac
+  export NODE_BIN
+}
+
+run_pm2() {
+  : "${NODE_BIN:?NODE_BIN is required}"
+  : "${PM2_BIN:?PM2_BIN is required}"
+  prepend_node_path
+  # Invoke the JS CLI with the nvm binary. `#!/usr/bin/env node` hits
+  # Timeweb's blocked /usr/bin/node (exit 126, Permission denied).
+  "$NODE_BIN" "$PM2_BIN" "$@"
+}
+
 load_nvm_if_needed() {
-  # shellcheck source=load-nvm.sh
-  source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/load-nvm.sh"
+  # Do not source nvm.sh here: it forks heavily and Timeweb shared
+  # hosting hits "fork: Resource temporarily unavailable".
+  export NVM_DIR="${HOME}/.nvm"
 }
 
 print_node_setup_help() {
@@ -67,11 +111,13 @@ prepare_host_bins() {
     print_node_setup_help
     exit 1
   }
+  prepend_node_path
 
   NPM_BIN="$(resolve_bin "${NPM_BIN:-}" npm "$root_dir")" || {
     echo "npm not found. Install npm or set NPM_BIN in scripts/deploy.env." >&2
     exit 1
   }
+  export NPM_BIN
 }
 
 resolve_pm2_bin() {
