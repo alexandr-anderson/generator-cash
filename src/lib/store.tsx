@@ -46,7 +46,11 @@ type AppActions = {
     colors?: string[];
     referenceIds?: string[];
   }) => Promise<ComposedCopy>;
-  expandCarousel: (input: { topic: string; text: string; scenario: string; firstSlide: string }) => Promise<string[]>;
+  expandCarousel: (input: { topic: string; text: string; scenario: string; firstSlide: string }) => Promise<{
+    slides: string[];
+    caption: string;
+    hashtags: string[];
+  }>;
   uploadReference: (rubricId: string, file: File) => Promise<string | null>;
   deleteFile: (id: string) => Promise<void>;
   getGenerationsRemaining: () => number;
@@ -318,11 +322,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     scenario: string;
     firstSlide: string;
   }) => {
-    const result = await api<{ slides: string[] }>("/api/ai/expand", {
+    const result = await api<{ slides: string[]; caption: string; hashtags: string[]; remaining: number }>("/api/ai/expand", {
       method: "POST",
       body: JSON.stringify(input),
     });
-    return result.slides;
+    setState((current) => ({ ...current, remaining: result.remaining }));
+    return {
+      slides: result.slides,
+      caption: result.caption,
+      hashtags: result.hashtags,
+    };
   }, []);
 
   const getGenerationsRemaining = useCallback(() => state.remaining, [state.remaining]);

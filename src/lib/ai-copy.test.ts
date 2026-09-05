@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composePostFromAuthorText, composeReelFromHooks, normalizeComposedCopy, normalizeExpandedSlides, normalizeHashtags, normalizeReelHooks } from "./ai-copy";
+import { composePostFromAuthorText, composeReelFromHooks, normalizeCarouselCaption, normalizeComposedCopy, normalizeExpandedSlides, normalizeHashtags, normalizeReelHooks } from "./ai-copy";
 
 describe("normalizeHashtags", () => {
   it("adds hash, drops empties, caps at 15", () => {
@@ -46,6 +46,17 @@ describe("normalizeComposedCopy", () => {
     );
     expect(slides).toHaveLength(7);
     expect(slides[0]).toBe("Охваты не равны доверию");
+  });
+
+  it("keeps a dense carousel caption and falls back to the hook", () => {
+    const caption = normalizeCarouselCaption(
+      "Охваты не равны доверию.\nСначала смысл, потом просмотры. Сохраните разбор.",
+      "Охваты",
+      ["Охваты не равны доверию", "Смысл", "Просмотры"],
+    );
+    expect(caption.startsWith("Охваты не равны доверию")).toBe(true);
+    expect(caption.length).toBeLessThan(900);
+    expect(normalizeCarouselCaption("", "Тема", ["Хук", "Разбор"])).toContain("Хук");
   });
 
   it("keeps the author caption on every post variant", () => {

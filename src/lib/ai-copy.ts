@@ -158,7 +158,7 @@ export async function expandCarouselSlides(input: {
   tone?: string;
   scenario: string;
   firstSlide: string;
-}): Promise<string[]> {
+}): Promise<{ slides: string[]; caption: string; hashtags: string[] }> {
   const source = input.text.trim();
   const spec = SCENARIO_SPECS.find((item) => item.name === input.scenario) || SCENARIO_SPECS[0];
   const payload = await openaiJson<Record<string, unknown>>({
@@ -172,13 +172,23 @@ export async function expandCarouselSlides(input: {
       `Первый слайд: ${input.firstSlide}`,
       source ? `Исходный текст:\n${source}` : "",
       "Слайды 2–6 — разбор по одной мысли, до 90 символов. Слайд 7 — CTA без ссылки.",
-      'Верни JSON: { "slides": ["первый слайд как есть", "...", "...", "...", "...", "...", "CTA"] }',
+      "Плюс подпись к публикации: 4–7 коротких предложений. Первая строка перекликается с хуком первого слайда.",
+      "Ёмко раскрыть мысль карусели, без лонгрида, без markdown, без списка хештегов внутри caption.",
+      "10–15 хештегов отдельно.",
+      'JSON: { "slides": ["первый слайд как есть", "...", "...", "...", "...", "...", "CTA"], "caption": "...", "hashtags": ["#тема"] }',
     ].filter(Boolean).join("\n"),
     timeoutMs: 180_000,
-    maxTokens: 1200,
+    maxTokens: 1600,
   });
 
-  return normalizeExpandedSlides(payload.slides, input.firstSlide, input.topic, source, spec.name);
+  const slides = normalizeExpandedSlides(payload.slides, input.firstSlide, input.topic, source, spec.name);
+  return {
+    slides,
+    caption: normalizeCarouselCaption(payload.caption, input.topic, slides),
+    hashtags: normalizeHashtags(payload.hashtags).length
+      ? normalizeHashtags(payload.hashtags)
+      : localHashtags(input.topic, input.niche),
+  };
 }
 
 export function normalizeComposedCopy(
@@ -281,6 +291,14 @@ function normalizeSlides(
     slides.push(fallback[slides.length] || scenarioNameValue);
   }
   return slides.slice(0, count).map((item) => item.slice(0, 180));
+}
+
+export function normalizeCarouselCaption(raw: unknown, topic: string, slides: string[]) {
+  const text = String(raw || "").replace(/\s+\n/g, "\n").trim();
+  if (text) return text.slice(0, 900);
+  const hook = slides[0] || topic;
+  const body = slides.slice(1, 4).filter(Boolean).join(" ");
+  return `${hook}\n\n${body}`.trim().slice(0, 900);
 }
 
 export function normalizeExpandedSlides(

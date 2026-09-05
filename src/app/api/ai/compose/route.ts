@@ -63,6 +63,9 @@ export async function POST(request: Request) {
           niche: user.niche,
           tone: user.tone || undefined,
         });
+    if (format === "carousel") {
+      return json({ ...copy, remaining: quota.remaining });
+    }
     const consumed = await consumeGeneration(user.id);
     if (!consumed.ok) {
       return json({ error: consumed.error, remaining: consumed.remaining }, 402);

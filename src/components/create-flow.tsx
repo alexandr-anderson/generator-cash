@@ -18,7 +18,6 @@ import {
 
   AlertCircle,
 } from "lucide-react";
-import JSZip from "jszip";
 import { useStore } from "@/lib/store";
 import {
   FORMAT_LABELS,
@@ -233,16 +232,25 @@ export function CreateFlow() {
       return;
     }
 
+    if (store.getGenerationsRemaining() <= 0) {
+      setError("Генерации закончились. Обновите подписку.");
+      return;
+    }
+
     setExpanding(true);
     setError("");
     try {
-      const slides = await store.expandCarousel({
+      const expanded = await store.expandCarousel({
         topic: topic.trim(),
-        text: userText.trim() || v.caption,
+        text: userText.trim(),
         scenario: v.eyebrow,
         firstSlide: v.slides[0]?.text || topic.trim(),
       });
-      setWork(applySlideTexts(v, slides));
+      setWork({
+        ...applySlideTexts(v, expanded.slides),
+        caption: expanded.caption,
+        hashtags: expanded.hashtags,
+      });
       setActiveSlide(0);
       setStep("editor");
     } catch (caught) {
@@ -286,16 +294,13 @@ export function CreateFlow() {
       await handleSave();
 
       if (work.format === "carousel") {
-        const zip = new JSZip();
-        for (let i = 0; i < work.slides.length; i++) {
-          const svg = slideToSvg(work, i);
-          const png = await svgToPngBlob(svg);
-          zip.file(`slide-${String(i + 1).padStart(2, "0")}.png`, png);
+        for (let i = 0; i < work.slides.length; i += 1) {
+          const png = await svgToPngBlob(slideToSvg(work, i));
+          downloadBlob(png, `slide-${String(i + 1).padStart(2, "0")}.png`);
+          if (i < work.slides.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 700));
+          }
         }
-        const caption = `${work.caption}\n\n${work.hashtags.join(" ")}`;
-        zip.file("caption.txt", caption);
-        const blob = await zip.generateAsync({ type: "blob" });
-        downloadBlob(blob, "carousel.zip");
       } else if (work.format === "reel") {
         downloadBlob(await reelCoverToPngBlob(work), "reel-cover.png");
       } else if (work.slides[0]?.imageUrl) {
@@ -506,11 +511,16 @@ export function CreateFlow() {
 
           <div className="field">
             <label>
-              {format === "post" ? "Подпись поста" : format === "reel" ? "Хук на обложке" : "Текст"}
+              {format === "post" ? "Подпись поста" : format === "reel" ? "Хук на обложке" : "Опора для карусели"}
             </label>
             {format === "reel" && (
               <p className="field-hint">
                 По желанию, 3–6 слов. Если оставить пустым — напишем три хука сами.
+              </p>
+            )}
+            {format === "carousel" && (
+              <p className="field-hint">
+                Черновик или заметки по желанию. Подпись и хештеги напишем после семёрки — ёмко, не лонгридом.
               </p>
             )}
             <textarea
@@ -521,7 +531,7 @@ export function CreateFlow() {
                 ? "Это текст публикации. Его «Создать» уже не будет переписывать"
                 : format === "reel"
                   ? "Например: Хватит снимать в лоб"
-                  : "Вставьте свой текст или сгенерируйте..."}
+                  : "Вставьте опору или нажмите «Помочь с текстом»"}
             />
             <button className="btn-secondary btn-sm" onClick={handleGenerateText} disabled={drafting || generating}>
               <Sparkles size={14} /> {drafting ? "Пишу..." : format === "reel" ? "Предложить хуки" : "Помочь с текстом"}
@@ -611,7 +621,7 @@ export function CreateFlow() {
             </h1>
             <p>
               {format === "carousel"
-                ? "Сейчас только обложка каждого сценария. Остальные 6 слайдов допишем после выбора."
+                ? "Сейчас только первый слайд каждого сценария. Семь слайдов, подпись и хештеги соберём после выбора. Лимит спишется тогда."
                 : format === "post"
                   ? "Три картинки к вашей подписи. Текст публикации уже готов и не меняется."
                   : "Три хука на обложке. Ролик не снимаем — это кадр для сетки и поиска."}
@@ -656,14 +666,14 @@ export function CreateFlow() {
           </div>
           {error && <div className="flow-error"><AlertCircle size={14} /> {error}</div>}
           {expanding && (
-            <div className="flow-warning">Дописываю остальные слайды выбранного сценария…</div>
+            <div className="flow-warning">Собираю семь слайдов, подпись и хештеги. Лимит спишется после успеха.</div>
           )}
           <div className="flow-actions">
             <button className="btn-primary btn-lg" onClick={selectVariant} disabled={expanding || !selectedId}>
               {expanding
-                ? "Дописываю слайды…"
+                ? "Собираю карусель…"
                 : format === "carousel"
-                  ? "Собрать карусель"
+                  ? "Собрать семь слайдов"
                   : "Открыть в редакторе"}
               <ArrowRight size={16} />
             </button>
@@ -791,10 +801,10 @@ export function CreateFlow() {
                     ? "Подпись — основной текст поста"
                     : work.format === "reel"
                       ? "Подпись ролика — не на обложке"
-                      : "Подпись к посту"}
+                      : "Подпись карусели"}
                 </label>
                 <textarea
-                  rows={work.format === "post" ? 8 : 4}
+                  rows={work.format === "post" || work.format === "carousel" ? 8 : 4}
                   value={work.caption}
                   onChange={(e) => setWork({ ...work, caption: e.target.value })}
                 />
@@ -837,7 +847,7 @@ export function CreateFlow() {
               <div className="editor-toolbar-actions">
                 <button className="btn-secondary btn-sm" onClick={copyCaption}>Скопировать подпись</button>
                 <button className="btn-primary btn-sm" onClick={handleExport} disabled={exporting}>
-                  <Download size={14} /> {exporting ? "Экспорт..." : work.format === "carousel" ? "Скачать ZIP" : "Скачать PNG"}
+                  <Download size={14} /> {exporting ? "Сохраняю…" : work.format === "carousel" ? "Скачать на телефон" : "Скачать PNG"}
                 </button>
               </div>
             </div>

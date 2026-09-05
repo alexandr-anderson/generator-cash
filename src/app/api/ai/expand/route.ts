@@ -1,6 +1,7 @@
 import { expandCarouselSlides } from "@/lib/ai-copy";
 import { authed, json } from "@/lib/http";
 import { AiError } from "@/lib/openai";
+import { consumeGeneration, quotaAvailable } from "@/lib/quota";
 import { SCENARIO_SPECS } from "@/lib/ai-types";
 
 export const maxDuration = 180;
@@ -14,6 +15,9 @@ export async function POST(request: Request) {
     return json({ error: "Подтвердите почту, чтобы создавать работы" }, 403);
   }
 
+  const quota = quotaAvailable(user.usage);
+  if (!quota.ok) return json({ error: quota.error, remaining: quota.remaining }, 402);
+
   const body = await request.json().catch(() => null);
   const topic = String(body?.topic || "").trim();
   const text = String(body?.text || "").trim();
@@ -26,7 +30,7 @@ export async function POST(request: Request) {
   if (text.length > 5000) return json({ error: "Текст слишком длинный" }, 400);
 
   try {
-    const slides = await expandCarouselSlides({
+    const copy = await expandCarouselSlides({
       topic,
       text,
       niche: user.niche,
@@ -34,7 +38,11 @@ export async function POST(request: Request) {
       scenario,
       firstSlide,
     });
-    return json({ slides });
+    const consumed = await consumeGeneration(user.id);
+    if (!consumed.ok) {
+      return json({ error: consumed.error, remaining: consumed.remaining }, 402);
+    }
+    return json({ ...copy, remaining: consumed.remaining });
   } catch (caught) {
     if (caught instanceof AiError) return json({ error: caught.message }, caught.status);
     console.error("[ai/expand]", caught);
