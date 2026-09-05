@@ -17,6 +17,7 @@ import type {
   UserProfile,
 } from "./types";
 import { remainingFromUsage, totalFromUsage } from "./quota";
+import { DETACHED_RUBRIC_LABEL } from "./rubric-copy";
 import { filePublicPath } from "./storage";
 
 type RubricWith = Rubric & { templates: RubricTemplate[]; files: FileAsset[] };
@@ -122,7 +123,7 @@ export function studioPayload(input: {
   user: User;
   usage: UsageState | null;
   rubrics: RubricWith[];
-  works: (Work & { rubric: { name: string } })[];
+  works: (Work & { rubric: { name: string } | null })[];
 }) {
   const works = input.works.map(toWork);
   return {
@@ -132,7 +133,7 @@ export function studioPayload(input: {
     total: totalFromUsage(input.usage),
     rubrics: input.rubrics.map(toRubric),
     works,
-    archive: input.works.map((work) => toArchive(work, work.rubric.name)),
+    archive: input.works.map((work) => toArchive(work, work.rubric?.name || DETACHED_RUBRIC_LABEL)),
   };
 }
 

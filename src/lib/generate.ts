@@ -77,7 +77,7 @@ export function generateVariants(
     return {
       id: crypto.randomUUID(),
       format,
-      rubricId: rubric?.id || "",
+      rubricId: rubric?.id ?? null,
       topic,
       slides,
       caption: format === "post"

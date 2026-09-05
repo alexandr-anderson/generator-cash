@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { FORMAT_LABELS } from "@/lib/types";
 import { WorkThumb } from "@/components/work-thumb";
+import { RubricOverflow } from "@/components/rubric-manage";
 
 const formatIcons = {
   carousel: Layers3,
@@ -39,19 +40,22 @@ export function HomePage() {
         </div>
         <div className="rubric-scroll">
           {store.rubrics.map((r) => (
-            <Link href={`/dashboard/create?rubric=${r.id}`} className="rubric-card" key={r.id}>
-              <div className="rubric-colors">
-                {(r.colors || ["#ff5c35", "#ffc857", "#f6f1e9"]).slice(0, 3).map((c, i) => (
-                  <span key={i} style={{ background: c }} />
-                ))}
-              </div>
-              <b>{r.name}</b>
-              <small>
-                {r.templates
-                  ? Object.keys(r.templates).map((f) => FORMAT_LABELS[f as keyof typeof FORMAT_LABELS]).join(", ")
-                  : "Нет шаблонов"}
-              </small>
-            </Link>
+            <article className="rubric-card" key={r.id}>
+              <Link href={`/dashboard/create?rubric=${r.id}`} className="rubric-card-link">
+                <div className="rubric-colors">
+                  {(r.colors || ["#ff5c35", "#ffc857", "#f6f1e9"]).slice(0, 3).map((c, i) => (
+                    <span key={i} style={{ background: c }} />
+                  ))}
+                </div>
+                <b>{r.name}</b>
+                <small>
+                  {r.templates
+                    ? Object.keys(r.templates).map((f) => FORMAT_LABELS[f as keyof typeof FORMAT_LABELS]).join(", ")
+                    : "Нет шаблонов"}
+                </small>
+              </Link>
+              <RubricOverflow rubric={r} />
+            </article>
           ))}
           <Link href="/dashboard/create" className="rubric-card rubric-add">
             <Plus size={24} />

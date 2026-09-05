@@ -148,8 +148,8 @@ model Work {
   id          String         @id @default(cuid())
   userId      String
   user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rubricId    String
-  rubric      Rubric         @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  rubricId    String?
+  rubric      Rubric?        @relation(fields: [rubricId], references: [id], onDelete: SetNull)
   format      CreativeFormat
   topic       String        @db.Text
   slides      Json

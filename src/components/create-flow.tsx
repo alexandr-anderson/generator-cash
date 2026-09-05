@@ -3,22 +3,23 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  Archive,
   ArrowLeft,
   ArrowRight,
   Check,
   Download,
-
   Layers3,
   Image as ImageIcon,
   Video,
   Plus,
   ImagePlus,
+  Smartphone,
   Sparkles,
   X,
-
   AlertCircle,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { RubricOverflow } from "@/components/rubric-manage";
 import {
   FORMAT_LABELS,
   FORMAT_SIZES,
@@ -30,6 +31,8 @@ import {
 } from "@/lib/types";
 import { applySlideTexts, generateVariants } from "@/lib/generate";
 import { reelCoverToPngBlob, slideToSvg, svgToPngBlob } from "@/lib/render";
+import { scenarioLabel } from "@/lib/ai-types";
+import { CarouselSlideFace } from "@/components/carousel-slide";
 import { ReelCover } from "@/components/reel-cover";
 
 type Step = "format" | "rubric" | "topic" | "text" | "variants" | "editor";
@@ -78,7 +81,7 @@ export function CreateFlow() {
   const [generating, setGenerating] = useState(false);
   const [expanding, setExpanding] = useState(false);
   const [drafting, setDrafting] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<"zip" | "phone" | "png" | null>(null);
   const [error, setError] = useState("");
 
   const rubric = store.rubrics.find((r) => r.id === rubricId);
@@ -94,6 +97,13 @@ export function CreateFlow() {
       setInspirationUrl(rubric.inspirationUrl || "");
     }
   }, [rubric, loadRubricDefaults]);
+
+  useEffect(() => {
+    if (rubricId && !store.rubrics.some((item) => item.id === rubricId)) {
+      setRubricId(null);
+      setStep((current) => (current === "format" ? current : "rubric"));
+    }
+  }, [store.rubrics, rubricId]);
 
   function selectFormat(f: CreativeFormat) {
     setFormat(f);
@@ -287,18 +297,30 @@ export function CreateFlow() {
     await store.addWork(work);
   }
 
-  async function handleExport() {
+  async function handleExport(mode: "zip" | "phone" | "png" = "png") {
     if (!work) return;
-    setExporting(true);
+    setExporting(mode);
     try {
       await handleSave();
 
       if (work.format === "carousel") {
-        for (let i = 0; i < work.slides.length; i += 1) {
-          const png = await svgToPngBlob(slideToSvg(work, i));
-          downloadBlob(png, `slide-${String(i + 1).padStart(2, "0")}.png`);
-          if (i < work.slides.length - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 700));
+        const files = await Promise.all(
+          work.slides.map(async (_, i) => ({
+            name: `slide-${String(i + 1).padStart(2, "0")}.png`,
+            blob: await svgToPngBlob(slideToSvg(work, i)),
+          })),
+        );
+        if (mode === "zip") {
+          const JSZip = (await import("jszip")).default;
+          const zip = new JSZip();
+          for (const file of files) zip.file(file.name, file.blob);
+          downloadBlob(await zip.generateAsync({ type: "blob" }), "carousel.zip");
+        } else {
+          for (const [i, file] of files.entries()) {
+            downloadBlob(file.blob, file.name);
+            if (i < files.length - 1) {
+              await new Promise((resolve) => setTimeout(resolve, 700));
+            }
           }
         }
       } else if (work.format === "reel") {
@@ -308,14 +330,12 @@ export function CreateFlow() {
         if (!response.ok) throw new Error("export");
         downloadBlob(await response.blob(), `${work.format}.png`);
       } else {
-        const svg = slideToSvg(work, 0);
-        const png = await svgToPngBlob(svg);
-        downloadBlob(png, `${work.format}.png`);
+        downloadBlob(await svgToPngBlob(slideToSvg(work, 0)), `${work.format}.png`);
       }
     } catch {
       setError("Ошибка при экспорте. Попробуйте ещё раз.");
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   }
 
@@ -368,18 +388,21 @@ export function CreateFlow() {
           </div>
           <div className="rubric-list">
             {store.rubrics.map((r) => (
-              <button key={r.id} className="rubric-option" onClick={() => selectRubric(r.id)}>
-                <div className="rubric-option-colors">
-                  {(r.colors || ["#ddd"]).slice(0, 3).map((c, i) => (
-                    <span key={i} style={{ background: c }} />
-                  ))}
-                </div>
-                <div>
-                  <b>{r.name}</b>
-                  {r.templates?.[format!] && <small className="has-template">Есть шаблон</small>}
-                </div>
-                <ArrowRight size={16} />
-              </button>
+              <div className="rubric-option-wrap" key={r.id}>
+                <button type="button" className="rubric-option" onClick={() => selectRubric(r.id)}>
+                  <div className="rubric-option-colors">
+                    {(r.colors || ["#ddd"]).slice(0, 3).map((c, i) => (
+                      <span key={i} style={{ background: c }} />
+                    ))}
+                  </div>
+                  <div>
+                    <b>{r.name}</b>
+                    {r.templates?.[format!] && <small className="has-template">Есть шаблон</small>}
+                  </div>
+                  <ArrowRight size={16} />
+                </button>
+                <RubricOverflow rubric={r} variant="inline" />
+              </div>
             ))}
             {!showNewRubric ? (
               <button className="rubric-option rubric-new" onClick={() => setShowNewRubric(true)}>
@@ -617,7 +640,7 @@ export function CreateFlow() {
                 ? "Какая картинка ближе?"
                 : format === "reel"
                   ? "Какая обложка ближе?"
-                  : "Какой сценарий ближе?"}
+                  : "Какой заход ближе?"}
             </h1>
             <p>
               {format === "carousel"
@@ -634,7 +657,10 @@ export function CreateFlow() {
                 className={`variant-card ${selectedId === v.id ? "selected" : ""}`}
                 onClick={() => !expanding && setSelectedId(v.id)}
               >
-                <div className={`variant-preview format-${v.format}`} style={{ background: v.background, color: v.foreground }}>
+                <div
+                  className={`variant-preview format-${v.format}${v.format === "carousel" ? " variant-preview-slide" : ""}`}
+                  style={{ background: v.background, color: v.foreground }}
+                >
                   {v.format === "reel" && v.slides[0]?.imageUrl ? (
                     <ReelCover
                       imageUrl={v.slides[0].imageUrl}
@@ -646,10 +672,11 @@ export function CreateFlow() {
                     />
                   ) : v.slides[0]?.imageUrl ? (
                     <img src={v.slides[0].imageUrl} alt="" className="variant-photo" />
+                  ) : v.format === "carousel" ? (
+                    <CarouselSlideFace work={v} slideIndex={0} />
                   ) : (
                     <>
                       <span className="variant-accent" style={{ background: v.accent }} />
-                      <span className="variant-eyebrow" style={{ background: v.accent }}>{v.eyebrow}</span>
                       <strong>{v.slides[0]?.text || v.topic}</strong>
                     </>
                   )}
@@ -657,9 +684,8 @@ export function CreateFlow() {
                   {selectedId === v.id && <span className="variant-check"><Check size={14} /></span>}
                 </div>
                 <div className="variant-label">
-                  <b>{v.eyebrow}</b>
+                  <b>{format === "carousel" ? scenarioLabel(v.eyebrow) : v.eyebrow}</b>
                   {format === "reel" && <small>{v.slides[0]?.text}</small>}
-                  {format === "carousel" && <small>{v.layout}</small>}
                 </div>
               </button>
             ))}
@@ -846,9 +872,32 @@ export function CreateFlow() {
               <span className="editor-format-label">{FORMAT_LABELS[work.format]} · {FORMAT_SIZES[work.format].label}</span>
               <div className="editor-toolbar-actions">
                 <button className="btn-secondary btn-sm" onClick={copyCaption}>Скопировать подпись</button>
-                <button className="btn-primary btn-sm" onClick={handleExport} disabled={exporting}>
-                  <Download size={14} /> {exporting ? "Сохраняю…" : work.format === "carousel" ? "Скачать на телефон" : "Скачать PNG"}
-                </button>
+                {work.format === "carousel" ? (
+                  <div className="export-pair">
+                    <button
+                      className="export-icon-btn"
+                      onClick={() => void handleExport("zip")}
+                      disabled={Boolean(exporting)}
+                      title="Скачать архив"
+                    >
+                      <Archive size={16} />
+                      <small>{exporting === "zip" ? "…" : "Архив"}</small>
+                    </button>
+                    <button
+                      className="export-icon-btn primary"
+                      onClick={() => void handleExport("phone")}
+                      disabled={Boolean(exporting)}
+                      title="Скачать на телефон"
+                    >
+                      <Smartphone size={16} />
+                      <small>{exporting === "phone" ? "…" : "Телефон"}</small>
+                    </button>
+                  </div>
+                ) : (
+                  <button className="btn-primary btn-sm" onClick={() => void handleExport("png")} disabled={Boolean(exporting)}>
+                    <Download size={14} /> {exporting ? "Сохраняю…" : "Скачать PNG"}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -875,14 +924,14 @@ export function CreateFlow() {
 
             {work.format === "carousel" && (
               <div className="editor-slide-strip">
-                {work.slides.map((slide, i) => (
+                {work.slides.map((_, i) => (
                   <button
                     key={i}
                     className={`strip-thumb ${activeSlide === i ? "active" : ""}`}
                     onClick={() => setActiveSlide(i)}
                   >
-                    <div className="strip-thumb-inner" style={{ background: work.background, color: work.foreground }}>
-                      <span>{slide.text.slice(0, 20) || `${i + 1}`}</span>
+                    <div className="strip-thumb-inner">
+                      <CarouselSlideFace work={work} slideIndex={i} compact />
                     </div>
                     <small>{i + 1}</small>
                   </button>
@@ -923,19 +972,5 @@ function SlidePreview({ work, slideIndex }: { work: CreativeWork; slideIndex: nu
     );
   }
 
-  return (
-    <div className="slide-preview" style={{ background: work.background, color: slide.textColor || work.foreground }}>
-      <div className="slide-accent-circle" style={{ background: work.accent }} />
-      <span className="slide-eyebrow" style={{ background: work.accent }}>
-        {work.eyebrow}
-      </span>
-      <strong className="slide-headline" style={{ fontSize: `${slide.fontSize * 0.6}px` }}>
-        {slide.text || "..."}
-      </strong>
-      <div className="slide-footer">
-        <span>{work.brandLabel}</span>
-        <span>{slideIndex + 1}</span>
-      </div>
-    </div>
-  );
+  return <CarouselSlideFace work={work} slideIndex={slideIndex} />;
 }

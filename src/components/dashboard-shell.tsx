@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Home, PlusCircle, Archive, User, Sparkles, LogOut, Shield } from "lucide-react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
+import { RubricManageProvider } from "@/components/rubric-manage";
 import { ProfilePopup } from "./profile-popup";
 
 const tabs = [
@@ -43,7 +44,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const used = total - remaining;
 
   return (
-    <div className="dash-shell">
+    <RubricManageProvider>
+      <div className="dash-shell">
       <aside className="dash-sidebar">
         <Link href="/dashboard" className="dash-logo">
           <span><Sparkles size={16} /></span>
@@ -116,6 +118,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           }}
         />
       )}
-    </div>
+      </div>
+    </RubricManageProvider>
   );
 }

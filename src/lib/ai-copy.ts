@@ -3,10 +3,10 @@ import { POST_SCENARIO_SPECS, REEL_SCENARIO_SPECS, SCENARIO_SPECS, scenarioSpecs
 import type { CreativeFormat } from "./types";
 
 export type { ComposedCopy, ComposedScenario } from "./ai-types";
-export { POST_SCENARIO_SPECS, REEL_SCENARIO_SPECS, SCENARIO_SPECS, scenarioSpecsFor } from "./ai-types";
+export { POST_SCENARIO_SPECS, REEL_SCENARIO_SPECS, SCENARIO_SPECS, scenarioLabel, scenarioSpecsFor } from "./ai-types";
 
 const SYSTEM = `Ты копирайтер Instagram-студии postvmeste.ru. Пишешь по-русски для экспертов: ясно, конкретно, без воды, без канцелярита, без markdown и без кавычек-ёлочек вокруг всего текста.
-Короткий слайд читают за 2 секунды. Не используй эмодзи, кроме одного в CTA, если уместно.
+Короткий слайд читают за 2 секунды. Без эмодзи на слайдах. Слова «крючок», «разбор», «сценарий», «CTA» в текст слайдов не пиши — это внутренняя кухня.
 Отвечай только JSON.`;
 
 export async function draftExpertText(input: {
@@ -107,8 +107,9 @@ export async function composeVariantPreviews(input: {
       `Ниша: ${input.niche || "экспертный контент"}`,
       `Тон: ${input.tone || "спокойный и уверенный"}`,
       excerpt ? `Опора (не пересказывать целиком):\n${excerpt}` : "",
-      "Нужны только 3 коротких крючка, по одному на сценарий. Каждый до 70 символов.",
-      ...SCENARIO_SPECS.map((spec) => `- ${spec.name}`),
+      "Нужны только 3 коротких крючка, по одному на заход. Каждый до 70 символов.",
+      "Служебные имена в JSON оставь как есть. В текст крючка их не пиши.",
+      ...SCENARIO_SPECS.map((spec) => `- ${spec.name} (${spec.label})`),
       'JSON: { "scenarios": [{ "name": "...", "slides": ["крючок"] }] }',
     ].filter(Boolean).join("\n"),
     timeoutMs: 180_000,
@@ -168,10 +169,12 @@ export async function expandCarouselSlides(input: {
       `Тема: ${input.topic}`,
       `Ниша: ${input.niche || "экспертный контент"}`,
       `Тон: ${input.tone || "спокойный и уверенный"}`,
-      `Сценарий: ${spec.name}. ${spec.hint}`,
+      `Заход: ${spec.label}. ${spec.hint}`,
       `Первый слайд: ${input.firstSlide}`,
       source ? `Исходный текст:\n${source}` : "",
-      "Слайды 2–6 — разбор по одной мысли, до 90 символов. Слайд 7 — CTA без ссылки.",
+      "Слайды 2–6 — не пять афоризмов на одну мысль. У каждого слайда свой ход, до 90 символов.",
+      "Не повторяй формулировку первого слайда. Без эмодзи. Без слов «крючок», «разбор», «сценарий», «CTA».",
+      "Слайд 7 — призыв сохранить или написать один конкретный ответ. Без эмодзи, без ссылки.",
       "Плюс подпись к публикации: 4–7 коротких предложений. Первая строка перекликается с хуком первого слайда.",
       "Ёмко раскрыть мысль карусели, без лонгрида, без markdown, без списка хештегов внутри caption.",
       "10–15 хештегов отдельно.",
@@ -288,7 +291,7 @@ function normalizeSlides(
   const fallback = [topic, ...sentences, "Сохраните, чтобы не потерять →"];
   const slides = [...cleaned];
   while (slides.length < count) {
-    slides.push(fallback[slides.length] || scenarioNameValue);
+    slides.push(fallback[slides.length] || "Сохраните, чтобы не потерять");
   }
   return slides.slice(0, count).map((item) => item.slice(0, 180));
 }
@@ -308,9 +311,17 @@ export function normalizeExpandedSlides(
   text: string,
   scenarioNameValue: string,
 ): string[] {
-  const slides = normalizeSlides({ slides: raw }, 7, topic, text, scenarioNameValue);
-  slides[0] = firstSlide.replace(/\s+/g, " ").trim().slice(0, 180) || slides[0];
+  const slides = normalizeSlides({ slides: raw }, 7, topic, text, scenarioNameValue)
+    .map((item) => stripSlideDecor(item));
+  slides[0] = stripSlideDecor(firstSlide.replace(/\s+/g, " ").trim().slice(0, 180) || slides[0]);
   return slides;
+}
+
+export function stripSlideDecor(value: string) {
+  return value
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function pickText(payload: Record<string, unknown>) {

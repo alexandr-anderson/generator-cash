@@ -49,7 +49,11 @@ export function ArchivePage() {
                   <small>{new Date(item.createdAt).toLocaleDateString("ru-RU")}</small>
                   <div className="archive-actions">
                     <Link
-                      href={`/dashboard/create?rubric=${item.rubricId}&topic=${encodeURIComponent(item.topic)}`}
+                      href={
+                        item.rubricId
+                          ? `/dashboard/create?rubric=${item.rubricId}&topic=${encodeURIComponent(item.topic)}`
+                          : `/dashboard/create?topic=${encodeURIComponent(item.topic)}`
+                      }
                       className="btn-secondary btn-xs"
                     >
                       <RefreshCw size={12} /> Создать похожую

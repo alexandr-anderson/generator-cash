@@ -11,6 +11,7 @@ import type {
   UserProfile,
 } from "./types";
 import type { ComposedCopy } from "./ai-types";
+import { DETACHED_RUBRIC_LABEL } from "./rubric-copy";
 
 type StudioPayload = {
   user: UserProfile | null;
@@ -193,6 +194,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState((current) => ({
       ...current,
       rubrics: current.rubrics.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+      archive:
+        typeof updates.name === "string"
+          ? current.archive.map((item) => (item.rubricId === id ? { ...item, rubricName: updates.name as string } : item))
+          : current.archive,
     }));
   }, []);
 
@@ -226,7 +231,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       workId: created.id,
       format: created.format,
       rubricId: created.rubricId,
-      rubricName: state.rubrics.find((item) => item.id === created.rubricId)?.name || "",
+      rubricName: state.rubrics.find((item) => item.id === created.rubricId)?.name || DETACHED_RUBRIC_LABEL,
       topic: created.topic,
       previewSlide: created.slides[0],
       background: created.background,

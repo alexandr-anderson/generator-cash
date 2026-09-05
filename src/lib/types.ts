@@ -84,7 +84,7 @@ export type SlideContent = {
 export type CreativeWork = {
   id: string;
   format: CreativeFormat;
-  rubricId: string;
+  rubricId: string | null;
   topic: string;
   slides: SlideContent[];
   caption: string;
@@ -103,7 +103,7 @@ export type ArchiveItem = {
   id: string;
   workId: string;
   format: CreativeFormat;
-  rubricId: string;
+  rubricId: string | null;
   rubricName: string;
   topic: string;
   previewSlide: SlideContent;

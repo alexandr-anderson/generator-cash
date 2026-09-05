@@ -4,9 +4,11 @@ import { useState } from "react";
 import { Check, Pencil, Trash2, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { NICHES, TONES, SUBSCRIPTION_TIERS, FORMAT_LABELS } from "@/lib/types";
+import { useRubricManage } from "@/components/rubric-manage";
 
 export function ProfilePage() {
   const store = useStore();
+  const { openDelete } = useRubricManage();
   const [editingRubric, setEditingRubric] = useState<string | null>(null);
   const [rubricName, setRubricName] = useState("");
   const [audience, setAudience] = useState(store.user?.audience || "");
@@ -146,8 +148,8 @@ export function ProfilePage() {
                       )}
                     </div>
                     <div className="rubric-manage-actions">
-                      <button onClick={() => startEditRubric(r.id)}><Pencil size={14} /></button>
-                      <button onClick={() => void store.deleteRubric(r.id)}><Trash2 size={14} /></button>
+                      <button type="button" onClick={() => startEditRubric(r.id)}><Pencil size={14} /></button>
+                      <button type="button" onClick={() => openDelete(r)}><Trash2 size={14} /></button>
                     </div>
                   </>
                 )}

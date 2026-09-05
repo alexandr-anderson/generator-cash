@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composePostFromAuthorText, composeReelFromHooks, normalizeCarouselCaption, normalizeComposedCopy, normalizeExpandedSlides, normalizeHashtags, normalizeReelHooks } from "./ai-copy";
+import { composePostFromAuthorText, composeReelFromHooks, normalizeCarouselCaption, normalizeComposedCopy, normalizeExpandedSlides, normalizeHashtags, normalizeReelHooks, stripSlideDecor } from "./ai-copy";
 
 describe("normalizeHashtags", () => {
   it("adds hash, drops empties, caps at 15", () => {
@@ -46,6 +46,18 @@ describe("normalizeComposedCopy", () => {
     );
     expect(slides).toHaveLength(7);
     expect(slides[0]).toBe("Охваты не равны доверию");
+  });
+
+  it("strips emoji from expanded slides", () => {
+    const slides = normalizeExpandedSlides(
+      ["Хук", "Разбор 1", "Разбор 2", "Разбор 3", "Разбор 4", "Разбор 5", "Сохраните 💬"],
+      "Хук",
+      "Тема",
+      "",
+      "Крючок → Разбор → CTA",
+    );
+    expect(slides[6]).toBe("Сохраните");
+    expect(stripSlideDecor("Напишите: что меняете? 💬")).toBe("Напишите: что меняете?");
   });
 
   it("keeps a dense carousel caption and falls back to the hook", () => {
