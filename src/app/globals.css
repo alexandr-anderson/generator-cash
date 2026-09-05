@@ -451,6 +451,22 @@ input:disabled { background: #f5f4f0; color: var(--muted); }
 .new-rubric-form { display: flex; gap: 8px; align-items: center; }
 .new-rubric-form input { flex: 1; }
 
+.format-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.format-chip {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 6px;
+  padding: 8px 12px;
+}
+.format-chip:hover { border-color: var(--accent); }
+.format-chip.active { background: var(--soft-accent); border-color: var(--accent); }
+
 .topic-input { font-size: 18px; font-weight: 600; padding: 14px; }
 
 .color-picker-row { display: flex; gap: 10px; }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -39,17 +39,25 @@ const FORMAT_OPTIONS: { id: CreativeFormat; icon: typeof Layers3; color: string;
   { id: "reel", icon: Video, color: "#8b5cf6", bg: "#f0e8ff" },
 ];
 
+function parseFormat(value: string | null): CreativeFormat | null {
+  if (value === "carousel" || value === "post" || value === "reel") return value;
+  return null;
+}
+
 export function CreateFlow() {
   const store = useStore();
   const router = useRouter();
   const params = useSearchParams();
 
-  const [step, setStep] = useState<Step>(params.get("rubric") ? "topic" : "format");
-  const [format, setFormat] = useState<CreativeFormat | null>(null);
+  const [format, setFormat] = useState<CreativeFormat | null>(() => parseFormat(params.get("format")));
   const [rubricId, setRubricId] = useState<string | null>(params.get("rubric") || null);
+  const [step, setStep] = useState<Step>(() => {
+    if (params.get("rubric") && parseFormat(params.get("format"))) return "topic";
+    return "format";
+  });
   const [newRubricName, setNewRubricName] = useState("");
   const [showNewRubric, setShowNewRubric] = useState(false);
-  const [topic, setTopic] = useState("");
+  const [topic, setTopic] = useState(params.get("topic") || "");
   const [userText, setUserText] = useState("");
   const [colors, setColors] = useState<string[]>(["#ff5c35", "#ffc857", "#f6f1e9", "#191817"]);
   const [variants, setVariants] = useState<CreativeWork[]>([]);
@@ -70,9 +78,14 @@ export function CreateFlow() {
 
   }, []);
 
+  useEffect(() => {
+    if (rubric) loadRubricDefaults(rubric);
+  }, [rubric, loadRubricDefaults]);
+
   function selectFormat(f: CreativeFormat) {
     setFormat(f);
-    setStep("rubric");
+    setError("");
+    setStep(rubricId ? "topic" : "rubric");
   }
 
   function selectRubric(id: string) {
@@ -108,7 +121,11 @@ export function CreateFlow() {
 
   async function handleGenerate() {
     if (!topic.trim()) { setError("Введите тему"); return; }
-    if (!format) { setError("Выберите формат"); return; }
+    if (!format) {
+      setError("Выберите формат — карусель, пост или обложку");
+      setStep("format");
+      return;
+    }
 
     const remainingNow = store.getGenerationsRemaining();
     if (remainingNow <= 0) {
@@ -312,6 +329,23 @@ export function CreateFlow() {
           <div className="flow-heading">
             <h1>Тема и текст</h1>
             <p>Введите тему, выберите цвета и подготовьте текст</p>
+          </div>
+
+          <div className="field">
+            <label>Формат</label>
+            <div className="format-chip-row">
+              {FORMAT_OPTIONS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`format-chip ${format === item.id ? "active" : ""}`}
+                  onClick={() => setFormat(item.id)}
+                >
+                  <item.icon size={14} color={item.color} />
+                  {FORMAT_LABELS[item.id]}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="field">
