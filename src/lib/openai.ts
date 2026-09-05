@@ -197,8 +197,11 @@ export async function openaiImagePng(args: {
     if (!response.ok) {
       const body = await response.text();
       console.error("[ai-image] error", openaiHost(), response.status, body.slice(0, 400));
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 401) {
         throw new AiError("Ключ модели отклонён. Проверьте OPENAI_API_KEY.", 502);
+      }
+      if (response.status === 403 || /model-not-allowed|not allowed to use the requested model/i.test(body)) {
+        throw new AiError("Ключ не умеет эту модель картинок. Нужно имя модели с картинками в OPENAI_IMAGE_MODEL.", 502);
       }
       if (response.status === 404) {
         throw new AiError("Шлюз не умеет картинки. Задайте OPENAI_IMAGE_MODEL.", 502);
