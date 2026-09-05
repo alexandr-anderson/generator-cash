@@ -17,7 +17,7 @@ export function HomePage() {
   if (!store.user) return null;
 
   const remaining = store.getGenerationsRemaining();
-  const total = store.subscription.initialFreeRemaining > 0 ? 5 : store.subscription.generationsPerWeek;
+  const total = store.total;
 
   return (
     <div className="home-page">

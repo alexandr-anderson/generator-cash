@@ -3,6 +3,8 @@ import { prisma } from "./db";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+export const FREE_STARTER_GENERATIONS = 5;
+
 export function remainingFromUsage(usage: UsageState | null | undefined) {
   if (!usage) return 0;
   if (usage.initialFreeRemaining > 0) return usage.initialFreeRemaining;
@@ -11,9 +13,18 @@ export function remainingFromUsage(usage: UsageState | null | undefined) {
   return Math.max(0, usage.generationsPerWeek - usage.generationsUsed);
 }
 
+export function weeklyRemainingFromUsage(usage: UsageState | null | undefined) {
+  if (!usage) return 0;
+  const elapsed = Date.now() - usage.weekStartedAt.getTime();
+  if (elapsed >= WEEK_MS) return usage.generationsPerWeek;
+  return Math.max(0, usage.generationsPerWeek - usage.generationsUsed);
+}
+
 export function totalFromUsage(usage: UsageState | null | undefined) {
   if (!usage) return 0;
-  if (usage.initialFreeRemaining > 0) return 5;
+  if (usage.initialFreeRemaining > 0) {
+    return Math.max(FREE_STARTER_GENERATIONS, usage.initialFreeRemaining);
+  }
   return usage.generationsPerWeek;
 }
 

@@ -95,7 +95,9 @@ function applyStudio(
   payload: Partial<StudioPayload> | null,
 ): Pick<StudioPayload, "user" | "subscription" | "remaining" | "total" | "rubrics" | "archive" | "works"> {
   return {
-    user: payload?.user ?? null,
+    user: payload?.user
+      ? { ...payload.user, role: payload.user.role === "admin" ? "admin" : "user" }
+      : null,
     subscription: payload?.subscription ?? emptySubscription,
     remaining: payload?.remaining ?? 0,
     total: payload?.total ?? 0,

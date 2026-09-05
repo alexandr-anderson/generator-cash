@@ -33,6 +33,7 @@ export function toUserProfile(user: User, logoId?: string | null): UserProfile {
     logoUrl: logoId ? filePublicPath(logoId) : user.logoFileId ? filePublicPath(user.logoFileId) : undefined,
     profileCompleted: user.profileCompleted,
     profilePopupShown: user.profilePopupShown,
+    role: user.role === "admin" ? "admin" : "user",
   };
 }
 

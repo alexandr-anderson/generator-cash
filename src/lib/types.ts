@@ -8,6 +8,8 @@ export type NicheOption = {
   suggestedRubrics: string[];
 };
 
+export type UserRole = "user" | "admin";
+
 export type UserProfile = {
   id: string;
   email: string;
@@ -18,6 +20,28 @@ export type UserProfile = {
   logoUrl?: string;
   profileCompleted: boolean;
   profilePopupShown: boolean;
+  role: UserRole;
+};
+
+export type AdminUserFilter = "all" | "paid" | "free" | "banned";
+
+export type AdminUserPatch = {
+  initialFreeRemaining?: number;
+  tier?: Subscription["tier"];
+  banned?: boolean;
+};
+
+export type AdminUserRow = {
+  id: string;
+  email: string;
+  niche: string;
+  role: UserRole;
+  emailVerifiedAt: number | null;
+  createdAt: number;
+  bannedAt: number | null;
+  subscription: Subscription;
+  remaining: number;
+  weeklyRemaining: number;
 };
 
 export type Subscription = {

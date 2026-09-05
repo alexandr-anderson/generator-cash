@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Home, PlusCircle, Archive, User, Sparkles, LogOut } from "lucide-react";
+import { Home, PlusCircle, Archive, User, Sparkles, LogOut, Shield } from "lucide-react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { ProfilePopup } from "./profile-popup";
@@ -39,9 +39,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (!store.user) return null;
 
   const remaining = store.getGenerationsRemaining();
-  const total = store.subscription.initialFreeRemaining > 0
-    ? 5
-    : store.subscription.generationsPerWeek;
+  const total = store.total;
   const used = total - remaining;
 
   return (
@@ -62,6 +60,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          {store.user.role === "admin" && (
+            <Link href="/admin" className="dash-nav-item">
+              <Shield size={18} />Админка
+            </Link>
+          )}
         </nav>
         <div className="dash-sidebar-bottom">
           <div className="gen-card">
@@ -97,6 +100,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </Link>
           );
         })}
+        {store.user.role === "admin" && (
+          <Link href="/admin" className="tabbar-item">
+            <Shield size={20} />
+            <span>Админ</span>
+          </Link>
+        )}
       </nav>
 
       {showPopup && (

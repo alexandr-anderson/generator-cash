@@ -1,4 +1,5 @@
 import { createSession, verifyPassword } from "@/lib/auth";
+import { isAdminEmail } from "@/lib/admin";
 import { prisma } from "@/lib/db";
 import { json } from "@/lib/http";
 import { loadStudio } from "@/lib/studio";
@@ -12,11 +13,17 @@ export async function POST(request: Request) {
   if (!user) return json({ error: "Неверная почта или пароль" }, 401);
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) return json({ error: "Неверная почта или пароль" }, 401);
+  if (user.bannedAt) {
+    return json({ error: "Аккаунт заблокирован" }, 403);
+  }
   if (!user.emailVerifiedAt) {
     return json({ error: "Сначала подтвердите почту — мы отправили письмо", needsVerification: true }, 403);
   }
 
   await createSession(user.id);
+  if (user.role !== "admin" && isAdminEmail(user.email)) {
+    await prisma.user.update({ where: { id: user.id }, data: { role: "admin" } });
+  }
   const studio = await loadStudio(user.id);
   return json({ ok: true, ...studio });
 }

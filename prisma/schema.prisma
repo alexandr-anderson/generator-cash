@@ -7,6 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  user
+  admin
+}
+
 enum SubscriptionTier {
   free
   starter
@@ -39,8 +44,13 @@ model User {
   logoFileId         String?
   profileCompleted   Boolean   @default(false)
   profilePopupShown  Boolean   @default(false)
+  role               UserRole  @default(user)
+  bannedAt           DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+
+  @@index([createdAt])
+  @@index([role])
 
   sessions           Session[]
   emailTokens        EmailToken[]

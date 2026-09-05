@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
+import { isAdminEmail } from "./admin";
 import { prisma } from "./db";
 
 const SESSION_COOKIE = "pv_session";
@@ -73,6 +74,19 @@ export async function getSessionUser() {
     await prisma.session.deleteMany({ where: { userId: session.userId } }).catch(() => undefined);
     jar.delete(SESSION_COOKIE);
     return null;
+  }
+  if (session.user.bannedAt) {
+    await prisma.session.deleteMany({ where: { userId: session.userId } }).catch(() => undefined);
+    jar.delete(SESSION_COOKIE);
+    return null;
+  }
+  if (session.user.role !== "admin" && isAdminEmail(session.user.email)) {
+    const updated = await prisma.user.update({
+      where: { id: session.user.id },
+      data: { role: "admin" },
+      include: { usage: true },
+    });
+    return updated;
   }
   return session.user;
 }

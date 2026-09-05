@@ -17,6 +17,7 @@ export const DEMO_USER: UserProfile = {
   colors: ["#ff5c35", "#ffc857", "#f6f1e9", "#191817"],
   profileCompleted: true,
   profilePopupShown: true,
+  role: "user",
 };
 
 export const DEMO_SUBSCRIPTION: Subscription = {
