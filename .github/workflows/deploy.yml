@@ -71,20 +71,31 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
           OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          OPENAI_IMAGE_API_KEY: ${{ secrets.OPENAI_IMAGE_API_KEY }}
+          OPENAI_IMAGE_BASE_URL: ${{ secrets.OPENAI_IMAGE_BASE_URL }}
           OPENAI_IMAGE_MODEL: ${{ secrets.OPENAI_IMAGE_MODEL }}
         run: |
           SSH_PORT="${SSH_PORT:-22}"
-          if [ -z "${OPENAI_API_KEY}" ]; then
-            echo "OPENAI_API_KEY secret not set, skipping"
+          if [ -z "${OPENAI_API_KEY}" ] && [ -z "${OPENAI_IMAGE_API_KEY}" ]; then
+            echo "OpenAI secrets not set, skipping"
             exit 0
           fi
           umask 077
-          {
-            printf 'OPENAI_BASE_URL=%s\n' "${OPENAI_BASE_URL:-https://codex-free.com/v1}"
-            printf 'OPENAI_API_KEY=%s\n' "${OPENAI_API_KEY}"
-            printf 'OPENAI_MODEL=%s\n' "${OPENAI_MODEL:-gpt-5.5}"
-            printf 'OPENAI_IMAGE_MODEL=%s\n' "${OPENAI_IMAGE_MODEL:-dall-e-3}"
-          } > openai-incoming
+          : > openai-incoming
+          if [ -n "${OPENAI_API_KEY}" ]; then
+            {
+              printf 'OPENAI_BASE_URL=%s\n' "${OPENAI_BASE_URL:-https://codex-free.com/v1}"
+              printf 'OPENAI_API_KEY=%s\n' "${OPENAI_API_KEY}"
+              printf 'OPENAI_MODEL=%s\n' "${OPENAI_MODEL:-gpt-5.5}"
+            } >> openai-incoming
+          fi
+          if [ -n "${OPENAI_IMAGE_API_KEY}" ]; then
+            {
+              printf 'OPENAI_IMAGE_BASE_URL=%s\n' "${OPENAI_IMAGE_BASE_URL}"
+              printf 'OPENAI_IMAGE_API_KEY=%s\n' "${OPENAI_IMAGE_API_KEY}"
+              printf 'OPENAI_IMAGE_MODEL=%s\n' "${OPENAI_IMAGE_MODEL:-gpt-image-2}"
+            } >> openai-incoming
+          fi
           scp -i ~/.ssh/deploy_key -P "${SSH_PORT}" -o BatchMode=yes -o ConnectTimeout=20 \
             openai-incoming "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/.openai-incoming"
           rm -f openai-incoming

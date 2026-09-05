@@ -21,7 +21,38 @@ export function openaiModel() {
 }
 
 export function openaiImageModel() {
-  return process.env.OPENAI_IMAGE_MODEL?.trim() || "dall-e-3";
+  return process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-2";
+}
+
+export function openaiImageKey() {
+  return process.env.OPENAI_IMAGE_API_KEY?.trim() || "";
+}
+
+export function openaiImageConfigured() {
+  return Boolean(openaiImageKey() && openaiImageGenerationsUrl());
+}
+
+export function resolveImageGenerationsUrl(raw: string) {
+  const cleaned = raw.trim().replace(/\/$/, "");
+  if (!cleaned) return "";
+  if (/\/images\/generations$/i.test(cleaned)) return cleaned;
+  if (/\/images$/i.test(cleaned)) return `${cleaned}/generations`;
+  if (/\/v1$/i.test(cleaned)) return `${cleaned}/images/generations`;
+  return `${cleaned}/v1/images/generations`;
+}
+
+export function openaiImageGenerationsUrl() {
+  return resolveImageGenerationsUrl(
+    process.env.OPENAI_IMAGE_BASE_URL || process.env.OPENAI_IMAGE_ENDPOINT || "",
+  );
+}
+
+export function openaiImageHost() {
+  try {
+    return openaiImageGenerationsUrl() ? new URL(openaiImageGenerationsUrl()).host : "";
+  } catch {
+    return "invalid";
+  }
 }
 
 export function openaiHost() {
@@ -171,40 +202,36 @@ export async function openaiImagePng(args: {
   size?: "1024x1024" | "1024x1792" | "1792x1024";
   timeoutMs?: number;
 }): Promise<Buffer> {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key) {
-    throw new AiError("Генерация картинок ещё не настроена. Задайте OPENAI_API_KEY.", 503);
+  const key = openaiImageKey();
+  const endpoint = openaiImageGenerationsUrl();
+  if (!key || !endpoint) {
+    throw new AiError("Генерация картинок ещё не настроена. Задайте OPENAI_IMAGE_API_KEY и OPENAI_IMAGE_BASE_URL.", 503);
   }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 180_000);
   const model = openaiImageModel();
-  const base = {
-    model,
-    prompt: args.prompt,
-    n: 1,
-    size: args.size || "1024x1024",
-  };
+  const bodies = imageRequestBodies(model, args.prompt, args.size || "1024x1024");
 
   try {
-    let response = await postImage({ ...base, response_format: "b64_json" }, key, controller.signal);
-    if (response.status === 400) {
+    let response = await postImage(bodies[0], key, endpoint, controller.signal);
+    if (response.status === 400 && bodies[1]) {
       const firstBody = await response.text();
-      console.error("[ai-image] 400, retry without response_format", openaiHost(), firstBody.slice(0, 400));
-      response = await postImage(base, key, controller.signal);
+      console.error("[ai-image] 400, retry alternate body", openaiImageHost(), firstBody.slice(0, 400));
+      response = await postImage(bodies[1], key, endpoint, controller.signal);
     }
 
     if (!response.ok) {
       const body = await response.text();
-      console.error("[ai-image] error", openaiHost(), response.status, body.slice(0, 400));
+      console.error("[ai-image] error", openaiImageHost(), model, response.status, body.slice(0, 400));
       if (response.status === 401) {
-        throw new AiError("Ключ модели отклонён. Проверьте OPENAI_API_KEY.", 502);
+        throw new AiError("Ключ картинок отклонён. Проверьте OPENAI_IMAGE_API_KEY.", 502);
       }
       if (response.status === 403 || /model-not-allowed|not allowed to use the requested model/i.test(body)) {
-        throw new AiError("Ключ не умеет эту модель картинок. Нужно имя модели с картинками в OPENAI_IMAGE_MODEL.", 502);
+        throw new AiError("Этот ключ не умеет выбранную модель картинок. Проверьте OPENAI_IMAGE_MODEL.", 502);
       }
       if (response.status === 404) {
-        throw new AiError("Шлюз не умеет картинки. Задайте OPENAI_IMAGE_MODEL.", 502);
+        throw new AiError("Endpoint картинок не найден. Проверьте OPENAI_IMAGE_BASE_URL.", 502);
       }
       if (response.status === 429) {
         throw new AiError("Модель временно недоступна. Попробуйте ещё раз через минуту.", 429);
@@ -226,7 +253,7 @@ export async function openaiImagePng(args: {
     if (error instanceof Error && error.name === "AbortError") {
       throw new AiError("Картинка не успела нарисоваться. Попробуйте ещё раз.", 504);
     }
-    console.error("[ai-image] request failed", openaiHost(), error);
+    console.error("[ai-image] request failed", openaiImageHost(), error);
     throw new AiError("Не удалось нарисовать картинку. Попробуйте ещё раз.", 502);
   } finally {
     clearTimeout(timer);
@@ -288,8 +315,22 @@ export async function openaiVisualBrief(args: {
   }
 }
 
-async function postImage(body: unknown, key: string, signal: AbortSignal) {
-  return fetch(`${openaiBaseUrl()}/images/generations`, {
+function imageRequestBodies(model: string, prompt: string, size: string) {
+  const quality = process.env.OPENAI_IMAGE_QUALITY?.trim() || "medium";
+  if (/^gpt-image/i.test(model)) {
+    return [
+      { model, prompt, n: 1, size, quality, output_format: "png" },
+      { model, prompt, n: 1, size },
+    ];
+  }
+  return [
+    { model, prompt, n: 1, size, response_format: "b64_json" },
+    { model, prompt, n: 1, size },
+  ];
+}
+
+async function postImage(body: unknown, key: string, endpoint: string, signal: AbortSignal) {
+  return fetch(endpoint, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,

@@ -20,6 +20,9 @@ export async function GET() {
     database,
     ai: env.openaiConfigured ? "ok" : "missing",
     aiHost: env.openaiHost,
+    image: env.openaiImageConfigured ? "ok" : "missing",
+    imageHost: env.openaiImageHost || null,
+    imageModel: env.openaiImageModel,
     appUrl: env.appUrl || null,
   });
 }

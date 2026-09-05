@@ -35,6 +35,9 @@ console.info(
   `db=${process.env.DATABASE_URL ? "set" : "MISSING_DATABASE_URL"}`,
   `ai=${process.env.OPENAI_API_KEY ? "ok" : "MISSING_OPENAI_API_KEY"}`,
   `aiHost=${(process.env.OPENAI_BASE_URL || "https://codex-free.com/v1").replace(/^https?:\/\//, "").replace(/\/.*$/, "")}`,
+  `image=${process.env.OPENAI_IMAGE_API_KEY ? "ok" : "MISSING_OPENAI_IMAGE_API_KEY"}`,
+  `imageHost=${(process.env.OPENAI_IMAGE_BASE_URL || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "") || "unset"}`,
+  `imageModel=${process.env.OPENAI_IMAGE_MODEL || "gpt-image-2"}`,
 );
 
 const appName = process.env.APP_NAME || "postvmeste";
@@ -77,7 +80,10 @@ module.exports = {
         OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
         OPENAI_BASE_URL: process.env.OPENAI_BASE_URL || "https://codex-free.com/v1",
         OPENAI_MODEL: process.env.OPENAI_MODEL || "gpt-5.5",
-        OPENAI_IMAGE_MODEL: process.env.OPENAI_IMAGE_MODEL || "dall-e-3",
+        OPENAI_IMAGE_BASE_URL: process.env.OPENAI_IMAGE_BASE_URL || "",
+        OPENAI_IMAGE_API_KEY: process.env.OPENAI_IMAGE_API_KEY || "",
+        OPENAI_IMAGE_MODEL: process.env.OPENAI_IMAGE_MODEL || "gpt-image-2",
+        OPENAI_IMAGE_QUALITY: process.env.OPENAI_IMAGE_QUALITY || "medium",
       },
     },
   ],
