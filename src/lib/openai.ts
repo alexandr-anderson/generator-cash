@@ -208,56 +208,82 @@ export async function openaiImagePng(args: {
     throw new AiError("Генерация картинок ещё не настроена. Задайте OPENAI_IMAGE_API_KEY и OPENAI_IMAGE_BASE_URL.", 503);
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 180_000);
   const model = openaiImageModel();
   const bodies = imageRequestBodies(model, args.prompt, args.size || "1024x1024");
+  const attempts = 3;
+  let lastError: unknown;
 
-  try {
-    let response = await postImage(bodies[0], key, endpoint, controller.signal);
-    if (response.status === 400 && bodies[1]) {
-      const firstBody = await response.text();
-      console.error("[ai-image] 400, retry alternate body", openaiImageHost(), firstBody.slice(0, 400));
-      response = await postImage(bodies[1], key, endpoint, controller.signal);
-    }
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 90_000);
+    try {
+      let response = await postImage(bodies[0], key, endpoint, controller.signal);
+      if (response.status === 400 && bodies[1]) {
+        const firstBody = await response.text();
+        console.error("[ai-image] 400, retry alternate body", openaiImageHost(), firstBody.slice(0, 400));
+        response = await postImage(bodies[1], key, endpoint, controller.signal);
+      }
 
-    if (!response.ok) {
-      const body = await response.text();
-      console.error("[ai-image] error", openaiImageHost(), model, response.status, body.slice(0, 400));
-      if (response.status === 401) {
-        throw new AiError("Ключ картинок отклонён. Проверьте OPENAI_IMAGE_API_KEY.", 502);
+      if (!response.ok) {
+        const body = await response.text();
+        console.error("[ai-image] error", openaiImageHost(), model, response.status, `attempt=${attempt}`, body.slice(0, 400));
+        if (response.status === 401) {
+          throw new AiError("Ключ картинок отклонён. Проверьте OPENAI_IMAGE_API_KEY.", 502);
+        }
+        if (response.status === 403 || /model-not-allowed|not allowed to use the requested model/i.test(body)) {
+          throw new AiError("Этот ключ не умеет выбранную модель картинок. Проверьте OPENAI_IMAGE_MODEL.", 502);
+        }
+        if (response.status === 404) {
+          throw new AiError("Endpoint картинок не найден. Проверьте OPENAI_IMAGE_BASE_URL.", 502);
+        }
+        if (response.status === 429) {
+          throw new AiError("Модель временно недоступна. Попробуйте ещё раз через минуту.", 429);
+        }
+        const retryable = response.status >= 500 || /stream_incomplete|оборвался/i.test(body);
+        if (retryable && attempt < attempts) {
+          await wait(1200 * attempt);
+          continue;
+        }
+        throw new AiError(
+          retryable
+            ? "Шлюз картинок оборвал ответ. Нажмите «Создать» ещё раз."
+            : "Не удалось нарисовать картинку. Попробуйте ещё раз.",
+          502,
+        );
       }
-      if (response.status === 403 || /model-not-allowed|not allowed to use the requested model/i.test(body)) {
-        throw new AiError("Этот ключ не умеет выбранную модель картинок. Проверьте OPENAI_IMAGE_MODEL.", 502);
+
+      const payload = (await response.json()) as Record<string, unknown>;
+      const png = await imagePayloadToPng(payload);
+      if (!png) {
+        throw new AiError("Модель вернула картинку в неожиданном формате. Попробуйте ещё раз.", 502);
       }
-      if (response.status === 404) {
-        throw new AiError("Endpoint картинок не найден. Проверьте OPENAI_IMAGE_BASE_URL.", 502);
+      return png;
+    } catch (error) {
+      if (error instanceof AiError) throw error;
+      lastError = error;
+      const aborted =
+        (error instanceof DOMException && error.name === "AbortError") ||
+        (error instanceof Error && error.name === "AbortError");
+      if (aborted && attempt < attempts) {
+        await wait(1200 * attempt);
+        continue;
       }
-      if (response.status === 429) {
-        throw new AiError("Модель временно недоступна. Попробуйте ещё раз через минуту.", 429);
+      if (aborted) {
+        throw new AiError("Картинка не успела нарисоваться. Попробуйте ещё раз.", 504);
       }
+      console.error("[ai-image] request failed", openaiImageHost(), error);
       throw new AiError("Не удалось нарисовать картинку. Попробуйте ещё раз.", 502);
+    } finally {
+      clearTimeout(timer);
     }
-
-    const payload = (await response.json()) as Record<string, unknown>;
-    const png = await imagePayloadToPng(payload);
-    if (!png) {
-      throw new AiError("Модель вернула картинку в неожиданном формате. Попробуйте ещё раз.", 502);
-    }
-    return png;
-  } catch (error) {
-    if (error instanceof AiError) throw error;
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw new AiError("Картинка не успела нарисоваться. Попробуйте ещё раз.", 504);
-    }
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new AiError("Картинка не успела нарисоваться. Попробуйте ещё раз.", 504);
-    }
-    console.error("[ai-image] request failed", openaiImageHost(), error);
-    throw new AiError("Не удалось нарисовать картинку. Попробуйте ещё раз.", 502);
-  } finally {
-    clearTimeout(timer);
   }
+
+  console.error("[ai-image] request failed", openaiImageHost(), lastError);
+  throw new AiError("Не удалось нарисовать картинку. Попробуйте ещё раз.", 502);
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function openaiVisualBrief(args: {

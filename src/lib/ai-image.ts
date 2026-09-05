@@ -23,22 +23,21 @@ export async function attachPostImages(input: {
     images: references,
   });
 
-  const pngs = await Promise.all(
-    POST_SCENARIO_SPECS.map((spec) =>
-      openaiImagePng({
-        prompt: buildPostImagePrompt({
-          topic: input.topic,
-          niche: input.niche,
-          tone: input.tone,
-          angle: spec.name,
-          hint: spec.hint,
-          colors: input.colors,
-          visualBrief,
-          textExcerpt: input.text.trim(),
-        }),
+  const pngs = [];
+  for (const spec of POST_SCENARIO_SPECS) {
+    pngs.push(await openaiImagePng({
+      prompt: buildPostImagePrompt({
+        topic: input.topic,
+        niche: input.niche,
+        tone: input.tone,
+        angle: spec.name,
+        hint: spec.hint,
+        colors: input.colors,
+        visualBrief,
+        textExcerpt: input.text.trim(),
       }),
-    ),
-  );
+    }));
+  }
 
   const saved = [];
   for (const png of pngs) {
