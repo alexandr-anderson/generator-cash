@@ -25,6 +25,9 @@ export async function attachPostImages(input: {
 
   const pngs = [];
   for (const spec of POST_SCENARIO_SPECS) {
+    if (pngs.length) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
     pngs.push(await openaiImagePng({
       prompt: buildPostImagePrompt({
         topic: input.topic,

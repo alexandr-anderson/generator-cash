@@ -342,10 +342,8 @@ export async function openaiVisualBrief(args: {
 }
 
 function imageRequestBodies(model: string, prompt: string, size: string) {
-  const quality = process.env.OPENAI_IMAGE_QUALITY?.trim() || "medium";
   if (/^gpt-image/i.test(model)) {
     return [
-      { model, prompt, n: 1, size, quality, output_format: "png" },
       { model, prompt, n: 1, size },
     ];
   }
