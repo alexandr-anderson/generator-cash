@@ -121,7 +121,7 @@ export async function composeVariantPreviews(input: {
       text: source,
       caption: defaultCaption(input.topic, source, input.format),
       hashtags: localHashtags(input.topic, input.niche),
-      reelScript: input.format === "reel" ? source : undefined,
+      reelScript: undefined,
     },
     {
       format: input.format,
