@@ -4,6 +4,7 @@ import { Plus, Sparkles, ChevronRight, Layers3, Image as ImageIcon, Video } from
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { FORMAT_LABELS } from "@/lib/types";
+import { WorkThumb } from "@/components/work-thumb";
 
 const formatIcons = {
   carousel: Layers3,
@@ -75,11 +76,12 @@ export function HomePage() {
               const Icon = formatIcons[item.format];
               return (
                 <div className="work-card" key={item.id}>
-                  <div className="work-preview" style={{ background: item.background }}>
-                    <span style={{ color: item.previewSlide?.textColor || "#fff" }}>
-                      {item.previewSlide?.text?.slice(0, 40) || item.topic}
-                    </span>
-                  </div>
+                  <WorkThumb
+                    className="work-preview"
+                    slide={item.previewSlide}
+                    topic={item.topic}
+                    background={item.background}
+                  />
                   <div className="work-info">
                     <div className="work-meta">
                       <Icon size={14} />

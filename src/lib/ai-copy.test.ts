@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeComposedCopy, normalizeExpandedSlides, normalizeHashtags } from "./ai-copy";
+import { composePostFromAuthorText, normalizeComposedCopy, normalizeExpandedSlides, normalizeHashtags } from "./ai-copy";
 
 describe("normalizeHashtags", () => {
   it("adds hash, drops empties, caps at 15", () => {
@@ -48,18 +48,17 @@ describe("normalizeComposedCopy", () => {
     expect(slides[0]).toBe("Охваты не равны доверию");
   });
 
-  it("keeps a single slide for a post", () => {
-    const copy = normalizeComposedCopy(
-      {
-        text: "Сначала оффер, потом креатив.",
-        caption: "Сначала оффер",
-        hashtags: ["оффер"],
-        scenarios: [{ slides: ["Сначала оффер, потом креатив"] }],
-      },
-      { format: "post", topic: "Оффер" },
-    );
+  it("keeps the author caption on every post variant", () => {
+    const copy = composePostFromAuthorText({
+      topic: "Оффер",
+      text: "Сначала оффер, потом креатив.",
+      niche: "Маркетинг",
+    });
 
-    expect(copy.scenarios[0].slides).toHaveLength(1);
+    expect(copy.scenarios).toHaveLength(3);
+    expect(copy.scenarios.map((item) => item.name)).toEqual(["Тезис", "Вопрос", "Совет"]);
+    expect(copy.caption).toBe("Сначала оффер, потом креатив.");
+    expect(copy.scenarios.every((item) => item.caption === copy.caption)).toBe(true);
     expect(copy.reelScript).toBeUndefined();
   });
 });

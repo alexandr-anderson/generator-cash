@@ -33,6 +33,7 @@ export type Rubric = {
   id: string;
   name: string;
   references?: string[];
+  inspirationUrl?: string;
   colors?: string[];
   templates?: Partial<Record<CreativeFormat, Template>>;
   createdAt: number;
@@ -53,6 +54,7 @@ export type SlideContent = {
   textColor: string;
   positionX: number;
   positionY: number;
+  imageUrl?: string;
 };
 
 export type CreativeWork = {

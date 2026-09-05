@@ -1,6 +1,10 @@
+import type { CreativeFormat } from "./types";
+
 export type ComposedScenario = {
   name: string;
   slides: string[];
+  caption?: string;
+  imageUrl?: string;
 };
 
 export type ComposedCopy = {
@@ -25,3 +29,23 @@ export const SCENARIO_SPECS = [
     hint: "1 — типичная ошибка, 2–5 — что делать вместо этого, 6 — быстрый план, 7 — CTA",
   },
 ] as const;
+
+export const POST_SCENARIO_SPECS = [
+  {
+    name: "Тезис",
+    hint: "Визуальная метафора готового вывода: спокойный, уверенный кадр без людей с плакатами.",
+  },
+  {
+    name: "Вопрос",
+    hint: "Визуальная метафора напряжения или пустого места, которое просит ответа.",
+  },
+  {
+    name: "Совет",
+    hint: "Визуальная метафора инструмента, жеста или следующего шага.",
+  },
+] as const;
+
+export function scenarioSpecsFor(format: CreativeFormat) {
+  if (format === "post") return POST_SCENARIO_SPECS;
+  return SCENARIO_SPECS;
+}

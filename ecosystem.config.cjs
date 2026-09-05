@@ -77,6 +77,7 @@ module.exports = {
         OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
         OPENAI_BASE_URL: process.env.OPENAI_BASE_URL || "https://codex-free.com/v1",
         OPENAI_MODEL: process.env.OPENAI_MODEL || "gpt-5.5",
+        OPENAI_IMAGE_MODEL: process.env.OPENAI_IMAGE_MODEL || "dall-e-3",
       },
     },
   ],

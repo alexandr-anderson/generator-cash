@@ -1,5 +1,5 @@
 import type { ComposedCopy } from "./ai-types";
-import { SCENARIO_SPECS } from "./ai-types";
+import { SCENARIO_SPECS, scenarioSpecsFor } from "./ai-types";
 import type { CreativeFormat, CreativeLayout, CreativeWork, Rubric, SlideContent, UserProfile } from "./types";
 
 const SCENARIOS = SCENARIO_SPECS.map((spec, index) => ({
@@ -51,7 +51,8 @@ export function generateVariants(
 ): CreativeWork[] {
   const { bg, fg, accent } = pickColors(rubric, profile, userColors);
 
-  return SCENARIOS.map((scenario, i) => {
+  return scenarioSpecsFor(format).map((spec, i) => {
+    const scenario = SCENARIOS[i] || SCENARIOS[0];
     const layout = LAYOUTS[i % LAYOUTS.length];
     const aiSlides = copy?.scenarios[i]?.slides;
     const slideTexts = aiSlides?.length
@@ -61,11 +62,12 @@ export function generateVariants(
         : [topic];
 
     const slides: SlideContent[] = slideTexts.map((t) => ({
-      text: t,
+      text: format === "post" ? "" : t,
       fontSize: format === "reel" ? 64 : 48,
       textColor: fg,
       positionX: 50,
       positionY: 50,
+      imageUrl: copy?.scenarios[i]?.imageUrl,
     }));
 
     const hashtags = copy?.hashtags?.length
@@ -78,14 +80,16 @@ export function generateVariants(
       rubricId: rubric?.id || "",
       topic,
       slides,
-      caption: copy?.caption || generateCaption(topic, text, format),
+      caption: format === "post"
+        ? (text || copy?.caption || topic)
+        : (copy?.scenarios[i]?.caption || copy?.caption || generateCaption(topic, text, format)),
       hashtags,
       reelScript: copy?.reelScript,
       layout,
       background: i === 1 ? fg : bg,
       accent,
       foreground: i === 1 ? bg : fg,
-      eyebrow: copy?.scenarios[i]?.name || scenario.name,
+      eyebrow: copy?.scenarios[i]?.name || spec.name,
       brandLabel: profile?.email?.split("@")[0] || "postvmeste",
       createdAt: Date.now(),
     };

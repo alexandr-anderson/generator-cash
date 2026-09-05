@@ -35,13 +35,39 @@ describe("generateVariants", () => {
     expect(variants[0].slides[0].text).toBe("Охваты не равны доверию");
   });
 
-  it("keeps a post as a single slide", () => {
+  it("keeps a post as a single slide with its own caption", () => {
     const postCopy: ComposedCopy = {
-      ...copy,
-      scenarios: copy.scenarios.map((item) => ({ name: item.name, slides: [item.slides[0]] })),
+      text: "Смысл важнее охватов.",
+      caption: "Общая подпись",
+      hashtags: ["#контент"],
+      scenarios: [
+        { name: "Тезис", slides: ["Охваты не равны доверию"], caption: "Подпись тезиса" },
+        { name: "Вопрос", slides: ["Зачем вам чужие охваты?"], caption: "Подпись вопроса" },
+        { name: "Совет", slides: ["Сначала смысл, потом просмотры"], caption: "Подпись совета" },
+      ],
     };
     const variants = generateVariants("post", "Охваты", postCopy.text, undefined, null, [], postCopy);
     expect(variants).toHaveLength(3);
     expect(variants.every((item) => item.slides.length === 1)).toBe(true);
+    expect(variants.map((item) => item.eyebrow)).toEqual(["Тезис", "Вопрос", "Совет"]);
+    expect(variants[0].caption).toBe("Смысл важнее охватов.");
+    expect(variants[1].caption).toBe("Смысл важнее охватов.");
+    expect(variants[2].slides[0].text).toBe("");
+  });
+
+  it("keeps a generated photo on a post slide", () => {
+    const postCopy: ComposedCopy = {
+      text: "Смысл важнее охватов.",
+      caption: "Общая подпись",
+      hashtags: ["#контент"],
+      scenarios: [
+        { name: "Тезис", slides: ["не должно попасть на кадр"], caption: "Подпись", imageUrl: "/api/files/img-1" },
+        { name: "Вопрос", slides: [""], caption: "Подпись 2", imageUrl: "/api/files/img-2" },
+        { name: "Совет", slides: [""], caption: "Подпись 3", imageUrl: "/api/files/img-3" },
+      ],
+    };
+    const variants = generateVariants("post", "Охваты", postCopy.text, undefined, null, [], postCopy);
+    expect(variants[0].slides[0].imageUrl).toBe("/api/files/img-1");
+    expect(variants[0].slides[0].text).toBe("");
   });
 });

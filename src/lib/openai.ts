@@ -20,6 +20,10 @@ export function openaiModel() {
   return process.env.OPENAI_MODEL?.trim() || "gpt-5.5";
 }
 
+export function openaiImageModel() {
+  return process.env.OPENAI_IMAGE_MODEL?.trim() || "dall-e-3";
+}
+
 export function openaiHost() {
   try {
     return new URL(openaiBaseUrl()).host;
@@ -105,7 +109,7 @@ function isGpt5(model: string) {
 }
 
 function chatBody(
-  messages: { role: string; content: string }[],
+  messages: { role: string; content: unknown }[],
   jsonMode: boolean,
   maxTokens?: number,
 ) {
@@ -160,4 +164,152 @@ async function postChat(body: unknown, key: string, signal: AbortSignal) {
 
 function stripFence(content: string) {
   return content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+}
+
+export async function openaiImagePng(args: {
+  prompt: string;
+  size?: "1024x1024" | "1024x1792" | "1792x1024";
+  timeoutMs?: number;
+}): Promise<Buffer> {
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) {
+    throw new AiError("Генерация картинок ещё не настроена. Задайте OPENAI_API_KEY.", 503);
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 180_000);
+  const model = openaiImageModel();
+  const base = {
+    model,
+    prompt: args.prompt,
+    n: 1,
+    size: args.size || "1024x1024",
+  };
+
+  try {
+    let response = await postImage({ ...base, response_format: "b64_json" }, key, controller.signal);
+    if (response.status === 400) {
+      const firstBody = await response.text();
+      console.error("[ai-image] 400, retry without response_format", openaiHost(), firstBody.slice(0, 400));
+      response = await postImage(base, key, controller.signal);
+    }
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.error("[ai-image] error", openaiHost(), response.status, body.slice(0, 400));
+      if (response.status === 401 || response.status === 403) {
+        throw new AiError("Ключ модели отклонён. Проверьте OPENAI_API_KEY.", 502);
+      }
+      if (response.status === 404) {
+        throw new AiError("Шлюз не умеет картинки. Задайте OPENAI_IMAGE_MODEL.", 502);
+      }
+      if (response.status === 429) {
+        throw new AiError("Модель временно недоступна. Попробуйте ещё раз через минуту.", 429);
+      }
+      throw new AiError("Не удалось нарисовать картинку. Попробуйте ещё раз.", 502);
+    }
+
+    const payload = (await response.json()) as Record<string, unknown>;
+    const png = await imagePayloadToPng(payload);
+    if (!png) {
+      throw new AiError("Модель вернула картинку в неожиданном формате. Попробуйте ещё раз.", 502);
+    }
+    return png;
+  } catch (error) {
+    if (error instanceof AiError) throw error;
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new AiError("Картинка не успела нарисоваться. Попробуйте ещё раз.", 504);
+    }
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new AiError("Картинка не успела нарисоваться. Попробуйте ещё раз.", 504);
+    }
+    console.error("[ai-image] request failed", openaiHost(), error);
+    throw new AiError("Не удалось нарисовать картинку. Попробуйте ещё раз.", 502);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function openaiVisualBrief(args: {
+  topic: string;
+  niche: string;
+  images: { mimeType: string; bytes: Buffer }[];
+  timeoutMs?: number;
+}): Promise<string> {
+  if (!args.images.length) return "";
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) return "";
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 60_000);
+  const content = [
+    {
+      type: "text",
+      text: [
+        "Посмотри референсы автора. Опиши визуальный язык для новой картинки Instagram-поста.",
+        "3–6 коротких предложений: композиция, свет, плотность, мотивы, чего избегать.",
+        "Не цитируй текст с картинок и не предлагай надписи. Это не карусель.",
+        `Тема: ${args.topic}`,
+        `Ниша: ${args.niche || "экспертный контент"}`,
+      ].join("\n"),
+    },
+    ...args.images.slice(0, 4).map((image) => ({
+      type: "image_url",
+      image_url: {
+        url: `data:${image.mimeType};base64,${image.bytes.toString("base64")}`,
+      },
+    })),
+  ];
+
+  try {
+    const response = await postChat(
+      chatBody([{ role: "user", content }], false, 400),
+      key,
+      controller.signal,
+    );
+    if (!response.ok) {
+      const body = await response.text();
+      console.error("[ai-vision] skip brief", openaiHost(), response.status, body.slice(0, 200));
+      return "";
+    }
+    const payload = (await response.json()) as {
+      choices?: { message?: { content?: unknown } }[];
+      output_text?: string;
+    };
+    return pickMessageContent(payload).slice(0, 800);
+  } catch (error) {
+    console.error("[ai-vision] brief failed", openaiHost(), error);
+    return "";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function postImage(body: unknown, key: string, signal: AbortSignal) {
+  return fetch(`${openaiBaseUrl()}/images/generations`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "content-type": "application/json",
+    },
+    signal,
+    body: JSON.stringify(body),
+  });
+}
+
+async function imagePayloadToPng(payload: Record<string, unknown>): Promise<Buffer | null> {
+  const rows = Array.isArray(payload.data)
+    ? payload.data
+    : Array.isArray(payload.images)
+      ? payload.images
+      : [];
+  const first = rows[0] && typeof rows[0] === "object" ? rows[0] as Record<string, unknown> : {};
+  const b64 = String(first.b64_json || first.b64 || first.base64 || "").trim();
+  if (b64) return Buffer.from(b64, "base64");
+
+  const url = String(first.url || payload.url || "").trim();
+  if (!url) return null;
+  const response = await fetch(url);
+  if (!response.ok) return null;
+  return Buffer.from(await response.arrayBuffer());
 }

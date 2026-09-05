@@ -19,7 +19,9 @@ export async function PATCH(request: Request, { params }: Params) {
     data.colors = body.colors.filter((item: unknown) => typeof item === "string").slice(0, 4);
   }
   if (typeof body?.inspirationUrl === "string" || body?.inspirationUrl === null) {
-    data.inspirationUrl = body.inspirationUrl;
+    data.inspirationUrl = typeof body.inspirationUrl === "string"
+      ? body.inspirationUrl.trim() || null
+      : null;
   }
 
   const rubric = await prisma.rubric.update({

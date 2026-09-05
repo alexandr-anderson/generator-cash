@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -12,6 +12,7 @@ import {
   Image as ImageIcon,
   Video,
   Plus,
+  ImagePlus,
   Sparkles,
   X,
 
@@ -44,6 +45,11 @@ function parseFormat(value: string | null): CreativeFormat | null {
   return null;
 }
 
+function fileIdFromUrl(url: string) {
+  const match = url.match(/\/api\/files\/([^/?#]+)/);
+  return match?.[1] || "";
+}
+
 export function CreateFlow() {
   const store = useStore();
   const router = useRouter();
@@ -60,6 +66,9 @@ export function CreateFlow() {
   const [topic, setTopic] = useState(params.get("topic") || "");
   const [userText, setUserText] = useState("");
   const [colors, setColors] = useState<string[]>(["#ff5c35", "#ffc857", "#f6f1e9", "#191817"]);
+  const [inspirationUrl, setInspirationUrl] = useState("");
+  const [uploadingRef, setUploadingRef] = useState(false);
+  const referenceInput = useRef<HTMLInputElement>(null);
   const [variants, setVariants] = useState<CreativeWork[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [work, setWork] = useState<CreativeWork | null>(null);
@@ -79,7 +88,10 @@ export function CreateFlow() {
   }, []);
 
   useEffect(() => {
-    if (rubric) loadRubricDefaults(rubric);
+    if (rubric) {
+      loadRubricDefaults(rubric);
+      setInspirationUrl(rubric.inspirationUrl || "");
+    }
   }, [rubric, loadRubricDefaults]);
 
   function selectFormat(f: CreativeFormat) {
@@ -105,6 +117,39 @@ export function CreateFlow() {
     setStep("topic");
   }
 
+  async function handleReferenceUpload(fileList: FileList | null) {
+    if (!rubricId || !fileList?.length) return;
+    const remainingSlots = 4 - (rubric?.references?.length || 0);
+    if (remainingSlots <= 0) return;
+    setUploadingRef(true);
+    setError("");
+    try {
+      for (const file of Array.from(fileList).slice(0, remainingSlots)) {
+        await store.uploadReference(rubricId, file);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось загрузить референс");
+    } finally {
+      setUploadingRef(false);
+      if (referenceInput.current) referenceInput.current.value = "";
+    }
+  }
+
+  async function handleReferenceRemove(url: string) {
+    const id = fileIdFromUrl(url);
+    if (!id) return;
+    try {
+      await store.deleteFile(id);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось удалить референс");
+    }
+  }
+
+  function saveInspiration() {
+    if (!rubricId) return;
+    void store.updateRubric(rubricId, { inspirationUrl: inspirationUrl.trim() });
+  }
+
   async function handleGenerateText() {
     if (!topic.trim()) { setError("Введите тему"); return; }
     setDrafting(true);
@@ -126,6 +171,10 @@ export function CreateFlow() {
       setStep("format");
       return;
     }
+    if (format === "post" && !userText.trim()) {
+      setError("Напишите подпись или нажмите «Помочь с текстом»");
+      return;
+    }
 
     const remainingNow = store.getGenerationsRemaining();
     if (remainingNow <= 0) {
@@ -140,9 +189,20 @@ export function CreateFlow() {
         format,
         topic: topic.trim(),
         text: userText.trim(),
+        rubricId,
+        colors,
+        referenceIds: (rubric?.references || []).map(fileIdFromUrl).filter(Boolean),
       });
-      if (!userText.trim()) setUserText(copy.text);
-      const v = generateVariants(format, topic.trim(), copy.text, rubric, store.user, colors, copy);
+      if (format !== "post" && !userText.trim()) setUserText(copy.text);
+      const v = generateVariants(
+        format,
+        topic.trim(),
+        format === "post" ? userText.trim() : copy.text,
+        rubric,
+        store.user,
+        colors,
+        copy,
+      );
       setVariants(v);
       setSelectedId(v[0].id);
       setStep("variants");
@@ -228,6 +288,10 @@ export function CreateFlow() {
         zip.file("caption.txt", caption);
         const blob = await zip.generateAsync({ type: "blob" });
         downloadBlob(blob, "carousel.zip");
+      } else if (work.slides[0]?.imageUrl) {
+        const response = await fetch(work.slides[0].imageUrl, { credentials: "include" });
+        if (!response.ok) throw new Error("export");
+        downloadBlob(await response.blob(), `${work.format}.png`);
       } else {
         const svg = slideToSvg(work, 0);
         const png = await svgToPngBlob(svg);
@@ -328,7 +392,7 @@ export function CreateFlow() {
           <button className="flow-back" onClick={() => setStep("rubric")}><ArrowLeft size={16} /> Назад</button>
           <div className="flow-heading">
             <h1>Тема и текст</h1>
-            <p>Введите тему, выберите цвета и подготовьте текст</p>
+            <p>Тема, референсы и текст — модель от них оттолкнётся</p>
           </div>
 
           <div className="field">
@@ -375,12 +439,54 @@ export function CreateFlow() {
           </div>
 
           <div className="field">
-            <label>Текст</label>
+            <label>Референсы — до 4 картинок</label>
+            <div className="reference-grid">
+              {(rubric?.references || []).map((url) => (
+                <div key={url} className="reference-tile">
+                  <img src={url} alt="" />
+                  <button type="button" className="reference-remove" onClick={() => void handleReferenceRemove(url)}>
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+              {(rubric?.references?.length || 0) < 4 && (
+                <button
+                  type="button"
+                  className="reference-tile reference-add"
+                  disabled={!rubricId || uploadingRef || generating}
+                  onClick={() => referenceInput.current?.click()}
+                >
+                  <ImagePlus size={18} />
+                  <span>{uploadingRef ? "Загружаю…" : "Добавить"}</span>
+                </button>
+              )}
+            </div>
+            <input
+              ref={referenceInput}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              hidden
+              onChange={(e) => void handleReferenceUpload(e.target.files)}
+            />
+            <input
+              value={inspirationUrl}
+              onChange={(e) => setInspirationUrl(e.target.value)}
+              onBlur={saveInspiration}
+              placeholder="Ссылка, откуда вдохновение — необязательно"
+              className="reference-url"
+            />
+          </div>
+
+          <div className="field">
+            <label>{format === "post" ? "Подпись поста" : "Текст"}</label>
             <textarea
               rows={6}
               value={userText}
               onChange={(e) => setUserText(e.target.value)}
-              placeholder="Вставьте свой текст или сгенерируйте..."
+              placeholder={format === "post"
+                ? "Это текст публикации. Его «Создать» уже не будет переписывать"
+                : "Вставьте свой текст или сгенерируйте..."}
             />
             <button className="btn-secondary btn-sm" onClick={handleGenerateText} disabled={drafting || generating}>
               <Sparkles size={14} /> {drafting ? "Пишу..." : "Помочь с текстом"}
@@ -390,7 +496,11 @@ export function CreateFlow() {
           {error && <div className="flow-error"><AlertCircle size={14} /> {error}</div>}
 
           {generating && (
-            <div className="flow-warning">Собираю три крючка — подождите, не закрывайте вкладку</div>
+            <div className="flow-warning">
+              {format === "post"
+                ? "Рисую три картинки — подождите, не закрывайте вкладку"
+                : "Собираю три крючка — подождите, не закрывайте вкладку"}
+            </div>
           )}
 
           {remaining <= 1 && remaining > 0 && (
@@ -409,7 +519,9 @@ export function CreateFlow() {
               onClick={handleGenerate}
               disabled={generating || drafting || remaining <= 0}
             >
-              {generating ? "Собираю варианты…" : "Создать"} <ArrowRight size={16} />
+              {generating
+                ? format === "post" ? "Рисую картинки…" : "Собираю варианты…"
+                : "Создать"} <ArrowRight size={16} />
             </button>
           </div>
         </div>
@@ -439,11 +551,13 @@ export function CreateFlow() {
           <button className="flow-back" onClick={() => setStep("topic")}><ArrowLeft size={16} /> Изменить тему</button>
           <div className="flow-heading flow-center-heading">
             <span className="flow-kicker"><Sparkles size={14} /> 3 ВАРИАНТА</span>
-            <h1>Какой сценарий ближе?</h1>
+            <h1>{format === "post" ? "Какая картинка ближе?" : "Какой сценарий ближе?"}</h1>
             <p>
               {format === "carousel"
                 ? "Сейчас только обложка каждого сценария. Остальные 6 слайдов допишем после выбора."
-                : "Три готовых кадра в разных сценариях. В редакторе можно будет поправить."}
+                : format === "post"
+                  ? "Три картинки к вашей подписи. Текст публикации уже готов и не меняется."
+                  : "Три готовых кадра в разных сценариях. В редакторе можно будет поправить."}
             </p>
           </div>
           <div className="variants-grid">
@@ -453,16 +567,22 @@ export function CreateFlow() {
                 className={`variant-card ${selectedId === v.id ? "selected" : ""}`}
                 onClick={() => !expanding && setSelectedId(v.id)}
               >
-                <div className="variant-preview" style={{ background: v.background, color: v.foreground }}>
-                  <span className="variant-accent" style={{ background: v.accent }} />
-                  <span className="variant-eyebrow" style={{ background: v.accent }}>{v.eyebrow}</span>
-                  <strong>{v.slides[0]?.text || v.topic}</strong>
+                <div className={`variant-preview format-${v.format}`} style={{ background: v.background, color: v.foreground }}>
+                  {v.slides[0]?.imageUrl ? (
+                    <img src={v.slides[0].imageUrl} alt="" className="variant-photo" />
+                  ) : (
+                    <>
+                      <span className="variant-accent" style={{ background: v.accent }} />
+                      <span className="variant-eyebrow" style={{ background: v.accent }}>{v.eyebrow}</span>
+                      <strong>{v.slides[0]?.text || v.topic}</strong>
+                    </>
+                  )}
                   <span className="variant-num">0{i + 1}</span>
                   {selectedId === v.id && <span className="variant-check"><Check size={14} /></span>}
                 </div>
                 <div className="variant-label">
                   <b>{v.eyebrow}</b>
-                  <small>{v.layout}</small>
+                  {format !== "post" && <small>{v.layout}</small>}
                 </div>
               </button>
             ))}
@@ -509,8 +629,12 @@ export function CreateFlow() {
             )}
 
             <div className="editor-fields">
+              {work.slides[activeSlide]?.imageUrl ? (
+                <p className="editor-note">Картинка без текста. Править можно подпись и хештеги.</p>
+              ) : (
+                <>
               <div className="field">
-                <label>Текст слайда</label>
+                <label>{work.format === "post" ? "Текст на картинке" : "Текст слайда"}</label>
                 <textarea
                   rows={3}
                   value={work.slides[activeSlide]?.text || ""}
@@ -542,13 +666,15 @@ export function CreateFlow() {
                   ))}
                 </div>
               </div>
+                </>
+              )}
 
               <div className="editor-separator" />
 
               <div className="field">
-                <label>Подпись к посту</label>
+                <label>{work.format === "post" ? "Подпись — основной текст поста" : "Подпись к посту"}</label>
                 <textarea
-                  rows={4}
+                  rows={work.format === "post" ? 8 : 4}
                   value={work.caption}
                   onChange={(e) => setWork({ ...work, caption: e.target.value })}
                 />
@@ -634,6 +760,14 @@ export function CreateFlow() {
 function SlidePreview({ work, slideIndex }: { work: CreativeWork; slideIndex: number }) {
   const slide = work.slides[slideIndex];
   if (!slide) return null;
+
+  if (slide.imageUrl) {
+    return (
+      <div className="slide-preview slide-preview-photo">
+        <img src={slide.imageUrl} alt="" />
+      </div>
+    );
+  }
 
   return (
     <div className="slide-preview" style={{ background: work.background, color: slide.textColor || work.foreground }}>

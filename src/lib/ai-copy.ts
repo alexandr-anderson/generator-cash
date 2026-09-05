@@ -1,9 +1,9 @@
 import { AiError, openaiJson } from "./openai";
-import { SCENARIO_SPECS, type ComposedCopy } from "./ai-types";
+import { POST_SCENARIO_SPECS, SCENARIO_SPECS, scenarioSpecsFor, type ComposedCopy } from "./ai-types";
 import type { CreativeFormat } from "./types";
 
 export type { ComposedCopy, ComposedScenario } from "./ai-types";
-export { SCENARIO_SPECS } from "./ai-types";
+export { POST_SCENARIO_SPECS, SCENARIO_SPECS, scenarioSpecsFor } from "./ai-types";
 
 const SYSTEM = `Ты копирайтер Instagram-студии postvmeste.ru. Пишешь по-русски для экспертов: ясно, конкретно, без воды, без канцелярита, без markdown и без кавычек-ёлочек вокруг всего текста.
 Короткий слайд читают за 2 секунды. Не используй эмодзи, кроме одного в CTA, если уместно.
@@ -39,6 +39,8 @@ export async function composeVariantPreviews(input: {
   niche: string;
   tone?: string;
 }): Promise<ComposedCopy> {
+  if (input.format === "post") return composePostFromAuthorText(input);
+
   const source = input.text.trim();
   const excerpt = source.slice(0, 700);
   const payload = await openaiJson<Record<string, unknown>>({
@@ -71,6 +73,25 @@ export async function composeVariantPreviews(input: {
       slideCount: 1,
     },
   );
+}
+
+export function composePostFromAuthorText(input: {
+  topic: string;
+  text: string;
+  niche: string;
+}): ComposedCopy {
+  const source = input.text.trim();
+  const caption = source || input.topic;
+  return {
+    text: source,
+    caption,
+    hashtags: localHashtags(input.topic, input.niche),
+    scenarios: POST_SCENARIO_SPECS.map((spec) => ({
+      name: spec.name,
+      slides: [""],
+      caption,
+    })),
+  };
 }
 
 export async function expandCarouselSlides(input: {
@@ -113,13 +134,22 @@ export function normalizeComposedCopy(
   const hashtags = normalizeHashtags(raw.hashtags);
   const reelScript = String(raw.reelScript || "").trim();
   const rawScenarios = Array.isArray(raw.scenarios) ? raw.scenarios : [];
+  const specs = scenarioSpecsFor(opts.format);
+  const fallbackCaption = caption;
 
-  const scenarios = SCENARIO_SPECS.map((spec, index) => {
+  const scenarios = specs.map((spec, index) => {
     const match =
       rawScenarios.find((item) => scenarioName(item) === spec.name) ||
       rawScenarios[index];
     const slides = normalizeSlides(match, slideCount, opts.topic, text, spec.name);
-    return { name: spec.name, slides };
+    const scenarioCaption = pickScenarioCaption(match);
+    return {
+      name: spec.name,
+      slides,
+      caption: opts.format === "post"
+        ? scenarioCaption || fallbackCaption || defaultCaption(opts.topic, text, "post")
+        : undefined,
+    };
   });
 
   if (!text && !caption) {
@@ -128,7 +158,9 @@ export function normalizeComposedCopy(
 
   return {
     text: text || caption,
-    caption,
+    caption: opts.format === "post"
+      ? scenarios[0]?.caption || caption
+      : caption,
     hashtags,
     reelScript: opts.format === "reel" ? reelScript || text || caption : undefined,
     scenarios,
@@ -214,6 +246,11 @@ function pickText(payload: Record<string, unknown>) {
 function scenarioName(raw: unknown) {
   if (!raw || typeof raw !== "object") return "";
   return String((raw as Record<string, unknown>).name || "").trim();
+}
+
+function pickScenarioCaption(raw: unknown) {
+  if (!raw || typeof raw !== "object") return "";
+  return String((raw as Record<string, unknown>).caption || "").replace(/\s+\n/g, "\n").trim().slice(0, 2200);
 }
 
 function localHashtags(topic: string, niche: string) {

@@ -104,7 +104,7 @@ const workPost: CreativeWork = {
   background: "#eff6ff",
   accent: "#3b82f6",
   foreground: "#1e3a5f",
-  eyebrow: "Крючок → Разбор → CTA",
+  eyebrow: "Тезис",
   brandLabel: "demo",
   createdAt: now - day,
 };

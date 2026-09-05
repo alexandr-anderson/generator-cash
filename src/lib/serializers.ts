@@ -76,6 +76,7 @@ export function toRubric(rubric: RubricWith): ClientRubric {
     references: rubric.files
       .filter((file) => file.kind === "reference")
       .map((file) => filePublicPath(file.id)),
+    inspirationUrl: rubric.inspirationUrl || undefined,
     templates: Object.keys(templates).length ? templates : undefined,
     createdAt: rubric.createdAt.getTime(),
   };

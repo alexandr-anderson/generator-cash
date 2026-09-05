@@ -13,6 +13,25 @@ function extFor(mime: string) {
   return "jpg";
 }
 
+export async function saveUserBuffer(input: {
+  userId: string;
+  rubricId?: string | null;
+  kind: FileKind;
+  buffer: Buffer;
+  mimeType: string;
+}) {
+  if (!ALLOWED.has(input.mimeType)) {
+    throw new Error("Можно загрузить только PNG, JPEG или WEBP");
+  }
+  return persistBuffer({
+    userId: input.userId,
+    rubricId: input.rubricId,
+    kind: input.kind,
+    mimeType: input.mimeType,
+    buffer: input.buffer,
+  });
+}
+
 export async function saveUserFile(input: {
   userId: string;
   rubricId?: string | null;
@@ -25,14 +44,27 @@ export async function saveUserFile(input: {
   if (input.file.size > MAX_BYTES) {
     throw new Error("Файл больше 8 МБ");
   }
+  return persistBuffer({
+    userId: input.userId,
+    rubricId: input.rubricId,
+    kind: input.kind,
+    mimeType: input.file.type,
+    buffer: Buffer.from(await input.file.arrayBuffer()),
+  });
+}
 
+async function persistBuffer(input: {
+  userId: string;
+  rubricId?: string | null;
+  kind: FileKind;
+  mimeType: string;
+  buffer: Buffer;
+}) {
   const id = crypto.randomUUID();
-  const ext = extFor(input.file.type);
-  const objectKey = `${input.userId}/${id}.${ext}`;
+  const objectKey = `${input.userId}/${id}.${extFor(input.mimeType)}`;
   const abs = path.join(ROOT, objectKey);
   await mkdir(path.dirname(abs), { recursive: true });
-  const buffer = Buffer.from(await input.file.arrayBuffer());
-  await writeFile(abs, buffer);
+  await writeFile(abs, input.buffer);
 
   return prisma.fileAsset.create({
     data: {
@@ -41,8 +73,8 @@ export async function saveUserFile(input: {
       rubricId: input.rubricId || null,
       kind: input.kind,
       objectKey,
-      mimeType: input.file.type,
-      byteSize: buffer.length,
+      mimeType: input.mimeType,
+      byteSize: input.buffer.length,
     },
   });
 }

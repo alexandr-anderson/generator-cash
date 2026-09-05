@@ -37,8 +37,17 @@ type AppActions = {
   deleteWork: (id: string) => Promise<void>;
   useGeneration: () => Promise<boolean>;
   draftText: (topic: string) => Promise<string>;
-  composeCopy: (input: { format: CreativeFormat; topic: string; text: string }) => Promise<ComposedCopy>;
+  composeCopy: (input: {
+    format: CreativeFormat;
+    topic: string;
+    text: string;
+    rubricId?: string | null;
+    colors?: string[];
+    referenceIds?: string[];
+  }) => Promise<ComposedCopy>;
   expandCarousel: (input: { topic: string; text: string; scenario: string; firstSlide: string }) => Promise<string[]>;
+  uploadReference: (rubricId: string, file: File) => Promise<string | null>;
+  deleteFile: (id: string) => Promise<void>;
   getGenerationsRemaining: () => number;
   upgradeTier: (tier: Subscription["tier"]) => Promise<void>;
 };
@@ -241,13 +250,55 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return result.text;
   }, []);
 
-  const composeCopy = useCallback(async (input: { format: CreativeFormat; topic: string; text: string }) => {
+  const composeCopy = useCallback(async (input: {
+    format: CreativeFormat;
+    topic: string;
+    text: string;
+    rubricId?: string | null;
+    colors?: string[];
+    referenceIds?: string[];
+  }) => {
     const result = await api<ComposedCopy & { remaining: number }>("/api/ai/compose", {
       method: "POST",
       body: JSON.stringify(input),
     });
     setState((current) => ({ ...current, remaining: result.remaining }));
     return result;
+  }, []);
+
+  const uploadReference = useCallback(async (rubricId: string, file: File) => {
+    const form = new FormData();
+    form.set("file", file);
+    form.set("kind", "reference");
+    form.set("rubricId", rubricId);
+    const response = await fetch("/api/files", { method: "POST", body: form, credentials: "include" });
+    const data = await response.json().catch(() => ({})) as { error?: string; file?: { url: string } };
+    if (!response.ok) {
+      throw new Error(data.error || "Не удалось загрузить референс");
+    }
+    const url = data.file?.url;
+    if (!url) return null;
+    setState((current) => ({
+      ...current,
+      rubrics: current.rubrics.map((item) =>
+        item.id === rubricId
+          ? { ...item, references: [...(item.references || []), url].slice(0, 4) }
+          : item,
+      ),
+    }));
+    return url;
+  }, []);
+
+  const deleteFile = useCallback(async (id: string) => {
+    await api(`/api/files/${id}`, { method: "DELETE" });
+    const path = `/api/files/${id}`;
+    setState((current) => ({
+      ...current,
+      rubrics: current.rubrics.map((item) => ({
+        ...item,
+        references: (item.references || []).filter((url) => url !== path),
+      })),
+    }));
   }, []);
 
   const expandCarousel = useCallback(async (input: {
@@ -298,6 +349,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         draftText,
         composeCopy,
         expandCarousel,
+        uploadReference,
+        deleteFile,
         getGenerationsRemaining,
         upgradeTier,
       }}

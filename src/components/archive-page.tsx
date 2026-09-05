@@ -4,6 +4,7 @@ import { Trash2, Layers3, Image as ImageIcon, Video, RefreshCw } from "lucide-re
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { FORMAT_LABELS } from "@/lib/types";
+import { WorkThumb } from "@/components/work-thumb";
 
 const formatIcons = {
   carousel: Layers3,
@@ -32,11 +33,12 @@ export function ArchivePage() {
             const Icon = formatIcons[item.format];
             return (
               <div className="archive-card" key={item.id}>
-                <div className="archive-preview" style={{ background: item.background }}>
-                  <span style={{ color: item.previewSlide?.textColor || "#fff" }}>
-                    {item.previewSlide?.text?.slice(0, 50) || item.topic}
-                  </span>
-                </div>
+                <WorkThumb
+                  className="archive-preview"
+                  slide={item.previewSlide}
+                  topic={item.topic}
+                  background={item.background}
+                />
                 <div className="archive-info">
                   <div className="archive-meta">
                     <Icon size={14} />
