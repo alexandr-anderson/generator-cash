@@ -16,6 +16,7 @@ import type {
   Template,
   UserProfile,
 } from "./types";
+import { normalizeCarouselRecipe } from "./carousel-recipe";
 import { remainingFromUsage, totalFromUsage } from "./quota";
 import { DETACHED_RUBRIC_LABEL } from "./rubric-copy";
 import { filePublicPath } from "./storage";
@@ -79,6 +80,7 @@ export function toRubric(rubric: RubricWith): ClientRubric {
       .filter((file) => file.kind === "reference")
       .map((file) => filePublicPath(file.id)),
     inspirationUrl: rubric.inspirationUrl || undefined,
+    carouselRecipe: readCarouselRecipe(rubric.carouselRecipe),
     templates: Object.keys(templates).length ? templates : undefined,
     createdAt: rubric.createdAt.getTime(),
   };
@@ -139,4 +141,13 @@ export function studioPayload(input: {
 
 export function isFormat(value: string): value is CreativeFormat {
   return value === "carousel" || value === "post" || value === "reel";
+}
+
+function readCarouselRecipe(raw: unknown) {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  const ids = Array.isArray(record.sourceFileIds)
+    ? record.sourceFileIds.filter((item): item is string => typeof item === "string")
+    : [];
+  return normalizeCarouselRecipe(record, ids);
 }

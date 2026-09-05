@@ -812,7 +812,8 @@ input:disabled { background: #f5f4f0; color: var(--muted); }
   overflow: hidden;
 }
 .slide-preview.layout-band.role-cover { padding-top: 18%; }
-.slide-preview.layout-centered { align-items: center; text-align: center; }
+.slide-preview.layout-centered,
+.slide-preview.align-center { align-items: center; text-align: center; }
 .slide-preview.role-body { justify-content: flex-start; padding-top: 16%; }
 .slide-preview.layout-band.role-body { padding-left: 14%; }
 .slide-preview.layout-band.role-closer { justify-content: flex-end; padding-bottom: 22%; }

@@ -219,6 +219,7 @@ export function CreateFlow() {
         store.user,
         colors,
         copy,
+        format === "carousel" ? copy.carouselRecipe : null,
       );
       setVariants(v);
       setSelectedId(v[0].id);
@@ -434,7 +435,9 @@ export function CreateFlow() {
             <p>
               {format === "reel"
                 ? "Тема обязательна. Референс со своего рилса помогает попасть в ваш кадр."
-                : "Тема, референсы и текст — модель от них оттолкнётся"}
+                : format === "carousel"
+                  ? "Тема обязательна. Референс первого слайда снимем в стиль рубрики."
+                  : "Тема, референсы и текст — модель от них оттолкнётся"}
             </p>
           </div>
           {format === "reel" && (
@@ -492,6 +495,13 @@ export function CreateFlow() {
             {format === "reel" && (
               <p className="field-hint">
                 Лучше стоп-кадр с лицом из своего рилса или чужие обложки, которые нравятся. До 4 картинок.
+              </p>
+            )}
+            {format === "carousel" && (
+              <p className="field-hint">
+                {rubric?.carouselRecipe
+                  ? "Стиль рубрики уже снят с референса. Новые картинки переснимут композицию. Цвета остаются ваши."
+                  : "Лучше первый слайд своей или чужой карусели. Композицию сохраним в рубрике, цвета возьмём ваши."}
               </p>
             )}
             <div className="reference-grid">

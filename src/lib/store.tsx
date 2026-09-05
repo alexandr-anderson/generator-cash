@@ -11,6 +11,7 @@ import type {
   UserProfile,
 } from "./types";
 import type { ComposedCopy } from "./ai-types";
+import type { CarouselRecipe } from "./carousel-recipe";
 import { DETACHED_RUBRIC_LABEL } from "./rubric-copy";
 
 type StudioPayload = {
@@ -46,7 +47,7 @@ type AppActions = {
     rubricId?: string | null;
     colors?: string[];
     referenceIds?: string[];
-  }) => Promise<ComposedCopy>;
+  }) => Promise<ComposedCopy & { carouselRecipe?: CarouselRecipe | null }>;
   expandCarousel: (input: { topic: string; text: string; scenario: string; firstSlide: string }) => Promise<{
     slides: string[];
     caption: string;
@@ -278,11 +279,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     colors?: string[];
     referenceIds?: string[];
   }) => {
-    const result = await api<ComposedCopy & { remaining: number }>("/api/ai/compose", {
+    const result = await api<ComposedCopy & { remaining: number; carouselRecipe?: CarouselRecipe | null }>("/api/ai/compose", {
       method: "POST",
       body: JSON.stringify(input),
     });
-    setState((current) => ({ ...current, remaining: result.remaining }));
+    setState((current) => ({
+      ...current,
+      remaining: result.remaining,
+      rubrics: current.rubrics.map((item) =>
+        item.id === input.rubricId
+          ? { ...item, carouselRecipe: result.carouselRecipe ?? item.carouselRecipe }
+          : item,
+      ),
+    }));
     return result;
   }, []);
 
@@ -302,7 +311,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...current,
       rubrics: current.rubrics.map((item) =>
         item.id === rubricId
-          ? { ...item, references: [...(item.references || []), url].slice(0, 4) }
+          ? { ...item, references: [...(item.references || []), url].slice(0, 4), carouselRecipe: null }
           : item,
       ),
     }));
@@ -317,6 +326,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       rubrics: current.rubrics.map((item) => ({
         ...item,
         references: (item.references || []).filter((url) => url !== path),
+        carouselRecipe: (item.references || []).includes(path) ? null : item.carouselRecipe,
       })),
     }));
   }, []);

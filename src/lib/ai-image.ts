@@ -117,7 +117,7 @@ async function generateReelPng(prompt: string) {
   }
 }
 
-async function loadReferenceImages(userId: string, ids: string[]) {
+export async function loadReferenceImages(userId: string, ids: string[]) {
   const unique = [...new Set(ids.filter(Boolean))].slice(0, 4);
   if (!unique.length) return [];
   const files = await prisma.fileAsset.findMany({

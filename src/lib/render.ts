@@ -1,4 +1,6 @@
-import type { CreativeLayout, CreativeWork } from "./types";
+import type { CarouselRecipe } from "./carousel-recipe";
+import { recipeForWork } from "./carousel-recipe";
+import type { CreativeWork } from "./types";
 import { FORMAT_SIZES } from "./types";
 
 export type CarouselSlideRole = "cover" | "body" | "closer";
@@ -37,29 +39,32 @@ export function slideToSvg(work: CreativeWork, slideIndex: number): string {
   const slide = work.slides[slideIndex];
   if (!slide) return "";
 
+  const recipe = recipeForWork(work);
   const role = carouselSlideRole(slideIndex, work.slides.length);
-  const inverted = role === "closer" && work.layout !== "band";
+  const inverted = role === "closer" && recipe.closer === "accent";
   const fill = inverted ? work.accent : work.background;
   const fg = inverted ? work.foreground : (slide.textColor || work.foreground);
-  const lines = wrapText(slide.text, work.layout === "centered" ? 16 : 22);
+  const align = recipe.align;
+  const lines = wrapText(slide.text, align === "center" ? 16 : 22);
   const fontSize = slide.fontSize || 48;
   const brand = escapeXml(work.brandLabel || "postvmeste");
-  const decor = layoutDecor(work.layout, role, width, height, work.accent, work.background);
+  const decor = layoutDecor(recipe, role, width, height, work.accent, work.background);
   const indexLabel = String(slideIndex + 1).padStart(2, "0");
-  const textY = role === "closer" && work.layout === "band"
+  const textY = role === "closer" && recipe.closer === "split"
     ? height * 0.68
     : role === "body"
-      ? height * 0.34
-      : work.layout === "band" ? height * 0.32 : height * 0.4;
+      ? height * ((recipe.textY + 8) / 100)
+      : height * (recipe.textY / 100);
+  const textX = align === "center" ? width / 2 : 72;
   const textBlock = svgTextBlock(lines, {
-    x: work.layout === "centered" ? width / 2 : 72,
+    x: textX,
     y: textY,
     fontSize,
     fill: fg,
-    anchor: work.layout === "centered" ? "middle" : "start",
+    anchor: align === "center" ? "middle" : "start",
   });
-  const number = role === "body"
-    ? `<text x="${work.layout === "centered" ? width / 2 : 72}" y="${height * 0.2}" text-anchor="${work.layout === "centered" ? "middle" : "start"}" font-family="Arial,sans-serif" font-size="72" font-weight="800" fill="${work.accent}" opacity="0.85">${indexLabel}</text>`
+  const number = role === "body" && recipe.showIndex
+    ? `<text x="${textX}" y="${height * 0.2}" text-anchor="${align === "center" ? "middle" : "start"}" font-family="Arial,sans-serif" font-size="72" font-weight="800" fill="${work.accent}" opacity="0.85">${indexLabel}</text>`
     : "";
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
@@ -67,12 +72,12 @@ export function slideToSvg(work: CreativeWork, slideIndex: number): string {
   ${decor}
   ${number}
   ${textBlock}
-  ${svgFooter(width, height, brand, slideIndex + 1, fg, work.layout === "centered")}
+  ${svgFooter(width, height, brand, slideIndex + 1, fg, align === "center")}
 </svg>`;
 }
 
 function layoutDecor(
-  layout: CreativeLayout,
+  recipe: CarouselRecipe,
   role: CarouselSlideRole,
   width: number,
   height: number,
@@ -80,28 +85,29 @@ function layoutDecor(
   paper: string,
 ) {
   if (role === "closer") {
-    if (layout === "band") {
+    if (recipe.closer === "split") {
       const panelY = Math.round(height * 0.58);
       return `<rect y="${panelY}" width="${width}" height="${height - panelY}" fill="${accent}"/>`;
     }
-    if (layout === "centered") {
+    if (recipe.family === "centered") {
       return `<circle cx="${width / 2}" cy="${height * 0.42}" r="${width * 0.28}" fill="${paper}" opacity="0.2"/>`;
     }
     return "";
   }
-  if (layout === "centered") {
-    if (role === "body") return "";
-    return `<circle cx="${width / 2}" cy="${height * 0.18}" r="${width * 0.13}" fill="${accent}" opacity="0.92"/>`;
+  const decor = role === "body" && recipe.decor === "blob" ? "blob" : role === "body" && recipe.decor === "band-top" ? "rail" : recipe.decor;
+  const cx = (recipe.decorX / 100) * width;
+  const cy = (recipe.decorY / 100) * height;
+  const scale = recipe.decorScale;
+  if (decor === "none" || (role === "body" && decor === "dot")) return "";
+  if (decor === "band-top") {
+    return `<rect width="${width}" height="${Math.round(height * 0.14 * scale)}" fill="${accent}"/>`;
   }
-  if (layout === "band") {
-    if (role === "cover") {
-      return `<rect width="${width}" height="${Math.round(height * 0.14)}" fill="${accent}"/>`;
-    }
-    return `<rect width="18" height="${height}" fill="${accent}"/>`;
+  if (decor === "rail") {
+    return `<rect width="${Math.round(18 * scale)}" height="${height}" fill="${accent}"/>`;
   }
+  const radius = (decor === "dot" ? width * 0.13 : role === "body" ? width * 0.18 : width * 0.28) * scale;
   const opacity = role === "body" ? 0.45 : 0.9;
-  const radius = role === "body" ? width * 0.18 : width * 0.28;
-  return `<circle cx="${width * 0.86}" cy="${height * 0.1}" r="${radius}" fill="${accent}" opacity="${opacity}"/>`;
+  return `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${accent}" opacity="${opacity}"/>`;
 }
 
 function svgTextBlock(

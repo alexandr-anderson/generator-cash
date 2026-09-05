@@ -341,6 +341,72 @@ export async function openaiVisualBrief(args: {
   }
 }
 
+export async function openaiCarouselRecipe(args: {
+  images: { mimeType: string; bytes: Buffer }[];
+  timeoutMs?: number;
+}): Promise<Record<string, unknown> | null> {
+  if (!args.images.length) return null;
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) return null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 60_000);
+  const content = [
+    {
+      type: "text",
+      text: [
+        "Это первые слайды чужих или своих Instagram-каруселей. Нужен JSON-рецепт композиции для текстовой карусели.",
+        "Текст, логотипы и лица не копируй. Смотри только сетку: куда поставлен текст, какое геометрическое пятно, светлый или тёмный фон.",
+        "family: poster (пятно в углу), band (полоса сверху или сбоку), centered (центр).",
+        "decor: blob | band-top | dot | rail | none.",
+        "closer: accent (весь финал в акценте) или split (низ акцентный).",
+        "Числа в процентах, кроме decorScale 0.7–1.35.",
+        'JSON: { "family": "poster", "align": "left", "paper": "light", "decor": "blob", "decorX": 86, "decorY": 10, "decorScale": 1, "textY": 40, "showIndex": true, "closer": "accent" }',
+      ].join("\n"),
+    },
+    ...args.images.slice(0, 2).map((image) => ({
+      type: "image_url",
+      image_url: {
+        url: `data:${image.mimeType};base64,${image.bytes.toString("base64")}`,
+      },
+    })),
+  ];
+
+  try {
+    let response = await postChat(
+      chatBody([{ role: "user", content }], true, 400),
+      key,
+      controller.signal,
+    );
+    if (response.status === 400) {
+      const firstBody = await response.text();
+      console.error("[ai-vision] recipe 400, retry", openaiHost(), firstBody.slice(0, 200));
+      response = await postChat(
+        chatBody([{ role: "user", content }], false, 400),
+        key,
+        controller.signal,
+      );
+    }
+    if (!response.ok) {
+      const body = await response.text();
+      console.error("[ai-vision] skip recipe", openaiHost(), response.status, body.slice(0, 200));
+      return null;
+    }
+    const payload = (await response.json()) as {
+      choices?: { message?: { content?: unknown } }[];
+      output_text?: string;
+    };
+    const contentText = pickMessageContent(payload);
+    if (!contentText) return null;
+    return JSON.parse(stripFence(contentText)) as Record<string, unknown>;
+  } catch (error) {
+    console.error("[ai-vision] recipe failed", openaiHost(), error);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function imageRequestBodies(model: string, prompt: string, size: string) {
   if (/^gpt-image/i.test(model)) {
     return [

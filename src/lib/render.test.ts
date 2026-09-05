@@ -67,4 +67,26 @@ describe("slideToSvg", () => {
     expect(closer).toContain('fill="#f6f1e9"');
     expect(closer).toContain('y="783"');
   });
+
+  it("moves decor from a saved recipe", () => {
+    const item = work("poster");
+    item.recipe = {
+      version: 1,
+      sourceFileIds: ["ref"],
+      family: "poster",
+      align: "left",
+      paper: "light",
+      decor: "blob",
+      decorX: 20,
+      decorY: 30,
+      decorScale: 1,
+      textY: 44,
+      showIndex: true,
+      closer: "accent",
+    };
+    const svg = slideToSvg(item, 0);
+    expect(svg).toContain('cx="216"');
+    expect(svg).toContain('cy="405"');
+    expect(svg).not.toContain("Крючок");
+  });
 });

@@ -1,5 +1,6 @@
 import { composePostFromAuthorText, composeReelCopy, composeVariantPreviews } from "@/lib/ai-copy";
 import { attachPostImages, attachReelImages } from "@/lib/ai-image";
+import { ensureCarouselRecipe } from "@/lib/ensure-carousel-recipe";
 import { authed, json } from "@/lib/http";
 import { AiError } from "@/lib/openai";
 import { consumeGeneration, quotaAvailable } from "@/lib/quota";
@@ -64,7 +65,12 @@ export async function POST(request: Request) {
           tone: user.tone || undefined,
         });
     if (format === "carousel") {
-      return json({ ...copy, remaining: quota.remaining });
+      const carouselRecipe = await ensureCarouselRecipe({
+        userId: user.id,
+        rubricId,
+        referenceIds,
+      });
+      return json({ ...copy, remaining: quota.remaining, carouselRecipe });
     }
     const consumed = await consumeGeneration(user.id);
     if (!consumed.ok) {

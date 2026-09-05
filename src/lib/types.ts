@@ -1,3 +1,7 @@
+import type { CarouselRecipe } from "./carousel-recipe";
+
+export type { CarouselRecipe } from "./carousel-recipe";
+
 export type CreativeFormat = "carousel" | "post" | "reel";
 
 export type CreativeLayout = "poster" | "band" | "centered";
@@ -59,6 +63,7 @@ export type Rubric = {
   references?: string[];
   inspirationUrl?: string;
   colors?: string[];
+  carouselRecipe?: CarouselRecipe | null;
   templates?: Partial<Record<CreativeFormat, Template>>;
   createdAt: number;
 };
@@ -96,6 +101,7 @@ export type CreativeWork = {
   foreground: string;
   eyebrow: string;
   brandLabel: string;
+  recipe?: CarouselRecipe;
   createdAt: number;
 };
 

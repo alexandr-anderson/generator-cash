@@ -23,6 +23,37 @@ describe("generateVariants", () => {
     expect(variants[0].caption).toBe("Листайте — там разбор");
     expect(variants[2].hashtags).toContain("#маркетинг");
     expect(variants[0].slides).toHaveLength(7);
+    expect(variants[0].recipe?.family).toBe("poster");
+  });
+
+  it("reuses a rubric recipe for every carousel variant", () => {
+    const recipe = {
+      version: 1 as const,
+      sourceFileIds: ["ref-1"],
+      family: "band" as const,
+      align: "left" as const,
+      paper: "dark" as const,
+      decor: "band-top" as const,
+      decorX: 50,
+      decorY: 8,
+      decorScale: 1,
+      textY: 34,
+      showIndex: true,
+      closer: "split" as const,
+    };
+    const variants = generateVariants(
+      "carousel",
+      "Охваты",
+      copy.text,
+      { id: "r1", name: "Продукт", createdAt: 1, carouselRecipe: recipe },
+      null,
+      [],
+      copy,
+      recipe,
+    );
+    expect(variants.map((item) => item.layout)).toEqual(["band", "band", "band"]);
+    expect(variants.every((item) => item.recipe?.family === "band")).toBe(true);
+    expect(JSON.stringify(variants[0].recipe)).not.toBe(JSON.stringify(variants[1].recipe));
   });
 
   it("does not pad a one-slide preview into a carousel", () => {

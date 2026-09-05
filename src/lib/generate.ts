@@ -1,5 +1,6 @@
 import type { ComposedCopy } from "./ai-types";
 import { SCENARIO_SPECS, scenarioSpecsFor } from "./ai-types";
+import { defaultCarouselRecipe, nudgeCarouselRecipe, type CarouselRecipe } from "./carousel-recipe";
 import type { CreativeFormat, CreativeLayout, CreativeWork, Rubric, SlideContent, UserProfile } from "./types";
 
 const SCENARIOS = SCENARIO_SPECS.map((spec, index) => ({
@@ -48,23 +49,29 @@ export function generateVariants(
   profile: UserProfile | null,
   userColors: string[],
   copy?: ComposedCopy,
+  recipe?: CarouselRecipe | null,
 ): CreativeWork[] {
   const { bg, fg, accent } = pickColors(rubric, profile, userColors);
+  const sharedRecipe = format === "carousel" ? (recipe || rubric?.carouselRecipe || null) : null;
 
   return scenarioSpecsFor(format).map((spec, i) => {
     const scenario = SCENARIOS[i] || SCENARIOS[0];
-    const layout = LAYOUTS[i % LAYOUTS.length];
+    const layout = sharedRecipe?.family || LAYOUTS[i % LAYOUTS.length];
+    const variantRecipe = format === "carousel"
+      ? nudgeCarouselRecipe(sharedRecipe || defaultCarouselRecipe(layout), `${topic}:${layout}:${i}`)
+      : undefined;
     const aiSlides = copy?.scenarios[i]?.slides;
     const slideTexts = aiSlides?.length
       ? aiSlides
       : format === "carousel"
         ? generateSlideTexts(topic, text, scenario)
         : [topic];
+    const darkPaper = Boolean(variantRecipe && variantRecipe.paper === "dark");
 
     const slides: SlideContent[] = slideTexts.map((t) => ({
       text: format === "post" ? "" : t,
       fontSize: format === "reel" ? 64 : 48,
-      textColor: format === "reel" ? "#ffffff" : fg,
+      textColor: format === "reel" ? "#ffffff" : darkPaper ? bg : fg,
       positionX: 50,
       positionY: 50,
       imageUrl: copy?.scenarios[i]?.imageUrl,
@@ -88,11 +95,12 @@ export function generateVariants(
       hashtags,
       reelScript: format === "reel" ? (aiSlides?.[0] || copy?.reelScript) : copy?.reelScript,
       layout,
-      background: format === "reel" ? bg : i === 1 ? fg : bg,
+      background: format === "reel" ? bg : darkPaper ? fg : bg,
       accent,
-      foreground: format === "reel" ? fg : i === 1 ? bg : fg,
+      foreground: format === "reel" ? fg : darkPaper ? bg : fg,
       eyebrow: copy?.scenarios[i]?.name || spec.name,
       brandLabel: profile?.email?.split("@")[0] || "postvmeste",
+      recipe: variantRecipe,
       createdAt: Date.now(),
     };
   });

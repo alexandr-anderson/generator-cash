@@ -1,7 +1,7 @@
 import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import path from "path";
 import { prisma } from "./db";
-import type { FileKind } from "@prisma/client";
+import { Prisma, type FileKind } from "@prisma/client";
 
 const ROOT = path.join(process.cwd(), "uploads");
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -66,7 +66,7 @@ async function persistBuffer(input: {
   await mkdir(path.dirname(abs), { recursive: true });
   await writeFile(abs, input.buffer);
 
-  return prisma.fileAsset.create({
+  const saved = await prisma.fileAsset.create({
     data: {
       id,
       userId: input.userId,
@@ -77,6 +77,10 @@ async function persistBuffer(input: {
       byteSize: input.buffer.length,
     },
   });
+  if (input.kind === "reference" && input.rubricId) {
+    await clearRubricCarouselRecipe(input.userId, input.rubricId);
+  }
+  return saved;
 }
 
 export async function readUserFile(objectKey: string) {
@@ -89,6 +93,16 @@ export async function deleteUserFile(id: string, userId: string) {
   if (!file) return;
   await unlink(path.join(ROOT, file.objectKey)).catch(() => undefined);
   await prisma.fileAsset.delete({ where: { id } });
+  if (file.kind === "reference" && file.rubricId) {
+    await clearRubricCarouselRecipe(userId, file.rubricId);
+  }
+}
+
+export async function clearRubricCarouselRecipe(userId: string, rubricId: string) {
+  await prisma.rubric.updateMany({
+    where: { id: rubricId, userId },
+    data: { carouselRecipe: Prisma.DbNull },
+  });
 }
 
 export function filePublicPath(id: string) {
