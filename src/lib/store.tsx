@@ -37,6 +37,7 @@ type AppActions = {
   deleteWork: (id: string) => Promise<void>;
   useGeneration: () => Promise<boolean>;
   draftText: (topic: string) => Promise<string>;
+  draftReelHooks: (topic: string, authorHook?: string) => Promise<string[]>;
   composeCopy: (input: {
     format: CreativeFormat;
     topic: string;
@@ -252,6 +253,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return result.text;
   }, []);
 
+  const draftReelHooks = useCallback(async (topic: string, authorHook?: string) => {
+    const result = await api<{ hooks: string[] }>("/api/ai/text", {
+      method: "POST",
+      body: JSON.stringify({ topic, format: "reel", text: authorHook || "" }),
+    });
+    return result.hooks || [];
+  }, []);
+
   const composeCopy = useCallback(async (input: {
     format: CreativeFormat;
     topic: string;
@@ -349,6 +358,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         deleteWork,
         useGeneration,
         draftText,
+        draftReelHooks,
         composeCopy,
         expandCarousel,
         uploadReference,

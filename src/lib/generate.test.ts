@@ -70,4 +70,25 @@ describe("generateVariants", () => {
     expect(variants[0].slides[0].imageUrl).toBe("/api/files/img-1");
     expect(variants[0].slides[0].text).toBe("");
   });
+
+  it("keeps hook text on a reel cover photo", () => {
+    const reelCopy: ComposedCopy = {
+      text: "Хватит украшать пустое",
+      caption: "Оффер важнее картинки",
+      hashtags: ["#reels"],
+      reelScript: "Хватит украшать пустое",
+      scenarios: [
+        { name: "Провокация", slides: ["Хватит украшать пустое"], imageUrl: "/api/files/r1" },
+        { name: "Дыра", slides: ["Дыру не закроет визуал"], imageUrl: "/api/files/r2" },
+        { name: "Обещание", slides: ["Сначала смысл"], imageUrl: "/api/files/r3" },
+      ],
+    };
+    const variants = generateVariants("reel", "Оффер важнее картинки", "", undefined, null, [], reelCopy);
+    expect(variants).toHaveLength(3);
+    expect(variants.map((item) => item.eyebrow)).toEqual(["Провокация", "Дыра", "Обещание"]);
+    expect(variants[0].slides[0].imageUrl).toBe("/api/files/r1");
+    expect(variants[0].slides[0].text).toBe("Хватит украшать пустое");
+    expect(variants[0].caption).toBe("Оффер важнее картинки");
+    expect(variants[0].reelScript).toBe("Хватит украшать пустое");
+  });
 });

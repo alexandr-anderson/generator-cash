@@ -45,7 +45,23 @@ export const POST_SCENARIO_SPECS = [
   },
 ] as const;
 
+export const REEL_SCENARIO_SPECS = [
+  {
+    name: "Провокация",
+    hint: "Визуальная метафора сломанной привычки или резкой остановки: напряжение, без табличек и жестов «стоп».",
+  },
+  {
+    name: "Дыра",
+    hint: "Визуальная метафора пустого места или нехватки: кадр просит ответа, без вопросительных знаков на картинке.",
+  },
+  {
+    name: "Обещание",
+    hint: "Визуальная метафора одного ясного следующего шага или инструмента. Спокойный, конкретный кадр.",
+  },
+] as const;
+
 export function scenarioSpecsFor(format: CreativeFormat) {
   if (format === "post") return POST_SCENARIO_SPECS;
+  if (format === "reel") return REEL_SCENARIO_SPECS;
   return SCENARIO_SPECS;
 }

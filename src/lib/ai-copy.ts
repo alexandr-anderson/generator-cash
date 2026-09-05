@@ -1,9 +1,9 @@
 import { AiError, openaiJson } from "./openai";
-import { POST_SCENARIO_SPECS, SCENARIO_SPECS, scenarioSpecsFor, type ComposedCopy } from "./ai-types";
+import { POST_SCENARIO_SPECS, REEL_SCENARIO_SPECS, SCENARIO_SPECS, scenarioSpecsFor, type ComposedCopy } from "./ai-types";
 import type { CreativeFormat } from "./types";
 
 export type { ComposedCopy, ComposedScenario } from "./ai-types";
-export { POST_SCENARIO_SPECS, SCENARIO_SPECS, scenarioSpecsFor } from "./ai-types";
+export { POST_SCENARIO_SPECS, REEL_SCENARIO_SPECS, SCENARIO_SPECS, scenarioSpecsFor } from "./ai-types";
 
 const SYSTEM = `Ты копирайтер Instagram-студии postvmeste.ru. Пишешь по-русски для экспертов: ясно, конкретно, без воды, без канцелярита, без markdown и без кавычек-ёлочек вокруг всего текста.
 Короткий слайд читают за 2 секунды. Не используй эмодзи, кроме одного в CTA, если уместно.
@@ -32,6 +32,55 @@ export async function draftExpertText(input: {
   return text;
 }
 
+export async function draftReelHooks(input: {
+  topic: string;
+  niche: string;
+  tone?: string;
+  authorHook?: string;
+}): Promise<string[]> {
+  const payload = await openaiJson<Record<string, unknown>>({
+    system: SYSTEM,
+    user: reelHookPrompt(input),
+    timeoutMs: 180_000,
+    maxTokens: 400,
+  });
+  return normalizeReelHooks(payload.hooks, input.topic, input.authorHook);
+}
+
+export function composeReelFromHooks(input: {
+  topic: string;
+  niche: string;
+  hooks: string[];
+  authorHook?: string;
+}): ComposedCopy {
+  const hooks = normalizeReelHooks(input.hooks, input.topic, input.authorHook);
+  return {
+    text: input.authorHook?.trim() || hooks[0],
+    caption: input.topic,
+    hashtags: localHashtags(input.topic, input.niche),
+    reelScript: hooks[0],
+    scenarios: REEL_SCENARIO_SPECS.map((spec, index) => ({
+      name: spec.name,
+      slides: [hooks[index]],
+    })),
+  };
+}
+
+export async function composeReelCopy(input: {
+  topic: string;
+  niche: string;
+  tone?: string;
+  authorHook?: string;
+}): Promise<ComposedCopy> {
+  const hooks = await draftReelHooks(input);
+  return composeReelFromHooks({
+    topic: input.topic,
+    niche: input.niche,
+    hooks,
+    authorHook: input.authorHook,
+  });
+}
+
 export async function composeVariantPreviews(input: {
   format: CreativeFormat;
   topic: string;
@@ -40,6 +89,14 @@ export async function composeVariantPreviews(input: {
   tone?: string;
 }): Promise<ComposedCopy> {
   if (input.format === "post") return composePostFromAuthorText(input);
+  if (input.format === "reel") {
+    return composeReelCopy({
+      topic: input.topic,
+      niche: input.niche,
+      tone: input.tone,
+      authorHook: input.text,
+    });
+  }
 
   const source = input.text.trim();
   const excerpt = source.slice(0, 700);
@@ -261,6 +318,60 @@ function localHashtags(topic: string, niche: string) {
     .filter((word) => word.length > 3)
     .slice(0, 6);
   return normalizeHashtags(words);
+}
+
+export function normalizeReelHooks(raw: unknown, topic: string, authorHook?: string): string[] {
+  const fromArray = Array.isArray(raw) ? raw : [];
+  const cleaned = fromArray
+    .map((item) => normalizeReelHook(item))
+    .filter(Boolean);
+  const fallbacks = [
+    normalizeReelHook(topic) || "Смотрите до конца",
+    "Ошибку, о которой молчат",
+    "Один шаг вместо десяти",
+  ];
+  const hooks = [...cleaned];
+  while (hooks.length < 3) {
+    const next = fallbacks[hooks.length];
+    if (!hooks.includes(next)) hooks.push(next);
+    else hooks.push(`${fallbacks[0]} ${hooks.length + 1}`);
+  }
+  const author = normalizeReelHook(authorHook || "");
+  if (author) hooks[0] = author;
+  return hooks.slice(0, 3);
+}
+
+function normalizeReelHook(value: unknown) {
+  const words = String(value || "")
+    .replace(/[«»""]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 6);
+  return words.join(" ").replace(/[.,;:]+$/, "").slice(0, 48);
+}
+
+function reelHookPrompt(input: {
+  topic: string;
+  niche: string;
+  tone?: string;
+  authorHook?: string;
+}) {
+  return [
+    "Нужны 3 хука на обложку Reels. Это не сценарий ролика и не подпись поста.",
+    "Каждый хук — 3–6 слов, без эмодзи, без кавычек, без точки в конце, если это не вопрос.",
+    "Первые три слова должны цеплять. Конкретика сильнее общих советов.",
+    `Тема ролика: ${input.topic}`,
+    `Ниша: ${input.niche || "экспертный контент"}`,
+    input.tone ? `Тон: ${input.tone}` : "",
+    input.authorHook?.trim()
+      ? `Хук автора сохрани как первый, смысл не переписывай: ${input.authorHook.trim()}`
+      : "",
+    "Три угла:",
+    ...REEL_SCENARIO_SPECS.map((spec) => `- ${spec.name}: ${spec.hint}`),
+    'JSON: { "hooks": ["провокация", "дыра", "обещание"] }',
+  ].filter(Boolean).join("\n");
 }
 
 function defaultCaption(topic: string, text: string, format: CreativeFormat) {

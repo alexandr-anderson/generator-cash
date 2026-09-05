@@ -1,4 +1,4 @@
-import { draftExpertText } from "@/lib/ai-copy";
+import { draftExpertText, draftReelHooks } from "@/lib/ai-copy";
 import { authed, json } from "@/lib/http";
 import { AiError } from "@/lib/openai";
 
@@ -13,10 +13,20 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const topic = String(body?.topic || "").trim();
+  const format = String(body?.format || "");
   if (!topic) return json({ error: "Введите тему" }, 400);
   if (topic.length > 240) return json({ error: "Тема слишком длинная" }, 400);
 
   try {
+    if (format === "reel") {
+      const hooks = await draftReelHooks({
+        topic,
+        niche: user.niche,
+        tone: user.tone || undefined,
+        authorHook: String(body?.text || "").trim() || undefined,
+      });
+      return json({ hooks });
+    }
     const text = await draftExpertText({
       topic,
       niche: user.niche,

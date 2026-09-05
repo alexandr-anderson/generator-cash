@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composePostFromAuthorText, normalizeComposedCopy, normalizeExpandedSlides, normalizeHashtags } from "./ai-copy";
+import { composePostFromAuthorText, composeReelFromHooks, normalizeComposedCopy, normalizeExpandedSlides, normalizeHashtags, normalizeReelHooks } from "./ai-copy";
 
 describe("normalizeHashtags", () => {
   it("adds hash, drops empties, caps at 15", () => {
@@ -60,5 +60,32 @@ describe("normalizeComposedCopy", () => {
     expect(copy.caption).toBe("Сначала оффер, потом креатив.");
     expect(copy.scenarios.every((item) => item.caption === copy.caption)).toBe(true);
     expect(copy.reelScript).toBeUndefined();
+  });
+});
+
+describe("normalizeReelHooks", () => {
+  it("keeps three short hooks and pins the author hook first", () => {
+    const hooks = normalizeReelHooks(
+      ["Хватит снимать в лоб прямо сейчас пожалуйста", "Ошибку, о которой молчат", "Один кадр вместо десяти"],
+      "Почему оффер важнее картинки",
+      "Сначала смысл оффера",
+    );
+    expect(hooks).toHaveLength(3);
+    expect(hooks[0]).toBe("Сначала смысл оффера");
+    expect(hooks[1].split(" ").length).toBeLessThanOrEqual(6);
+  });
+});
+
+describe("composeReelFromHooks", () => {
+  it("builds three reel angles with the topic as caption", () => {
+    const copy = composeReelFromHooks({
+      topic: "Оффер важнее картинки",
+      niche: "Маркетинг",
+      hooks: ["Хватит украшать пустое", "Дыру в оффере не закроет визуал", "Сначала смысл"],
+    });
+    expect(copy.scenarios.map((item) => item.name)).toEqual(["Провокация", "Дыра", "Обещание"]);
+    expect(copy.scenarios.every((item) => item.slides.length === 1)).toBe(true);
+    expect(copy.caption).toBe("Оффер важнее картинки");
+    expect(copy.reelScript).toBe("Хватит украшать пустое");
   });
 });

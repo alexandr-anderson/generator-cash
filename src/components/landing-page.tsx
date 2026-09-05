@@ -53,7 +53,7 @@ export function LandingPage() {
             <Link href="/auth?mode=register&format=reel" className="format-card">
               <div className="format-icon" style={{ background: "#f0e8ff" }}><Video size={28} color="#8b5cf6" /></div>
               <h3>Обложка Reels</h3>
-              <p>Вертикальная обложка с заголовком + тезисы к ролику.</p>
+              <p>Кадр для сетки и поиска. Ролик не снимаем и не монтируем.</p>
               <span className="format-size">1080×1920</span>
             </Link>
           </div>

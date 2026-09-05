@@ -1,5 +1,5 @@
-import { composePostFromAuthorText, composeVariantPreviews } from "@/lib/ai-copy";
-import { attachPostImages } from "@/lib/ai-image";
+import { composePostFromAuthorText, composeReelCopy, composeVariantPreviews } from "@/lib/ai-copy";
+import { attachPostImages, attachReelImages } from "@/lib/ai-image";
 import { authed, json } from "@/lib/http";
 import { AiError } from "@/lib/openai";
 import { consumeGeneration, quotaAvailable } from "@/lib/quota";
@@ -46,6 +46,16 @@ export async function POST(request: Request) {
           colors,
           referenceIds,
         })
+      : format === "reel"
+        ? await composeReel(user.id, {
+            topic,
+            text,
+            niche: user.niche,
+            tone: user.tone || undefined,
+            rubricId,
+            colors,
+            referenceIds,
+          })
       : await composeVariantPreviews({
           format,
           topic,
@@ -89,6 +99,43 @@ async function composePost(
     niche: input.niche,
     tone: input.tone,
     text: input.text,
+    colors: input.colors,
+    referenceIds: input.referenceIds,
+  });
+
+  return {
+    ...copy,
+    scenarios: copy.scenarios.map((scenario, index) => ({
+      ...scenario,
+      imageUrl: imageUrls[index],
+    })),
+  };
+}
+
+async function composeReel(
+  userId: string,
+  input: {
+    topic: string;
+    text: string;
+    niche: string;
+    tone?: string;
+    rubricId: string | null;
+    colors: string[];
+    referenceIds: string[];
+  },
+) {
+  const copy = await composeReelCopy({
+    topic: input.topic,
+    niche: input.niche,
+    tone: input.tone,
+    authorHook: input.text,
+  });
+  const imageUrls = await attachReelImages({
+    userId,
+    rubricId: input.rubricId,
+    topic: input.topic,
+    niche: input.niche,
+    tone: input.tone,
     colors: input.colors,
     referenceIds: input.referenceIds,
   });

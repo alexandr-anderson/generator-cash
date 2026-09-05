@@ -30,14 +30,15 @@ import {
   type Template,
 } from "@/lib/types";
 import { applySlideTexts, generateVariants } from "@/lib/generate";
-import { slideToSvg, svgToPngBlob } from "@/lib/render";
+import { reelCoverToPngBlob, slideToSvg, svgToPngBlob } from "@/lib/render";
+import { ReelCover } from "@/components/reel-cover";
 
 type Step = "format" | "rubric" | "topic" | "text" | "variants" | "editor";
 
-const FORMAT_OPTIONS: { id: CreativeFormat; icon: typeof Layers3; color: string; bg: string }[] = [
-  { id: "carousel", icon: Layers3, color: "#ff5c35", bg: "#fff0e8" },
-  { id: "post", icon: ImageIcon, color: "#3b82f6", bg: "#e8f0ff" },
-  { id: "reel", icon: Video, color: "#8b5cf6", bg: "#f0e8ff" },
+const FORMAT_OPTIONS: { id: CreativeFormat; icon: typeof Layers3; color: string; bg: string; blurb: string }[] = [
+  { id: "carousel", icon: Layers3, color: "#ff5c35", bg: "#fff0e8", blurb: "7 слайдов после выбора сценария" },
+  { id: "post", icon: ImageIcon, color: "#3b82f6", bg: "#e8f0ff", blurb: "Три картинки к вашей подписи" },
+  { id: "reel", icon: Video, color: "#8b5cf6", bg: "#f0e8ff", blurb: "Обложка для сетки и поиска. Ролик не снимаем" },
 ];
 
 function parseFormat(value: string | null): CreativeFormat | null {
@@ -65,6 +66,7 @@ export function CreateFlow() {
   const [showNewRubric, setShowNewRubric] = useState(false);
   const [topic, setTopic] = useState(params.get("topic") || "");
   const [userText, setUserText] = useState("");
+  const [hookDrafts, setHookDrafts] = useState<string[]>([]);
   const [colors, setColors] = useState<string[]>(["#ff5c35", "#ffc857", "#f6f1e9", "#191817"]);
   const [inspirationUrl, setInspirationUrl] = useState("");
   const [uploadingRef, setUploadingRef] = useState(false);
@@ -155,8 +157,14 @@ export function CreateFlow() {
     setDrafting(true);
     setError("");
     try {
-      const text = await store.draftText(topic.trim());
-      setUserText(text);
+      if (format === "reel") {
+        const hooks = await store.draftReelHooks(topic.trim(), userText.trim());
+        setHookDrafts(hooks);
+        if (!userText.trim() && hooks[0]) setUserText(hooks[0]);
+      } else {
+        const text = await store.draftText(topic.trim());
+        setUserText(text);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Не удалось сгенерировать текст");
     } finally {
@@ -193,7 +201,7 @@ export function CreateFlow() {
         colors,
         referenceIds: (rubric?.references || []).map(fileIdFromUrl).filter(Boolean),
       });
-      if (format !== "post" && !userText.trim()) setUserText(copy.text);
+      if (format === "carousel" && !userText.trim()) setUserText(copy.text);
       const v = generateVariants(
         format,
         topic.trim(),
@@ -288,6 +296,8 @@ export function CreateFlow() {
         zip.file("caption.txt", caption);
         const blob = await zip.generateAsync({ type: "blob" });
         downloadBlob(blob, "carousel.zip");
+      } else if (work.format === "reel") {
+        downloadBlob(await reelCoverToPngBlob(work), "reel-cover.png");
       } else if (work.slides[0]?.imageUrl) {
         const response = await fetch(work.slides[0].imageUrl, { credentials: "include" });
         if (!response.ok) throw new Error("export");
@@ -337,6 +347,7 @@ export function CreateFlow() {
                 </div>
                 <h3>{FORMAT_LABELS[f.id]}</h3>
                 <span>{FORMAT_SIZES[f.id].label}</span>
+                <p className="format-option-blurb">{f.blurb}</p>
               </button>
             ))}
           </div>
@@ -391,9 +402,19 @@ export function CreateFlow() {
         <div className="flow-step flow-narrow">
           <button className="flow-back" onClick={() => setStep("rubric")}><ArrowLeft size={16} /> Назад</button>
           <div className="flow-heading">
-            <h1>Тема и текст</h1>
-            <p>Тема, референсы и текст — модель от них оттолкнётся</p>
+            <h1>{format === "reel" ? "Тема и обложка" : "Тема и текст"}</h1>
+            <p>
+              {format === "reel"
+                ? "Тема обязательна. Референс со своего рилса помогает попасть в ваш кадр."
+                : "Тема, референсы и текст — модель от них оттолкнётся"}
+            </p>
           </div>
+          {format === "reel" && (
+            <div className="flow-promise">
+              Мы не снимаем и не монтируем ролик и не обещаем попасть в рекомендации.
+              Делаем обложку, чтобы с профиля и из поиска было ясно: это видео стоит открыть.
+            </div>
+          )}
 
           <div className="field">
             <label>Формат</label>
@@ -403,7 +424,7 @@ export function CreateFlow() {
                   key={item.id}
                   type="button"
                   className={`format-chip ${format === item.id ? "active" : ""}`}
-                  onClick={() => setFormat(item.id)}
+                  onClick={() => { setFormat(item.id); setHookDrafts([]); }}
                 >
                   <item.icon size={14} color={item.color} />
                   {FORMAT_LABELS[item.id]}
@@ -439,7 +460,12 @@ export function CreateFlow() {
           </div>
 
           <div className="field">
-            <label>Референсы — до 4 картинок</label>
+            <label>{format === "reel" ? "Референсы" : "Референсы — до 4 картинок"}</label>
+            {format === "reel" && (
+              <p className="field-hint">
+                Лучше стоп-кадр с лицом из своего рилса или чужие обложки, которые нравятся. До 4 картинок.
+              </p>
+            )}
             <div className="reference-grid">
               {(rubric?.references || []).map((url) => (
                 <div key={url} className="reference-tile">
@@ -479,18 +505,41 @@ export function CreateFlow() {
           </div>
 
           <div className="field">
-            <label>{format === "post" ? "Подпись поста" : "Текст"}</label>
+            <label>
+              {format === "post" ? "Подпись поста" : format === "reel" ? "Хук на обложке" : "Текст"}
+            </label>
+            {format === "reel" && (
+              <p className="field-hint">
+                По желанию, 3–6 слов. Если оставить пустым — напишем три хука сами.
+              </p>
+            )}
             <textarea
-              rows={6}
+              rows={format === "reel" ? 2 : 6}
               value={userText}
               onChange={(e) => setUserText(e.target.value)}
               placeholder={format === "post"
                 ? "Это текст публикации. Его «Создать» уже не будет переписывать"
-                : "Вставьте свой текст или сгенерируйте..."}
+                : format === "reel"
+                  ? "Например: Хватит снимать в лоб"
+                  : "Вставьте свой текст или сгенерируйте..."}
             />
             <button className="btn-secondary btn-sm" onClick={handleGenerateText} disabled={drafting || generating}>
-              <Sparkles size={14} /> {drafting ? "Пишу..." : "Помочь с текстом"}
+              <Sparkles size={14} /> {drafting ? "Пишу..." : format === "reel" ? "Предложить хуки" : "Помочь с текстом"}
             </button>
+            {format === "reel" && hookDrafts.length > 0 && (
+              <div className="hook-drafts">
+                {hookDrafts.map((hook) => (
+                  <button
+                    key={hook}
+                    type="button"
+                    className={`hook-draft ${userText === hook ? "active" : ""}`}
+                    onClick={() => setUserText(hook)}
+                  >
+                    {hook}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {error && <div className="flow-error"><AlertCircle size={14} /> {error}</div>}
@@ -499,6 +548,8 @@ export function CreateFlow() {
             <div className="flow-warning">
               {format === "post"
                 ? "Рисую три картинки — подождите, не закрывайте вкладку"
+                : format === "reel"
+                  ? "Рисую три обложки — подождите, не закрывайте вкладку"
                 : "Собираю три крючка — подождите, не закрывайте вкладку"}
             </div>
           )}
@@ -520,7 +571,7 @@ export function CreateFlow() {
               disabled={generating || drafting || remaining <= 0}
             >
               {generating
-                ? format === "post" ? "Рисую картинки…" : "Собираю варианты…"
+                ? format === "post" ? "Рисую картинки…" : format === "reel" ? "Рисую обложки…" : "Собираю варианты…"
                 : "Создать"} <ArrowRight size={16} />
             </button>
           </div>
@@ -551,13 +602,19 @@ export function CreateFlow() {
           <button className="flow-back" onClick={() => setStep("topic")}><ArrowLeft size={16} /> Изменить тему</button>
           <div className="flow-heading flow-center-heading">
             <span className="flow-kicker"><Sparkles size={14} /> 3 ВАРИАНТА</span>
-            <h1>{format === "post" ? "Какая картинка ближе?" : "Какой сценарий ближе?"}</h1>
+            <h1>
+              {format === "post"
+                ? "Какая картинка ближе?"
+                : format === "reel"
+                  ? "Какая обложка ближе?"
+                  : "Какой сценарий ближе?"}
+            </h1>
             <p>
               {format === "carousel"
                 ? "Сейчас только обложка каждого сценария. Остальные 6 слайдов допишем после выбора."
                 : format === "post"
                   ? "Три картинки к вашей подписи. Текст публикации уже готов и не меняется."
-                  : "Три готовых кадра в разных сценариях. В редакторе можно будет поправить."}
+                  : "Три хука на обложке. Ролик не снимаем — это кадр для сетки и поиска."}
             </p>
           </div>
           <div className="variants-grid">
@@ -568,7 +625,16 @@ export function CreateFlow() {
                 onClick={() => !expanding && setSelectedId(v.id)}
               >
                 <div className={`variant-preview format-${v.format}`} style={{ background: v.background, color: v.foreground }}>
-                  {v.slides[0]?.imageUrl ? (
+                  {v.format === "reel" && v.slides[0]?.imageUrl ? (
+                    <ReelCover
+                      imageUrl={v.slides[0].imageUrl}
+                      hook={v.slides[0].text}
+                      background={v.background}
+                      plaque={v.accent}
+                      textColor={v.slides[0].textColor}
+                      fontSize={18}
+                    />
+                  ) : v.slides[0]?.imageUrl ? (
                     <img src={v.slides[0].imageUrl} alt="" className="variant-photo" />
                   ) : (
                     <>
@@ -582,7 +648,8 @@ export function CreateFlow() {
                 </div>
                 <div className="variant-label">
                   <b>{v.eyebrow}</b>
-                  {format !== "post" && <small>{v.layout}</small>}
+                  {format === "reel" && <small>{v.slides[0]?.text}</small>}
+                  {format === "carousel" && <small>{v.layout}</small>}
                 </div>
               </button>
             ))}
@@ -629,7 +696,54 @@ export function CreateFlow() {
             )}
 
             <div className="editor-fields">
-              {work.slides[activeSlide]?.imageUrl ? (
+              {work.format === "reel" && work.slides[activeSlide]?.imageUrl ? (
+                <>
+                  <p className="editor-note">
+                    Картинка не переписывается. Хук правите здесь — он должен читаться в центре сетки.
+                    Этот же хук можно сказать первой фразой в ролике.
+                  </p>
+                  <div className="field">
+                    <label>Хук на обложке</label>
+                    <textarea
+                      rows={2}
+                      value={work.slides[activeSlide]?.text || ""}
+                      onChange={(e) => {
+                        const hook = e.target.value;
+                        setWork({
+                          ...work,
+                          reelScript: hook,
+                          slides: work.slides.map((slide, index) => (
+                            index === activeSlide ? { ...slide, text: hook } : slide
+                          )),
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Размер шрифта: {work.slides[activeSlide]?.fontSize || 64}</label>
+                    <input
+                      type="range"
+                      min={40}
+                      max={88}
+                      value={work.slides[activeSlide]?.fontSize || 64}
+                      onChange={(e) => updateSlide(activeSlide, { fontSize: Number(e.target.value) })}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Цвет текста</label>
+                    <div className="color-chips">
+                      {["#ffffff", "#000000", ...colors].map((c) => (
+                        <button
+                          key={c}
+                          className={`color-chip ${work.slides[activeSlide]?.textColor === c ? "active" : ""}`}
+                          style={{ background: c }}
+                          onClick={() => updateSlide(activeSlide, { textColor: c })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : work.slides[activeSlide]?.imageUrl ? (
                 <p className="editor-note">Картинка без текста. Править можно подпись и хештеги.</p>
               ) : (
                 <>
@@ -672,7 +786,13 @@ export function CreateFlow() {
               <div className="editor-separator" />
 
               <div className="field">
-                <label>{work.format === "post" ? "Подпись — основной текст поста" : "Подпись к посту"}</label>
+                <label>
+                  {work.format === "post"
+                    ? "Подпись — основной текст поста"
+                    : work.format === "reel"
+                      ? "Подпись ролика — не на обложке"
+                      : "Подпись к посту"}
+                </label>
                 <textarea
                   rows={work.format === "post" ? 8 : 4}
                   value={work.caption}
@@ -696,15 +816,9 @@ export function CreateFlow() {
               </div>
 
               {work.format === "reel" && (
-                <div className="field">
-                  <label>Текст к ролику</label>
-                  <textarea
-                    rows={4}
-                    value={work.reelScript || ""}
-                    onChange={(e) => setWork({ ...work, reelScript: e.target.value })}
-                    placeholder="Хук + тезисы для ролика..."
-                  />
-                </div>
+                <p className="editor-note">
+                  Первая фраза ролика совпадает с хуком. Сценарий и монтаж — ваши.
+                </p>
               )}
 
               <div className="editor-separator" />
@@ -728,8 +842,25 @@ export function CreateFlow() {
               </div>
             </div>
 
-            <div className={`editor-preview format-${work.format}`}>
-              <SlidePreview work={work} slideIndex={activeSlide} />
+            <div className="editor-preview-stack">
+              <div className={`editor-preview format-${work.format}`}>
+                <SlidePreview work={work} slideIndex={activeSlide} />
+              </div>
+              {work.format === "reel" && (
+                <div className="reel-grid-block">
+                  <small>Как в сетке профиля</small>
+                  <div className="reel-grid-preview">
+                    <ReelCover
+                      imageUrl={work.slides[activeSlide]?.imageUrl}
+                      hook={work.slides[activeSlide]?.text || ""}
+                      background={work.background}
+                      plaque={work.accent}
+                      textColor={work.slides[activeSlide]?.textColor}
+                      fontSize={Math.round((work.slides[activeSlide]?.fontSize || 64) * 0.22)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {work.format === "carousel" && (
@@ -760,6 +891,19 @@ export function CreateFlow() {
 function SlidePreview({ work, slideIndex }: { work: CreativeWork; slideIndex: number }) {
   const slide = work.slides[slideIndex];
   if (!slide) return null;
+
+  if (work.format === "reel" && slide.imageUrl) {
+    return (
+      <ReelCover
+        imageUrl={slide.imageUrl}
+        hook={slide.text}
+        background={work.background}
+        plaque={work.accent}
+        textColor={slide.textColor}
+        fontSize={Math.round((slide.fontSize || 64) * 0.36)}
+      />
+    );
+  }
 
   if (slide.imageUrl) {
     return (

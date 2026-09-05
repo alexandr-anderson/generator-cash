@@ -64,7 +64,7 @@ export function generateVariants(
     const slides: SlideContent[] = slideTexts.map((t) => ({
       text: format === "post" ? "" : t,
       fontSize: format === "reel" ? 64 : 48,
-      textColor: fg,
+      textColor: format === "reel" ? "#ffffff" : fg,
       positionX: 50,
       positionY: 50,
       imageUrl: copy?.scenarios[i]?.imageUrl,
@@ -82,13 +82,15 @@ export function generateVariants(
       slides,
       caption: format === "post"
         ? (text || copy?.caption || topic)
+        : format === "reel"
+          ? (copy?.caption || topic)
         : (copy?.scenarios[i]?.caption || copy?.caption || generateCaption(topic, text, format)),
       hashtags,
-      reelScript: copy?.reelScript,
+      reelScript: format === "reel" ? (aiSlides?.[0] || copy?.reelScript) : copy?.reelScript,
       layout,
-      background: i === 1 ? fg : bg,
+      background: format === "reel" ? bg : i === 1 ? fg : bg,
       accent,
-      foreground: i === 1 ? bg : fg,
+      foreground: format === "reel" ? fg : i === 1 ? bg : fg,
       eyebrow: copy?.scenarios[i]?.name || spec.name,
       brandLabel: profile?.email?.split("@")[0] || "postvmeste",
       createdAt: Date.now(),

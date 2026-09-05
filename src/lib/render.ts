@@ -80,6 +80,87 @@ export function slideToSvg(work: CreativeWork, slideIndex: number): string {
 </svg>`;
 }
 
+export async function reelCoverToPngBlob(work: CreativeWork): Promise<Blob> {
+  const slide = work.slides[0];
+  if (!slide) throw new Error("No reel slide");
+  const { width, height } = FORMAT_SIZES.reel;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No canvas");
+
+  ctx.fillStyle = work.background || "#191817";
+  ctx.fillRect(0, 0, width, height);
+
+  if (slide.imageUrl) {
+    const bitmap = await loadCoverBitmap(slide.imageUrl);
+    drawCoverImage(ctx, bitmap, width, height);
+  }
+
+  const hook = slide.text.trim();
+  if (hook) {
+    const fontSize = slide.fontSize || 64;
+    const lines = wrapText(hook, 16);
+    const lineHeight = fontSize + 14;
+    const boxWidth = Math.round(width * 0.78);
+    const boxHeight = lines.length * lineHeight + 56;
+    const boxX = Math.round((width - boxWidth) / 2);
+    const boxY = Math.round(height / 2 - boxHeight / 2);
+    ctx.fillStyle = work.accent || "rgba(17,17,17,0.72)";
+    roundRect(ctx, boxX, boxY, boxWidth, boxHeight, 28);
+    ctx.fill();
+    ctx.fillStyle = slide.textColor || "#ffffff";
+    ctx.font = `800 ${fontSize}px Arial, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    lines.forEach((line, index) => {
+      const y = boxY + 28 + lineHeight * index + lineHeight / 2;
+      ctx.fillText(line, width / 2, y, boxWidth - 48);
+    });
+  }
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) throw new Error("PNG export failed");
+  return blob;
+}
+
+async function loadCoverBitmap(url: string) {
+  const response = await fetch(url, { credentials: "include" });
+  if (!response.ok) throw new Error("export");
+  return createImageBitmap(await response.blob());
+}
+
+function drawCoverImage(
+  ctx: CanvasRenderingContext2D,
+  image: ImageBitmap,
+  width: number,
+  height: number,
+) {
+  const scale = Math.max(width / image.width, height / image.height);
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+  ctx.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+}
+
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
 export async function svgToPngBlob(svg: string): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const image = new Image();

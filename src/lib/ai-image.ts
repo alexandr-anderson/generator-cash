@@ -1,10 +1,10 @@
-import { POST_SCENARIO_SPECS } from "./ai-types";
-import { buildPostImagePrompt } from "./ai-image-prompt";
+import { POST_SCENARIO_SPECS, REEL_SCENARIO_SPECS } from "./ai-types";
+import { buildPostImagePrompt, buildReelImagePrompt } from "./ai-image-prompt";
 import { AiError, openaiImagePng, openaiVisualBrief } from "./openai";
 import { filePublicPath, readUserFile, saveUserBuffer } from "./storage";
 import { prisma } from "./db";
 
-export { buildPostImagePrompt } from "./ai-image-prompt";
+export { buildPostImagePrompt, buildReelImagePrompt } from "./ai-image-prompt";
 
 export async function attachPostImages(input: {
   userId: string;
@@ -57,6 +57,64 @@ export async function attachPostImages(input: {
   }
 
   return saved.map((file) => filePublicPath(file.id));
+}
+
+export async function attachReelImages(input: {
+  userId: string;
+  rubricId?: string | null;
+  topic: string;
+  niche: string;
+  tone?: string;
+  colors?: string[];
+  referenceIds?: string[];
+}): Promise<string[]> {
+  const references = await loadReferenceImages(input.userId, input.referenceIds || []);
+  const visualBrief = await openaiVisualBrief({
+    topic: input.topic,
+    niche: input.niche,
+    images: references,
+  });
+
+  const pngs = [];
+  for (const spec of REEL_SCENARIO_SPECS) {
+    if (pngs.length) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+    pngs.push(await generateReelPng(buildReelImagePrompt({
+      topic: input.topic,
+      niche: input.niche,
+      tone: input.tone,
+      angle: spec.name,
+      hint: spec.hint,
+      colors: input.colors,
+      visualBrief,
+    })));
+  }
+
+  const saved = [];
+  for (const png of pngs) {
+    if (!png.length) {
+      throw new AiError("Модель вернула пустую картинку. Попробуйте ещё раз.", 502);
+    }
+    saved.push(await saveUserBuffer({
+      userId: input.userId,
+      rubricId: input.rubricId,
+      kind: "export",
+      buffer: png,
+      mimeType: "image/png",
+    }));
+  }
+
+  return saved.map((file) => filePublicPath(file.id));
+}
+
+async function generateReelPng(prompt: string) {
+  try {
+    return await openaiImagePng({ prompt, size: "1024x1792" });
+  } catch (error) {
+    console.error("[ai-image] reel 9:16 failed, retry square", error);
+    return openaiImagePng({ prompt, size: "1024x1024" });
+  }
 }
 
 async function loadReferenceImages(userId: string, ids: string[]) {
