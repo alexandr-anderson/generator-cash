@@ -64,6 +64,23 @@ img { max-width: 100%; }
 
 .btn-lg { padding: 14px 24px; font-size: 15px; }
 .btn-sm { padding: 7px 12px; font-size: 11px; }
+.btn-copy { min-width: 158px; }
+.btn-copy.is-copied {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+.btn-copy-check {
+  animation: copy-pop 0.35s ease;
+}
+@keyframes copy-pop {
+  0% { opacity: 0; transform: scale(0.4); }
+  55% { opacity: 1; transform: scale(1.18); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-copy-check { animation: none; }
+}
 .btn-xs { padding: 5px 10px; font-size: 10px; border-radius: 6px; }
 .btn-full { width: 100%; }
 

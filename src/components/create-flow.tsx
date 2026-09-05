@@ -83,6 +83,8 @@ export function CreateFlow() {
   const [drafting, setDrafting] = useState(false);
   const [exporting, setExporting] = useState<"zip" | "phone" | "png" | null>(null);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const rubric = store.rubrics.find((r) => r.id === rubricId);
 
@@ -104,6 +106,10 @@ export function CreateFlow() {
       setStep((current) => (current === "format" ? current : "rubric"));
     }
   }, [store.rubrics, rubricId]);
+
+  useEffect(() => () => {
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+  }, []);
 
   function selectFormat(f: CreativeFormat) {
     setFormat(f);
@@ -349,10 +355,29 @@ export function CreateFlow() {
     URL.revokeObjectURL(url);
   }
 
-  function copyCaption() {
+  async function copyCaption() {
     if (!work) return;
-    const text = `${work.caption}\n\n${work.hashtags.join(" ")}`;
-    navigator.clipboard.writeText(text);
+    const text = `${work.caption}\n\n${work.hashtags.join(" ")}`.trim();
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.left = "-9999px";
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        document.body.removeChild(area);
+      }
+      setCopied(true);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setError("Не удалось скопировать. Выделите подпись вручную.");
+    }
   }
 
   const remaining = store.getGenerationsRemaining();
@@ -881,7 +906,14 @@ export function CreateFlow() {
             <div className="editor-toolbar">
               <span className="editor-format-label">{FORMAT_LABELS[work.format]} · {FORMAT_SIZES[work.format].label}</span>
               <div className="editor-toolbar-actions">
-                <button className="btn-secondary btn-sm" onClick={copyCaption}>Скопировать подпись</button>
+                <button
+                  className={`btn-secondary btn-sm btn-copy${copied ? " is-copied" : ""}`}
+                  onClick={() => void copyCaption()}
+                  aria-live="polite"
+                >
+                  {copied ? <Check size={14} className="btn-copy-check" /> : null}
+                  {copied ? "Скопировано" : "Скопировать подпись"}
+                </button>
                 {work.format === "carousel" ? (
                   <div className="export-pair">
                     <button
