@@ -75,7 +75,12 @@ async function resolveChatId() {
   const match = [...(updates || [])].reverse().find(
     (item) => item.message?.from?.username?.toLowerCase() === CHAT.toLowerCase() && item.message?.chat?.id,
   );
-  if (!match) throw new Error(`Нет чата с @${CHAT}: напишите боту /start`);
+  if (!match) {
+    const seen = [...new Set((updates || []).map((item) => item.message?.from?.username).filter(Boolean))];
+    throw new Error(
+      `Нет чата с @${CHAT}: напишите боту /start` + (seen.length ? ` (видел: ${seen.join(", ")})` : ""),
+    );
+  }
   return String(match.message.chat.id);
 }
 
@@ -84,8 +89,12 @@ async function sendTelegram(kind, detail) {
     console.log("==> uptime-check: TELEGRAM_BOT_TOKEN missing, skip notify");
     return;
   }
-  const title = kind === "up" ? "Снова в строю" : "Сайт не отвечает или health не ок";
-  const text = [`postvmeste.ru · сайт`, title, detail].join("\n").slice(0, 3900);
+  const titles = {
+    up: "Снова в строю",
+    down: "Сайт не отвечает или health не ок",
+    test: "Тестовый алерт",
+  };
+  const text = [`postvmeste.ru · сайт`, titles[kind] || titles.down, detail].join("\n").slice(0, 3900);
   const chatId = await resolveChatId();
   await telegramApi("sendMessage", {
     chat_id: chatId,
@@ -109,6 +118,12 @@ async function ping() {
 }
 
 async function main() {
+  if ((process.env.TELEGRAM_TEST || "").trim() === "1") {
+    await sendTelegram("test", "Если это сообщение пришло — канал алертов работает.");
+    console.log("==> uptime-check: test alert sent");
+    return;
+  }
+
   const previous = loadState();
   const result = await ping();
   const next = nextSnapshot(previous, result.healthy);
