@@ -30,7 +30,7 @@ import {
   type Template,
 } from "@/lib/types";
 import { applySlideTexts, generateVariants } from "@/lib/generate";
-import { captionTxt, reelScriptTxt, textFileBlob } from "@/lib/export-package";
+import { captionTxt, textFileBlob } from "@/lib/export-package";
 import { reelCoverToPngBlob, slideToSvg, svgToPngBlob } from "@/lib/render";
 import { scenarioLabel } from "@/lib/ai-types";
 import { CarouselSlideFace } from "@/components/carousel-slide";
@@ -94,6 +94,7 @@ export function CreateFlow() {
   const [showNewRubric, setShowNewRubric] = useState(false);
   const [topic, setTopic] = useState(params.get("topic") || "");
   const [userText, setUserText] = useState("");
+  const [reelCaptionDraft, setReelCaptionDraft] = useState("");
   const [hookDrafts, setHookDrafts] = useState<string[]>([]);
   const [colors, setColors] = useState<string[]>(["#ff5c35", "#ffc857", "#f6f1e9", "#191817"]);
   const [inspirationUrl, setInspirationUrl] = useState("");
@@ -243,6 +244,7 @@ export function CreateFlow() {
         format,
         topic: topic.trim(),
         text: userText.trim(),
+        captionSource: format === "reel" ? reelCaptionDraft.trim() : undefined,
         rubricId,
         colors,
         referenceIds: (rubric?.references || []).map(fileIdFromUrl).filter(Boolean),
@@ -380,7 +382,6 @@ export function CreateFlow() {
       if (work.format === "reel") {
         zip.file("reel-cover.png", await reelCoverToPngBlob(work));
         zip.file(captionFile.name, captionFile.blob);
-        zip.file("reel.txt", textFileBlob(reelScriptTxt(work)));
         downloadBlob(await zip.generateAsync({ type: "blob" }), "reel.zip");
         return;
       }
@@ -665,6 +666,21 @@ export function CreateFlow() {
             )}
           </div>
 
+          {format === "reel" && (
+            <div className="field">
+              <label>Подпись к ролику</label>
+              <p className="field-hint">
+                Свой текст, транскрипт или саммари. Если пусто — напишем подпись по хуку. Сценарий ролика не пишем.
+              </p>
+              <textarea
+                rows={6}
+                value={reelCaptionDraft}
+                onChange={(e) => setReelCaptionDraft(e.target.value)}
+                placeholder="Вставьте подпись, транскрипт или саммари — или оставьте пустым"
+              />
+            </div>
+          )}
+
           {error && (
             <FlowErrorBanner
               message={error}
@@ -840,7 +856,6 @@ export function CreateFlow() {
                 <>
                   <p className="editor-note">
                     Картинка не переписывается. Хук правите здесь — он должен читаться в центре сетки.
-                    Этот же хук можно сказать первой фразой в ролике.
                   </p>
                   <div className="field">
                     <label>Хук на обложке</label>
@@ -851,7 +866,6 @@ export function CreateFlow() {
                         const hook = e.target.value;
                         setWork({
                           ...work,
-                          reelScript: hook,
                           slides: work.slides.map((slide, index) => (
                             index === activeSlide ? { ...slide, text: hook } : slide
                           )),
@@ -933,8 +947,13 @@ export function CreateFlow() {
                       ? "Подпись ролика — не на обложке"
                       : "Подпись карусели"}
                 </label>
+                {work.format === "reel" && (
+                  <p className="field-hint">
+                    Свой текст, транскрипт или саммари оставляем как есть. Если поле было пустым — написали по хуку.
+                  </p>
+                )}
                 <textarea
-                  rows={work.format === "post" || work.format === "carousel" ? 8 : 4}
+                  rows={8}
                   value={work.caption}
                   onChange={(e) => setWork({ ...work, caption: e.target.value })}
                 />
@@ -954,18 +973,6 @@ export function CreateFlow() {
                   ))}
                 </div>
               </div>
-
-              {work.format === "reel" && (
-                <div className="field">
-                  <label>Текст к ролику</label>
-                  <textarea
-                    rows={6}
-                    value={work.reelScript || ""}
-                    onChange={(e) => setWork({ ...work, reelScript: e.target.value })}
-                    placeholder="Что говорить в ролике. Это не хук на обложке."
-                  />
-                </div>
-              )}
 
               <div className="editor-separator" />
 

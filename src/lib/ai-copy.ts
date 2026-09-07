@@ -52,13 +52,13 @@ export function composeReelFromHooks(input: {
   niche: string;
   hooks: string[];
   authorHook?: string;
+  caption: string;
 }): ComposedCopy {
   const hooks = normalizeReelHooks(input.hooks, input.topic, input.authorHook);
   return {
     text: input.authorHook?.trim() || hooks[0],
-    caption: input.topic,
+    caption: input.caption.trim() || input.topic,
     hashtags: localHashtags(input.topic, input.niche),
-    reelScript: hooks[0],
     scenarios: REEL_SCENARIO_SPECS.map((spec, index) => ({
       name: spec.name,
       slides: [hooks[index]],
@@ -66,18 +66,55 @@ export function composeReelFromHooks(input: {
   };
 }
 
+export async function draftReelCaption(input: {
+  topic: string;
+  niche: string;
+  tone?: string;
+  hook: string;
+}): Promise<string> {
+  const payload = await openaiJson<Record<string, unknown>>({
+    system: SYSTEM,
+    user: [
+      "Напиши подпись к Reels в Instagram — текст под роликом.",
+      "Это не сценарий, не реплики в кадре, не тайминг и не список кадров.",
+      "Опора — хук на обложке и тема. 4–8 коротких предложений, экспертный тон.",
+      "Без markdown, без кавычек вокруг всего текста, без служебных слов «хук», «сценарий», «CTA».",
+      "Можно один мягкий призыв сохранить или написать в комментарии.",
+      `Тема: ${input.topic}`,
+      `Ниша: ${input.niche || "экспертный контент"}`,
+      `Тон: ${input.tone || "спокойный и уверенный"}`,
+      `Хук на обложке: ${input.hook}`,
+      'Верни JSON: { "caption": "..." }',
+    ].join("\n"),
+    timeoutMs: 180_000,
+    maxTokens: 700,
+  });
+  const caption = String(payload.caption || "").replace(/\s+\n/g, "\n").trim();
+  if (!caption) throw new AiError("Модель вернула пустую подпись. Попробуйте ещё раз.", 502);
+  return caption.slice(0, 2200);
+}
+
 export async function composeReelCopy(input: {
   topic: string;
   niche: string;
   tone?: string;
   authorHook?: string;
+  captionSource?: string;
 }): Promise<ComposedCopy> {
   const hooks = await draftReelHooks(input);
+  const source = input.captionSource?.trim();
+  const caption = source || await draftReelCaption({
+    topic: input.topic,
+    niche: input.niche,
+    tone: input.tone,
+    hook: input.authorHook?.trim() || hooks[0],
+  });
   return composeReelFromHooks({
     topic: input.topic,
     niche: input.niche,
     hooks,
     authorHook: input.authorHook,
+    caption,
   });
 }
 
@@ -87,6 +124,7 @@ export async function composeVariantPreviews(input: {
   text: string;
   niche: string;
   tone?: string;
+  captionSource?: string;
 }): Promise<ComposedCopy> {
   if (input.format === "post") return composePostFromAuthorText(input);
   if (input.format === "reel") {
@@ -95,6 +133,7 @@ export async function composeVariantPreviews(input: {
       niche: input.niche,
       tone: input.tone,
       authorHook: input.text,
+      captionSource: input.captionSource,
     });
   }
 
@@ -202,7 +241,6 @@ export function normalizeComposedCopy(
   const text = pickText(raw) || opts.fallbackText?.trim() || "";
   const caption = String(raw.caption || "").trim() || defaultCaption(opts.topic, text, opts.format);
   const hashtags = normalizeHashtags(raw.hashtags);
-  const reelScript = String(raw.reelScript || "").trim();
   const rawScenarios = Array.isArray(raw.scenarios) ? raw.scenarios : [];
   const specs = scenarioSpecsFor(opts.format);
   const fallbackCaption = caption;
@@ -232,7 +270,6 @@ export function normalizeComposedCopy(
       ? scenarios[0]?.caption || caption
       : caption,
     hashtags,
-    reelScript: opts.format === "reel" ? reelScript || text || caption : undefined,
     scenarios,
   };
 }

@@ -25,6 +25,7 @@ export async function POST(request: Request) {
   const format = String(body?.format || "") as CreativeFormat;
   const topic = String(body?.topic || "").trim();
   const text = String(body?.text || "").trim();
+  const captionSource = String(body?.captionSource || "").trim();
   const rubricId = String(body?.rubricId || "") || null;
   const colors = Array.isArray(body?.colors)
     ? body.colors.filter((item: unknown) => typeof item === "string").slice(0, 4)
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
   if (!topic) return json({ error: "Введите тему" }, 400);
   if (topic.length > 240) return json({ error: "Тема слишком длинная" }, 400);
   if (text.length > 5000) return json({ error: "Текст слишком длинный" }, 400);
+  if (captionSource.length > 8000) return json({ error: "Текст подписи слишком длинный" }, 400);
 
   try {
     const copy = format === "post"
@@ -52,6 +54,7 @@ export async function POST(request: Request) {
         ? await composeReel(user.id, {
             topic,
             text,
+            captionSource,
             niche: user.niche,
             tone: user.tone || undefined,
             rubricId,
@@ -131,6 +134,7 @@ async function composeReel(
   input: {
     topic: string;
     text: string;
+    captionSource?: string;
     niche: string;
     tone?: string;
     rubricId: string | null;
@@ -143,6 +147,7 @@ async function composeReel(
     niche: input.niche,
     tone: input.tone,
     authorHook: input.text,
+    captionSource: input.captionSource,
   });
   const imageUrls = await attachReelImages({
     userId,

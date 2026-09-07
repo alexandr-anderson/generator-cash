@@ -100,15 +100,16 @@ describe("normalizeReelHooks", () => {
 });
 
 describe("composeReelFromHooks", () => {
-  it("builds three reel angles with the topic as caption", () => {
+  it("builds three reel covers and keeps the given caption, without a script", () => {
     const copy = composeReelFromHooks({
       topic: "Оффер важнее картинки",
       niche: "Маркетинг",
       hooks: ["Хватит украшать пустое", "Дыру в оффере не закроет визуал", "Сначала смысл"],
+      caption: "Сначала смысл оффера, потом картинка.",
     });
     expect(copy.scenarios.map((item) => item.name)).toEqual(["Провокация", "Дыра", "Обещание"]);
     expect(copy.scenarios.every((item) => item.slides.length === 1)).toBe(true);
-    expect(copy.caption).toBe("Оффер важнее картинки");
-    expect(copy.reelScript).toBe("Хватит украшать пустое");
+    expect(copy.caption).toBe("Сначала смысл оффера, потом картинка.");
+    expect(copy.reelScript).toBeUndefined();
   });
 });

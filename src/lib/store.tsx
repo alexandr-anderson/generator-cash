@@ -45,6 +45,7 @@ type AppActions = {
     format: CreativeFormat;
     topic: string;
     text: string;
+    captionSource?: string;
     rubricId?: string | null;
     colors?: string[];
     referenceIds?: string[];
@@ -276,6 +277,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     format: CreativeFormat;
     topic: string;
     text: string;
+    captionSource?: string;
     rubricId?: string | null;
     colors?: string[];
     referenceIds?: string[];

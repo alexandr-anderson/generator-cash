@@ -93,7 +93,6 @@ export function generateVariants(
           ? (copy?.caption || topic)
         : (copy?.scenarios[i]?.caption || copy?.caption || generateCaption(topic, text, format)),
       hashtags,
-      reelScript: format === "reel" ? (aiSlides?.[0] || copy?.reelScript) : copy?.reelScript,
       layout,
       background: format === "reel" ? bg : darkPaper ? fg : bg,
       accent,

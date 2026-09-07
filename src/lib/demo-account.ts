@@ -118,7 +118,6 @@ const workReel: CreativeWork = {
   slides: [slide("3 правила Reels в 2026", "#2e1065", 64)],
   caption: "3 правила Reels в 2026\n\nСохраните, чтобы не потерять 💾",
   hashtags: ["#reels", "#тренды", "#контент", "#instagram"],
-  reelScript: "Хук: Перестаньте снимать Reels «как все».\n1. Первые 2 секунды — вопрос.\n2. Один тезис на ролик.\n3. CTA в конце, не в середине.",
   layout: "centered",
   background: "#f5f3ff",
   accent: "#8b5cf6",
