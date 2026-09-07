@@ -9,6 +9,7 @@ import {
   Users,
 } from "lucide-react";
 import { SUBSCRIPTION_TIERS, type AdminUserFilter, type AdminUserRow, type Subscription } from "@/lib/types";
+import { useStore } from "@/lib/store";
 
 type AdminListResponse = {
   users: AdminUserRow[];
@@ -52,6 +53,7 @@ async function adminApi<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function AdminPage() {
+  const store = useStore();
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [filter, setFilter] = useState<AdminUserFilter>("all");
@@ -110,6 +112,9 @@ export function AdminPage() {
       setData((current) => current
         ? { ...current, users: current.users.map((item) => item.id === id ? result.user : item) }
         : current);
+      if (store.user?.id === id) {
+        await store.refresh();
+      }
       if (typeof body.banned === "boolean") {
         await load();
       }

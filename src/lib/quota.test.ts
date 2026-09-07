@@ -48,4 +48,16 @@ describe("quota display", () => {
     expect(weeklyRemainingFromUsage(state)).toBe(8);
     expect(totalFromUsage(state)).toBe(10);
   });
+
+  it("uses the paid weekly limit even if starter gens are leftover", () => {
+    const state = usage({
+      initialFreeRemaining: 5,
+      tier: "starter",
+      generationsPerWeek: 10,
+      generationsUsed: 0,
+      weekStartedAt: new Date(),
+    });
+    expect(remainingFromUsage(state)).toBe(10);
+    expect(totalFromUsage(state)).toBe(10);
+  });
 });

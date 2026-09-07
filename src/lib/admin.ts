@@ -118,9 +118,12 @@ export function buildAdminUpdates(input: {
     usageData.priceRub = limits.priceRub;
     usageData.generationsUsed = 0;
     usageData.weekStartedAt = new Date();
+    if (patch.tier !== "free") {
+      usageData.initialFreeRemaining = 0;
+    }
   }
 
-  if (patch.initialFreeRemaining !== undefined) {
+  if (patch.initialFreeRemaining !== undefined && (!patch.tier || patch.tier === "free")) {
     usageData.initialFreeRemaining = patch.initialFreeRemaining;
   }
 

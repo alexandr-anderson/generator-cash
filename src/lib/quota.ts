@@ -5,9 +5,13 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const FREE_STARTER_GENERATIONS = 5;
 
+function usesStarterPool(usage: UsageState) {
+  return usage.tier === "free" && usage.initialFreeRemaining > 0;
+}
+
 export function remainingFromUsage(usage: UsageState | null | undefined) {
   if (!usage) return 0;
-  if (usage.initialFreeRemaining > 0) return usage.initialFreeRemaining;
+  if (usesStarterPool(usage)) return usage.initialFreeRemaining;
   const elapsed = Date.now() - usage.weekStartedAt.getTime();
   if (elapsed >= WEEK_MS) return usage.generationsPerWeek;
   return Math.max(0, usage.generationsPerWeek - usage.generationsUsed);
@@ -22,7 +26,7 @@ export function weeklyRemainingFromUsage(usage: UsageState | null | undefined) {
 
 export function totalFromUsage(usage: UsageState | null | undefined) {
   if (!usage) return 0;
-  if (usage.initialFreeRemaining > 0) {
+  if (usesStarterPool(usage)) {
     return Math.max(FREE_STARTER_GENERATIONS, usage.initialFreeRemaining);
   }
   return usage.generationsPerWeek;
@@ -40,7 +44,7 @@ export async function consumeGeneration(userId: string) {
     const usage = await tx.usageState.findUnique({ where: { userId } });
     if (!usage) return { ok: false as const, remaining: 0, error: "Нет данных о лимите" };
 
-    if (usage.initialFreeRemaining > 0) {
+    if (usesStarterPool(usage)) {
       const next = await tx.usageState.update({
         where: { userId },
         data: { initialFreeRemaining: usage.initialFreeRemaining - 1 },

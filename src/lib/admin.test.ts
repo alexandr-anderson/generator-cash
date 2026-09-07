@@ -99,7 +99,7 @@ describe("buildAdminUpdates", () => {
     expect(result.userData.bannedAt).toBeInstanceOf(Date);
   });
 
-  it("applies paid tier limits and resets the week", () => {
+  it("applies paid tier limits, resets the week, and clears leftover starter gens", () => {
     const result = buildAdminUpdates({
       patch: { tier: "starter", initialFreeRemaining: 3 },
       target: { id: "u1", role: "user" },
@@ -112,9 +112,20 @@ describe("buildAdminUpdates", () => {
       generationsPerWeek: 10,
       priceRub: 50,
       generationsUsed: 0,
-      initialFreeRemaining: 3,
+      initialFreeRemaining: 0,
     });
     expect(result.revokeSessions).toBe(false);
+  });
+
+  it("still lets admin set starter gens on a free account", () => {
+    const result = buildAdminUpdates({
+      patch: { initialFreeRemaining: 8 },
+      target: { id: "u1", role: "user" },
+      actorId: "admin",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.usageData).toEqual({ initialFreeRemaining: 8 });
   });
 });
 
