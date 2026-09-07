@@ -30,6 +30,7 @@ import {
   type Template,
 } from "@/lib/types";
 import { applySlideTexts, generateVariants } from "@/lib/generate";
+import { captionTxt, reelScriptTxt, textFileBlob } from "@/lib/export-package";
 import { reelCoverToPngBlob, slideToSvg, svgToPngBlob } from "@/lib/render";
 import { scenarioLabel } from "@/lib/ai-types";
 import { CarouselSlideFace } from "@/components/carousel-slide";
@@ -348,6 +349,7 @@ export function CreateFlow() {
     setExporting(mode);
     try {
       await handleSave();
+      const captionFile = { name: "caption.txt", blob: textFileBlob(captionTxt(work)) };
 
       if (work.format === "carousel") {
         const files = await Promise.all(
@@ -360,6 +362,7 @@ export function CreateFlow() {
           const JSZip = (await import("jszip")).default;
           const zip = new JSZip();
           for (const file of files) zip.file(file.name, file.blob);
+          zip.file(captionFile.name, captionFile.blob);
           downloadBlob(await zip.generateAsync({ type: "blob" }), "carousel.zip");
         } else {
           for (const [i, file] of files.entries()) {
@@ -369,15 +372,28 @@ export function CreateFlow() {
             }
           }
         }
-      } else if (work.format === "reel") {
-        downloadBlob(await reelCoverToPngBlob(work), "reel-cover.png");
-      } else if (work.slides[0]?.imageUrl) {
+        return;
+      }
+
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      if (work.format === "reel") {
+        zip.file("reel-cover.png", await reelCoverToPngBlob(work));
+        zip.file(captionFile.name, captionFile.blob);
+        zip.file("reel.txt", textFileBlob(reelScriptTxt(work)));
+        downloadBlob(await zip.generateAsync({ type: "blob" }), "reel.zip");
+        return;
+      }
+
+      let image = await svgToPngBlob(slideToSvg(work, 0));
+      if (work.slides[0]?.imageUrl) {
         const response = await fetch(work.slides[0].imageUrl, { credentials: "include" });
         if (!response.ok) throw new Error("export");
-        downloadBlob(await response.blob(), `${work.format}.png`);
-      } else {
-        downloadBlob(await svgToPngBlob(slideToSvg(work, 0)), `${work.format}.png`);
+        image = await response.blob();
       }
+      zip.file("post.png", image);
+      zip.file(captionFile.name, captionFile.blob);
+      downloadBlob(await zip.generateAsync({ type: "blob" }), "post.zip");
     } catch {
       setError("Ошибка при экспорте. Попробуйте ещё раз.");
     } finally {
@@ -940,9 +956,15 @@ export function CreateFlow() {
               </div>
 
               {work.format === "reel" && (
-                <p className="editor-note">
-                  Первая фраза ролика совпадает с хуком. Сценарий и монтаж — ваши.
-                </p>
+                <div className="field">
+                  <label>Текст к ролику</label>
+                  <textarea
+                    rows={6}
+                    value={work.reelScript || ""}
+                    onChange={(e) => setWork({ ...work, reelScript: e.target.value })}
+                    placeholder="Что говорить в ролике. Это не хук на обложке."
+                  />
+                </div>
               )}
 
               <div className="editor-separator" />
@@ -989,8 +1011,8 @@ export function CreateFlow() {
                     </button>
                   </div>
                 ) : (
-                  <button className="btn-primary btn-sm" onClick={() => void handleExport("png")} disabled={Boolean(exporting)}>
-                    <Download size={14} /> {exporting ? "Сохраняю…" : "Скачать PNG"}
+                  <button className="btn-primary btn-sm" onClick={() => void handleExport("zip")} disabled={Boolean(exporting)}>
+                    <Download size={14} /> {exporting ? "Сохраняю…" : "Скачать пакет"}
                   </button>
                 )}
               </div>
