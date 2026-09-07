@@ -4,4 +4,6 @@ app/.env
 .openai-incoming
 uploads/
 app/uploads/
+backups/
+app/backups/
 scripts/deploy.env

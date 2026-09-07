@@ -57,7 +57,6 @@ type AppActions = {
   uploadReference: (rubricId: string, file: File) => Promise<string | null>;
   deleteFile: (id: string) => Promise<void>;
   getGenerationsRemaining: () => number;
-  upgradeTier: (tier: Subscription["tier"]) => Promise<void>;
 };
 
 const emptySubscription: Subscription = {
@@ -353,14 +352,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const getGenerationsRemaining = useCallback(() => state.remaining, [state.remaining]);
 
-  const upgradeTier = useCallback(async (tier: Subscription["tier"]) => {
-    const payload = await api<StudioPayload>("/api/usage/tier", {
-      method: "POST",
-      body: JSON.stringify({ tier }),
-    });
-    setState(applyStudio(payload));
-  }, []);
-
   const lockToSession = pathname.startsWith("/dashboard") || pathname.startsWith("/admin");
   if (!ready && lockToSession) {
     return <div className="loading-screen"><div className="loading-spinner" /></div>;
@@ -391,7 +382,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         uploadReference,
         deleteFile,
         getGenerationsRemaining,
-        upgradeTier,
       }}
     >
       {children}

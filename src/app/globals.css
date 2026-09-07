@@ -500,7 +500,7 @@ input:disabled { background: #f5f4f0; color: var(--muted); }
 .flow-actions { margin-top: 24px; display: flex; justify-content: flex-end; }
 .flow-error {
   background: #fef2f2; color: var(--danger); padding: 10px 14px;
-  border-radius: 8px; font-size: 12px; display: flex; align-items: center; gap: 6px;
+  border-radius: 8px; font-size: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
   margin-bottom: 12px;
 }
 .flow-warning {
@@ -1027,6 +1027,7 @@ input:disabled { background: #f5f4f0; color: var(--muted); }
 .pricing-card-sm b { font-size: 22px; }
 .pricing-card-sm b span { font-size: 10px; color: var(--muted); font-weight: 400; }
 .pricing-card-sm p { font-size: 11px; color: var(--muted); margin: 6px 0 12px; }
+.pricing-soon { margin-top: 14px; }
 
 .rubric-manage-list { display: grid; gap: 6px; }
 .rubric-manage-item {

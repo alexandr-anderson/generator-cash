@@ -36,6 +36,7 @@ import { CarouselSlideFace } from "@/components/carousel-slide";
 import { ReelCover } from "@/components/reel-cover";
 
 type Step = "format" | "rubric" | "topic" | "text" | "variants" | "editor";
+type RetryAction = "generate" | "expand";
 
 const FORMAT_OPTIONS: { id: CreativeFormat; icon: typeof Layers3; color: string; bg: string; blurb: string }[] = [
   { id: "carousel", icon: Layers3, color: "#ff5c35", bg: "#fff0e8", blurb: "7 слайдов после выбора сценария" },
@@ -51,6 +52,30 @@ function parseFormat(value: string | null): CreativeFormat | null {
 function fileIdFromUrl(url: string) {
   const match = url.match(/\/api\/files\/([^/?#]+)/);
   return match?.[1] || "";
+}
+
+function FlowErrorBanner({
+  message,
+  canRetry,
+  busy,
+  onRetry,
+}: {
+  message: string;
+  canRetry: boolean;
+  busy: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flow-error">
+      <AlertCircle size={14} />
+      <span>{message}</span>
+      {canRetry ? (
+        <button type="button" className="link-btn" disabled={busy} onClick={onRetry}>
+          Попробовать ещё раз
+        </button>
+      ) : null}
+    </div>
+  );
 }
 
 export function CreateFlow() {
@@ -83,6 +108,7 @@ export function CreateFlow() {
   const [drafting, setDrafting] = useState(false);
   const [exporting, setExporting] = useState<"zip" | "phone" | "png" | null>(null);
   const [error, setError] = useState("");
+  const [retryAction, setRetryAction] = useState<RetryAction | null>(null);
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -188,25 +214,29 @@ export function CreateFlow() {
   }
 
   async function handleGenerate() {
-    if (!topic.trim()) { setError("Введите тему"); return; }
+    if (!topic.trim()) { setError("Введите тему"); setRetryAction(null); return; }
     if (!format) {
       setError("Выберите формат — карусель, пост или обложку");
+      setRetryAction(null);
       setStep("format");
       return;
     }
     if (format === "post" && !userText.trim()) {
       setError("Напишите подпись или нажмите «Помочь с текстом»");
+      setRetryAction(null);
       return;
     }
 
     const remainingNow = store.getGenerationsRemaining();
     if (remainingNow <= 0) {
       setError("Генерации закончились. Обновите подписку.");
+      setRetryAction(null);
       return;
     }
 
     setGenerating(true);
     setError("");
+    setRetryAction(null);
     try {
       const copy = await store.composeCopy({
         format,
@@ -232,6 +262,7 @@ export function CreateFlow() {
       setStep("variants");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Не удалось создать варианты. Попробуйте ещё раз.");
+      setRetryAction("generate");
     } finally {
       setGenerating(false);
     }
@@ -251,11 +282,13 @@ export function CreateFlow() {
 
     if (store.getGenerationsRemaining() <= 0) {
       setError("Генерации закончились. Обновите подписку.");
+      setRetryAction(null);
       return;
     }
 
     setExpanding(true);
     setError("");
+    setRetryAction(null);
     try {
       const expanded = await store.expandCarousel({
         topic: topic.trim(),
@@ -272,9 +305,15 @@ export function CreateFlow() {
       setStep("editor");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Не удалось дописать слайды. Попробуйте ещё раз.");
+      setRetryAction("expand");
     } finally {
       setExpanding(false);
     }
+  }
+
+  function retryFailed() {
+    if (retryAction === "generate") void handleGenerate();
+    if (retryAction === "expand") void selectVariant();
   }
 
   function updateSlide(index: number, updates: Partial<SlideContent>) {
@@ -610,7 +649,14 @@ export function CreateFlow() {
             )}
           </div>
 
-          {error && <div className="flow-error"><AlertCircle size={14} /> {error}</div>}
+          {error && (
+            <FlowErrorBanner
+              message={error}
+              canRetry={retryAction === "generate"}
+              busy={generating}
+              onRetry={retryFailed}
+            />
+          )}
 
           {generating && (
             <div className="flow-warning">
@@ -725,7 +771,14 @@ export function CreateFlow() {
               </button>
             ))}
           </div>
-          {error && <div className="flow-error"><AlertCircle size={14} /> {error}</div>}
+          {error && (
+            <FlowErrorBanner
+              message={error}
+              canRetry={retryAction === "expand"}
+              busy={expanding}
+              onRetry={retryFailed}
+            />
+          )}
           {expanding && (
             <div className="flow-warning">Собираю семь слайдов, подпись и хештеги. Лимит спишется после успеха.</div>
           )}

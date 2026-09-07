@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Pencil, Trash2, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { SUPPORT_EMAIL } from "@/lib/legal";
 import { NICHES, TONES, SUBSCRIPTION_TIERS, FORMAT_LABELS } from "@/lib/types";
 import { useRubricManage } from "@/components/rubric-manage";
 
@@ -114,16 +115,16 @@ export function ProfilePage() {
               <h3>{tier.label}</h3>
               <b>{tier.priceRub} ₽ <span>/ нед.</span></b>
               <p>{tier.description}</p>
-              <button
-                className={store.subscription.tier === tier.tier ? "btn-secondary btn-sm" : "btn-primary btn-sm"}
-                onClick={() => void store.upgradeTier(tier.tier)}
-                disabled={store.subscription.tier === tier.tier}
-              >
-                {store.subscription.tier === tier.tier ? "Текущий" : "Выбрать"}
+              <button className="btn-secondary btn-sm" disabled>
+                {store.subscription.tier === tier.tier ? "Текущий" : "Скоро оплата"}
               </button>
             </div>
           ))}
         </div>
+        <p className="muted pricing-soon">
+          Оплата через ЮKassa ещё подключается. Сменить тариф можно через поддержку:{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+        </p>
       </section>
 
       <section className="profile-section">

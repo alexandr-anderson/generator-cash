@@ -38,6 +38,9 @@ yarn-error.log*
 # local uploads
 /uploads
 
+# database dumps from scripts/backup-db.js
+/backups
+
 
 # generated user brand DNA (not the product chrome)
 .brand/

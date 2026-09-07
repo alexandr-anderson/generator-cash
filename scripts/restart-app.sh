@@ -28,6 +28,13 @@ fi
 ensure_public_html "$ROOT_DIR"
 render_public_html_htaccess "$ROOT_DIR"
 
+if [[ -f "${SCRIPT_DIR}/backup-db.js" ]]; then
+  echo "==> Backing up database"
+  if ! "$NODE_BIN" "${SCRIPT_DIR}/backup-db.js"; then
+    echo "==> backup-db failed (non-fatal, continuing)"
+  fi
+fi
+
 if [[ -f "${SCRIPT_DIR}/apply-migrations.php" ]]; then
   echo "==> Applying database migrations"
   php "${SCRIPT_DIR}/apply-migrations.php"
