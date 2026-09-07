@@ -65,3 +65,7 @@ description: Что делает скилл и когда его применя�
 | `~/.cursor/skills/` | Только локальная машина, не Cloud Agent |
 
 В этом проекте новые скиллы добавляйте только в `.cursor/skills/`.
+
+## Cartograph — схемы проекта
+
+Поставлены из [claude-night-market](https://github.com/athola/claude-night-market): `architecture-diagram`, `dependency-graph`, `workflow-diagram`, `data-flow`, `call-chain`, `class-diagram`, `code-communities`. Карта студии: `docs/system-map.md`.

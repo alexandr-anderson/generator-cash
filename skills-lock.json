@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "skills": {
+    "architecture-diagram": {
+      "source": "athola/claude-night-market",
+      "sourceType": "github",
+      "skillPath": "plugins/cartograph/skills/architecture-diagram/SKILL.md",
+      "computedHash": "3fea592ff5b5c20738a1855fac2d5387d91cfecce260b192be6e4cfe83a2f94e"
+    },
+    "call-chain": {
+      "source": "athola/claude-night-market",
+      "sourceType": "github",
+      "skillPath": "plugins/cartograph/skills/call-chain/SKILL.md",
+      "computedHash": "6473a9c07cdaadeba93674196c1ef62ccdc96b78b034e5fb69729f3f5d7a0428"
+    },
+    "class-diagram": {
+      "source": "athola/claude-night-market",
+      "sourceType": "github",
+      "skillPath": "plugins/cartograph/skills/class-diagram/SKILL.md",
+      "computedHash": "560d5f67262f3b9c2b268ea20d29e2d8cb741e480fcf72bb66cf7c3dc907c994"
+    },
+    "code-communities": {
+      "source": "athola/claude-night-market",
+      "sourceType": "github",
+      "skillPath": "plugins/cartograph/skills/code-communities/SKILL.md",
+      "computedHash": "0e9875f8169b062e699d6327e804e23dd285574482a10d7f4fe8eda489398aaf"
+    },
+    "data-flow": {
+      "source": "athola/claude-night-market",
+      "sourceType": "github",
+      "skillPath": "plugins/cartograph/skills/data-flow/SKILL.md",
+      "computedHash": "198c9ecaba46a40800f3256ebcc6e43091af457d676524a67d1ba87effd511a5"
+    },
+    "dependency-graph": {
+      "source": "athola/claude-night-market",
+      "sourceType": "github",
+      "skillPath": "plugins/cartograph/skills/dependency-graph/SKILL.md",
+      "computedHash": "743ca276e05d200b370937c1741cf943827f607979c26eefec95a6498dfd02e4"
+    },
+    "workflow-diagram": {
+      "source": "athola/claude-night-market",
+      "sourceType": "github",
+      "skillPath": "plugins/cartograph/skills/workflow-diagram/SKILL.md",
+      "computedHash": "6a6effed7a1465c037a30ebab0acde95d388c74bc1a1089c62ee9136b9675925"
+    }
+  }
+}
