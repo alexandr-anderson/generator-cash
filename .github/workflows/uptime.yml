@@ -33,26 +33,3 @@ jobs:
           UPTIME_STATE_FILE: .uptime-state.json
           TELEGRAM_TEST: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.test_alert != 'false' && '1' || '' }}
         run: node scripts/uptime-check.js
-
-jobs:
-  ping:
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Restore uptime state
-        uses: actions/cache@v4
-        with:
-          path: .uptime-state.json
-          key: postvmeste-uptime-v1
-
-      - name: Check health and alert Telegram
-        env:
-          HEALTH_URL: https://postvmeste.ru/api/health
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TELEGRAM_CHAT: mr_anderson_say
-          UPTIME_STATE_FILE: .uptime-state.json
-        run: node scripts/uptime-check.js
