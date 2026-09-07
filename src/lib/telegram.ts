@@ -37,7 +37,7 @@ async function telegramFetch(method: string, body?: Record<string, unknown>) {
 
 type TelegramUpdate = {
   message?: {
-    chat?: { id?: number };
+    chat?: { id?: number; type?: string };
     from?: { username?: string };
   };
 };
@@ -47,14 +47,17 @@ export async function resolveTelegramChatId() {
   if (fromEnv) return fromEnv;
 
   const username = parseTelegramUsername().toLowerCase();
+  const me = (await telegramFetch("getMe")) as { username?: string };
   const updates = (await telegramFetch("getUpdates", { limit: 100, timeout: 0 })) as TelegramUpdate[];
-  const match = [...updates].reverse().find(
+  const list = updates || [];
+  const match = [...list].reverse().find(
     (item) => item.message?.from?.username?.toLowerCase() === username && item.message?.chat?.id,
   );
-  if (!match?.message?.chat?.id) {
-    throw new Error(`Нет чата с @${username}: напишите боту /start`);
-  }
-  return String(match.message.chat.id);
+  if (match?.message?.chat?.id) return String(match.message.chat.id);
+  const anyPrivate = [...list].reverse().find((item) => item.message?.chat?.id);
+  if (anyPrivate?.message?.chat?.id) return String(anyPrivate.message.chat.id);
+  const botName = me.username || "bot";
+  throw new Error(`Нет чата. Откройте https://t.me/${botName} и нажмите Start (аккаунт @${username}).`);
 }
 
 export async function sendTelegramMessage(text: string) {

@@ -71,17 +71,18 @@ async function telegramApi(method, body) {
 
 async function resolveChatId() {
   if (CHAT_ID) return CHAT_ID;
+  const me = await telegramApi("getMe");
+  const botName = me.username || "bot";
+  console.log(`==> uptime-check: bot @${botName}`);
   const updates = await telegramApi("getUpdates", { limit: 100, timeout: 0 });
-  const match = [...(updates || [])].reverse().find(
+  const list = updates || [];
+  const byName = [...list].reverse().find(
     (item) => item.message?.from?.username?.toLowerCase() === CHAT.toLowerCase() && item.message?.chat?.id,
   );
-  if (!match) {
-    const seen = [...new Set((updates || []).map((item) => item.message?.from?.username).filter(Boolean))];
-    throw new Error(
-      `Нет чата с @${CHAT}: напишите боту /start` + (seen.length ? ` (видел: ${seen.join(", ")})` : ""),
-    );
-  }
-  return String(match.message.chat.id);
+  if (byName) return String(byName.message.chat.id);
+  const anyPrivate = [...list].reverse().find((item) => item.message?.chat?.type === "private" && item.message?.chat?.id);
+  if (anyPrivate) return String(anyPrivate.message.chat.id);
+  throw new Error(`Нет чата. Откройте https://t.me/${botName} и нажмите Start (аккаунт @${CHAT}).`);
 }
 
 async function sendTelegram(kind, detail) {
