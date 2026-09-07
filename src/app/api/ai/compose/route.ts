@@ -3,6 +3,7 @@ import { attachPostImages, attachReelImages } from "@/lib/ai-image";
 import { ensureCarouselRecipe } from "@/lib/ensure-carousel-recipe";
 import { authed, json } from "@/lib/http";
 import { AiError } from "@/lib/openai";
+import { notifyGenerationFailure } from "@/lib/alerts";
 import { consumeGeneration, quotaAvailable } from "@/lib/quota";
 import type { CreativeFormat } from "@/lib/types";
 
@@ -78,8 +79,12 @@ export async function POST(request: Request) {
     }
     return json({ ...copy, remaining: consumed.remaining });
   } catch (caught) {
-    if (caught instanceof AiError) return json({ error: caught.message }, caught.status);
+    if (caught instanceof AiError) {
+      notifyGenerationFailure("compose", caught);
+      return json({ error: caught.message }, caught.status);
+    }
     console.error("[ai/compose]", caught);
+    notifyGenerationFailure("compose", caught);
     return json({ error: "Не удалось создать варианты. Попробуйте ещё раз." }, 502);
   }
 }

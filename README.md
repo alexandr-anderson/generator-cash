@@ -94,6 +94,8 @@ Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — с�
 | `SSH_HOST` | `vh470.timeweb.ru` |
 | `SSH_USER` | `cm149295` |
 | `SSH_PORT` | `22` (опционально) |
+| `TELEGRAM_BOT_TOKEN` | токен бота от @BotFather — алерты в Telegram |
+| `TELEGRAM_CHAT_ID` | опционально, числовой chat id; иначе бот ждёт `/start` от @mr_anderson_say |
 
 После push в `main` Actions соберёт проект, загрузит `release/` на сервер и выполнит `scripts/restart-app.sh`.
 

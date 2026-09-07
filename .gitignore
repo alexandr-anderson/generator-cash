@@ -41,6 +41,9 @@ yarn-error.log*
 # database dumps from scripts/backup-db.js
 /backups
 
+# uptime checker local state
+.uptime-state.json
+
 
 # generated user brand DNA (not the product chrome)
 .brand/

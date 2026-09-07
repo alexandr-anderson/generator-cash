@@ -1,6 +1,7 @@
 import { expandCarouselSlides } from "@/lib/ai-copy";
 import { authed, json } from "@/lib/http";
 import { AiError } from "@/lib/openai";
+import { notifyGenerationFailure } from "@/lib/alerts";
 import { consumeGeneration, quotaAvailable } from "@/lib/quota";
 import { SCENARIO_SPECS } from "@/lib/ai-types";
 
@@ -44,8 +45,12 @@ export async function POST(request: Request) {
     }
     return json({ ...copy, remaining: consumed.remaining });
   } catch (caught) {
-    if (caught instanceof AiError) return json({ error: caught.message }, caught.status);
+    if (caught instanceof AiError) {
+      notifyGenerationFailure("expand", caught);
+      return json({ error: caught.message }, caught.status);
+    }
     console.error("[ai/expand]", caught);
+    notifyGenerationFailure("expand", caught);
     return json({ error: "Не удалось дописать слайды. Попробуйте ещё раз." }, 502);
   }
 }

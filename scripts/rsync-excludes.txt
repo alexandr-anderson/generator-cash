@@ -6,4 +6,6 @@ uploads/
 app/uploads/
 backups/
 app/backups/
+.telegram-incoming
+.uptime-state.json
 scripts/deploy.env

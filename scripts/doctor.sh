@@ -99,6 +99,11 @@ if [[ -n "${APP_URL:-}" ]] || env_key_present APP_URL; then
 else
   echo "APP_URL: MISSING (default https://postvmeste.ru in PM2)"
 fi
+if [[ -n "${TELEGRAM_BOT_TOKEN:-}" ]] || env_key_present TELEGRAM_BOT_TOKEN; then
+  echo "TELEGRAM_BOT_TOKEN: present"
+else
+  echo "TELEGRAM_BOT_TOKEN: MISSING (alerts to @mr_anderson_say will not send)"
+fi
 
 echo
 echo "Health check http://127.0.0.1:${APP_PORT}/api/health"
