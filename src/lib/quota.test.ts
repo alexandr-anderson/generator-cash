@@ -49,7 +49,7 @@ describe("quota display", () => {
     expect(totalFromUsage(state)).toBe(10);
   });
 
-  it("uses the paid weekly limit even if starter gens are leftover", () => {
+  it("adds leftover starter gens on top of a paid plan", () => {
     const state = usage({
       initialFreeRemaining: 5,
       tier: "starter",
@@ -57,7 +57,29 @@ describe("quota display", () => {
       generationsUsed: 0,
       weekStartedAt: new Date(),
     });
-    expect(remainingFromUsage(state)).toBe(10);
-    expect(totalFromUsage(state)).toBe(10);
+    expect(remainingFromUsage(state)).toBe(15);
+    expect(totalFromUsage(state)).toBe(15);
+  });
+
+  it("spends leftover starter gens first and keeps the paid total", () => {
+    const unusedWeek = usage({
+      initialFreeRemaining: 4,
+      tier: "starter",
+      generationsPerWeek: 10,
+      generationsUsed: 0,
+      weekStartedAt: new Date(),
+    });
+    expect(remainingFromUsage(unusedWeek)).toBe(14);
+    expect(totalFromUsage(unusedWeek)).toBe(15);
+
+    const afterWeeklyUse = usage({
+      initialFreeRemaining: 5,
+      tier: "starter",
+      generationsPerWeek: 10,
+      generationsUsed: 2,
+      weekStartedAt: new Date(),
+    });
+    expect(remainingFromUsage(afterWeeklyUse)).toBe(13);
+    expect(totalFromUsage(afterWeeklyUse)).toBe(15);
   });
 });
