@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import type {
   ArchiveItem,
   CreativeFormat,
@@ -26,7 +27,7 @@ type StudioPayload = {
 
 type AppActions = {
   refresh: () => Promise<void>;
-  register: (email: string, password: string, niche: string) => Promise<{ ok: boolean; error?: string; needsVerification?: boolean }>;
+  register: (email: string, password: string, niche: string, consent?: boolean) => Promise<{ ok: boolean; error?: string; needsVerification?: boolean }>;
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string; needsVerification?: boolean }>;
   logout: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
@@ -115,6 +116,7 @@ function applyStudio(
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [state, setState] = useState(applyStudio(null));
   const [ready, setReady] = useState(false);
 
@@ -134,11 +136,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     void hydrate();
   }, [hydrate]);
 
-  const register = useCallback(async (email: string, password: string, niche: string) => {
+  const register = useCallback(async (email: string, password: string, niche: string, consent = false) => {
     try {
       const result = await api<{ ok: boolean; needsVerification?: boolean }>("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({ email, password, niche }),
+        body: JSON.stringify({ email, password, niche, consent }),
       });
       return { ok: true, needsVerification: result.needsVerification };
     } catch (error) {
@@ -359,7 +361,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState(applyStudio(payload));
   }, []);
 
-  if (!ready) {
+  const lockToSession = pathname.startsWith("/dashboard") || pathname.startsWith("/admin");
+  if (!ready && lockToSession) {
     return <div className="loading-screen"><div className="loading-spinner" /></div>;
   }
 

@@ -236,8 +236,34 @@ input:disabled { background: #f5f4f0; color: var(--muted); }
 
 .landing-footer {
   padding: 24px 0; border-top: 1px solid var(--line);
-  text-align: center; font-size: 12px; color: var(--muted);
+  font-size: 12px; color: var(--muted);
 }
+.landing-footer-row {
+  display: flex; flex-wrap: wrap; gap: 12px 20px;
+  align-items: center; justify-content: space-between;
+}
+.landing-footer-nav { display: flex; flex-wrap: wrap; gap: 14px; }
+.landing-footer a { color: var(--muted); }
+.landing-footer a:hover { color: var(--ink); }
+
+.legal-doc {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 20px 80px;
+}
+.legal-kicker {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+.legal-doc h1 { font-size: 32px; letter-spacing: -0.8px; margin: 0 0 16px; }
+.legal-intro { color: var(--muted); font-size: 15px; line-height: 1.55; margin: 0 0 28px; }
+.legal-doc h2 { font-size: 18px; margin: 28px 0 8px; letter-spacing: -0.3px; }
+.legal-doc p { font-size: 14px; line-height: 1.6; margin: 0 0 10px; color: var(--ink); }
+.legal-doc a { color: var(--accent); font-weight: 600; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    AUTH PAGE
@@ -262,6 +288,27 @@ input:disabled { background: #f5f4f0; color: var(--muted); }
 .auth-error { background: #fef2f2; color: var(--danger); padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
 .auth-switch { text-align: center; margin-top: 20px; font-size: 12px; color: var(--muted); }
 .auth-switch button { background: none; border: none; color: var(--accent); font-weight: 600; }
+.consent-row {
+  align-items: flex-start;
+  color: var(--muted);
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  line-height: 1.4;
+  margin: 0 0 14px;
+}
+.consent-row input { margin-top: 2px; width: auto; }
+.consent-row a { color: var(--accent); font-weight: 600; }
+.auth-legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 16px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.auth-legal a { color: var(--muted); }
 
 .niche-grid { display: flex; flex-wrap: wrap; gap: 6px; }
 .niche-chip {

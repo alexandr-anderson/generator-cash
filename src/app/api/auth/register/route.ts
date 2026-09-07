@@ -1,6 +1,7 @@
 import { hashPassword, newToken, hashToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { json } from "@/lib/http";
+import { LEGAL_VERSION, parseRegisterConsent } from "@/lib/legal";
 import { mailConfigured, sendVerificationEmail } from "@/lib/mail";
 
 export async function POST(request: Request) {
@@ -12,6 +13,9 @@ export async function POST(request: Request) {
   if (!email || !email.includes("@")) return json({ error: "Укажите почту" }, 400);
   if (password.length < 6) return json({ error: "Пароль минимум 6 символов" }, 400);
   if (!niche) return json({ error: "Выберите нишу" }, 400);
+  if (!parseRegisterConsent(body)) {
+    return json({ error: "Нужно согласие с офертой и политикой" }, 400);
+  }
   if (process.env.NODE_ENV === "production" && !mailConfigured()) {
     console.error("[mail] register blocked: RESEND_API_KEY missing");
     return json({ error: "Почта на сервере ещё не настроена. Регистрация временно закрыта." }, 503);
@@ -26,6 +30,7 @@ export async function POST(request: Request) {
       passwordHash: await hashPassword(password),
       niche,
       usage: { create: {} },
+      consents: { create: { version: LEGAL_VERSION } },
     },
   });
 

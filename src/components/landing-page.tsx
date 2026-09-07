@@ -3,6 +3,7 @@
 import { ArrowRight, Check, Layers3, Image as ImageIcon, Video, Sparkles, Zap, Download } from "lucide-react";
 import Link from "next/link";
 import { SUBSCRIPTION_TIERS } from "@/lib/types";
+import { PublicFooter } from "@/components/public-shell";
 
 export function LandingPage() {
   return (
@@ -149,11 +150,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      <footer className="landing-footer">
-        <div className="landing-container">
-          <span>postvmeste.ru · {new Date().getFullYear()}</span>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

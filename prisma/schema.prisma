@@ -55,10 +55,21 @@ model User {
   sessions           Session[]
   emailTokens        EmailToken[]
   resetTokens        PasswordReset[]
+  consents           ConsentRecord[]
   usage              UsageState?
   rubrics            Rubric[]
   works              Work[]
   files              FileAsset[]
+}
+
+model ConsentRecord {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version    String
+  acceptedAt DateTime @default(now())
+
+  @@index([userId, acceptedAt])
 }
 
 model Session {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 
@@ -17,7 +18,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ru" className={`${geistSans.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-[var(--font-geist-sans)]">
-        <StoreProvider>{children}</StoreProvider>
+        <Suspense fallback={<div className="loading-screen"><div className="loading-spinner" /></div>}>
+          <StoreProvider>{children}</StoreProvider>
+        </Suspense>
       </body>
     </html>
   );

@@ -18,6 +18,7 @@ function AuthForm() {
   const [password, setPassword] = useState("");
   const [niche, setNiche] = useState("");
   const [customNiche, setCustomNiche] = useState("");
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [checkEmail, setCheckEmail] = useState("");
@@ -56,8 +57,9 @@ function AuthForm() {
         if (!email || !password) return setError("Заполните все поля");
         const selectedNiche = niche === "custom" ? customNiche : NICHES.find((n) => n.id === niche)?.label;
         if (!selectedNiche) return setError("Выберите нишу");
+        if (!consent) return setError("Нужно согласие с офертой и политикой");
         if (store.user) await store.logout();
-        const result = await store.register(email, password, selectedNiche);
+        const result = await store.register(email, password, selectedNiche, true);
         if (!result.ok) return setError(result.error || "Ошибка регистрации");
         setCheckEmail(email);
         return;
@@ -129,6 +131,20 @@ function AuthForm() {
             </div>
           )}
 
+          {mode === "register" && (
+            <label className="consent-row">
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+              />
+              <span>
+                Соглашаюсь с <Link href="/offer" target="_blank">офертой</Link> и{" "}
+                <Link href="/privacy" target="_blank">политикой конфиденциальности</Link>
+              </span>
+            </label>
+          )}
+
           {error && <div className="auth-error">{error}</div>}
 
           <button type="submit" className="btn-primary btn-full" disabled={pending}>
@@ -144,10 +160,16 @@ function AuthForm() {
 
         <div className="auth-switch">
           {mode === "register" ? (
-            <span>Уже есть аккаунт? <button onClick={() => setMode("login")}>Войти</button></span>
+            <span>Уже есть аккаунт? <button type="button" onClick={() => setMode("login")}>Войти</button></span>
           ) : (
-            <span>Нет аккаунта? <button onClick={() => setMode("register")}>Зарегистрироваться</button></span>
+            <span>Нет аккаунта? <button type="button" onClick={() => setMode("register")}>Зарегистрироваться</button></span>
           )}
+        </div>
+
+        <div className="auth-legal">
+          <Link href="/offer">Оферта</Link>
+          <Link href="/privacy">Конфиденциальность</Link>
+          <Link href="/support">Поддержка</Link>
         </div>
       </div>
     </div>
