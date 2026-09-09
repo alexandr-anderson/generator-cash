@@ -96,7 +96,9 @@ export function CreateFlow() {
   const [userText, setUserText] = useState("");
   const [reelCaptionDraft, setReelCaptionDraft] = useState("");
   const [hookDrafts, setHookDrafts] = useState<string[]>([]);
-  const [colors, setColors] = useState<string[]>(["#ff5c35", "#ffc857", "#f6f1e9", "#191817"]);
+  const [colors, setColors] = useState<string[]>(
+    store.user?.colors?.length ? store.user.colors : ["#ff5c35", "#ffc857", "#f6f1e9", "#191817"],
+  );
   const [inspirationUrl, setInspirationUrl] = useState("");
   const [uploadingRef, setUploadingRef] = useState(false);
   const referenceInput = useRef<HTMLInputElement>(null);
@@ -116,10 +118,18 @@ export function CreateFlow() {
 
   const rubric = store.rubrics.find((r) => r.id === rubricId);
 
-  const loadRubricDefaults = useCallback((r: Rubric) => {
-    if (r.colors?.length) setColors(r.colors);
-
-  }, []);
+  const loadRubricDefaults = useCallback(
+    (r: Rubric) => {
+      setColors(
+        r.colors?.length
+          ? r.colors
+          : store.user?.colors?.length
+            ? store.user.colors
+            : ["#ff5c35", "#ffc857", "#f6f1e9", "#191817"],
+      );
+    },
+    [store.user],
+  );
 
   useEffect(() => {
     if (rubric) {
