@@ -299,11 +299,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const uploadReference = useCallback(async (rubricId: string, file: File) => {
-    const form = new FormData();
-    form.set("file", file);
-    form.set("kind", "reference");
-    form.set("rubricId", rubricId);
-    const response = await fetch("/api/files", { method: "POST", body: form, credentials: "include" });
+    // Raw binary body, not multipart/form-data — see the comment in
+    // src/app/api/files/route.ts for why.
+    const response = await fetch("/api/files", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "content-type": file.type,
+        "x-file-kind": "reference",
+        "x-rubric-id": rubricId,
+      },
+      body: file,
+    });
     const data = await response.json().catch(() => ({})) as { error?: string; file?: { url: string } };
     if (!response.ok) {
       throw new Error(data.error || "Не удалось загрузить референс");
