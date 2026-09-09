@@ -1,11 +1,48 @@
 "use client";
 
-import { ArrowRight, Check, Layers3, Image as ImageIcon, Video, Sparkles, Zap, Download } from "lucide-react";
+import { ArrowRight, Check, Layers3, Image as ImageIcon, Video, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 import { SUBSCRIPTION_TIERS } from "@/lib/types";
 import { PublicFooter } from "@/components/public-shell";
 
+/**
+ * Заготовленные примеры для первого экрана. Это не результат генерации на лету:
+ * живое демо приходит отдельным этапом (docs/public-demo-plan.md), и тогда эти же
+ * карточки станут местом, куда падает настоящий ответ модели. Пока показываем их
+ * честно — как примеры, а не как «сгенерировано для вас».
+ */
+const DEMO_TOPICS = [
+  {
+    topic: "Почему клиенты пропадают после консультации",
+    hooks: [
+      { angle: "Через вопрос", text: "Клиент сказал «я подумаю» — это отказ или нет?" },
+      { angle: "Через миф", text: "«Не купил — значит, было дорого». Почти никогда" },
+      { angle: "Через ошибку", text: "Вы закончили консультацию словами «пишите, если что»" },
+    ],
+  },
+  {
+    topic: "Как выбрать нишу и не метаться",
+    hooks: [
+      { angle: "Через вопрос", text: "Что вы объясняете одно и то же третий год подряд?" },
+      { angle: "Через миф", text: "«Узкая ниша — меньше клиентов». Наоборот" },
+      { angle: "Через ошибку", text: "Ниша выбрана по деньгам, а не по тому, что вы видите насквозь" },
+    ],
+  },
+  {
+    topic: "Что писать, когда кажется, что всё уже сказано",
+    hooks: [
+      { angle: "Через вопрос", text: "Сколько раз вы удаляли пост, потому что «это все знают»?" },
+      { angle: "Через миф", text: "«Об этом уже написали все». Но не вашими словами" },
+      { angle: "Через ошибку", text: "Вы ищете новую тему вместо того, чтобы копнуть старую" },
+    ],
+  },
+];
+
 export function LandingPage() {
+  const [active, setActive] = useState(0);
+  const demo = DEMO_TOPICS[active];
+
   return (
     <div className="landing">
       <header className="landing-header">
@@ -15,7 +52,7 @@ export function LandingPage() {
             <b>postvmeste.ru</b>
           </Link>
           <div className="landing-nav-links">
-            <a href="#how">Как работает</a>
+            <a href="#formats">Форматы</a>
             <a href="#pricing">Тарифы</a>
             <Link href="/auth" className="landing-cta-sm">Войти</Link>
           </div>
@@ -23,101 +60,85 @@ export function LandingPage() {
       </header>
 
       <section className="landing-hero">
-        <div className="landing-container">
-          <span className="landing-badge"><Sparkles size={14} /> AI-студия для экспертов</span>
-          <h1>Визуальный контент<br />для Instagram<br /><span>за минуты, не часы</span></h1>
-          <p>Карусели, посты и обложки Reels в вашем стиле. Без дизайнера, без Canva, без нервов.</p>
-          <div className="landing-hero-actions">
-            <Link href="/auth?mode=register" className="btn-primary btn-lg">
-              Попробовать бесплатно <ArrowRight size={18} />
-            </Link>
-            <span className="landing-hint">5 генераций бесплатно, без карты</span>
+        <div className="landing-container hero-grid">
+          <div className="hero-copy">
+            <span className="landing-badge"><Sparkles size={14} /> Студия визуала для экспертов</span>
+            <h1>Вы знаете,<br />что сказать.<br /><span>Осталось показать</span></h1>
+            <p>
+              Карусели, посты и обложки Reels в вашем стиле. Вводите тему — студия предлагает
+              три захода к ней, вы правите текст и скачиваете готовые файлы.
+            </p>
+            <div className="hero-actions">
+              <Link href="/auth?mode=register" className="btn-primary btn-lg">
+                Попробовать бесплатно <ArrowRight size={18} />
+              </Link>
+              <span className="landing-hint">5 генераций бесплатно, карта не нужна</span>
+            </div>
+          </div>
+
+          <div className="hero-demo">
+            <div className="hero-demo-head">
+              <strong>Три захода к одной теме</strong>
+              <span>Примеры готовых крючков</span>
+            </div>
+
+            <div className="hero-demo-topics">
+              {DEMO_TOPICS.map((item, index) => (
+                <button
+                  key={item.topic}
+                  type="button"
+                  className={`hero-demo-chip ${index === active ? "is-active" : ""}`}
+                  onClick={() => setActive(index)}
+                >
+                  {item.topic}
+                </button>
+              ))}
+            </div>
+
+            <ul className="hero-demo-hooks">
+              {demo.hooks.map((hook) => (
+                <li key={hook.angle}>
+                  <span className="hero-demo-angle">{hook.angle}</span>
+                  <p>{hook.text}</p>
+                </li>
+              ))}
+            </ul>
+
+            <p className="hero-demo-foot">
+              Дальше студия дописывает остальные слайды, подпись и хештеги — по выбранному заходу.
+            </p>
           </div>
         </div>
       </section>
 
-      <section className="landing-formats">
+      <section className="landing-formats" id="formats">
         <div className="landing-container">
+          <h2>Три формата</h2>
           <div className="format-cards">
             <Link href="/auth?mode=register&format=carousel" className="format-card">
-              <div className="format-icon" style={{ background: "#fff0e8" }}><Layers3 size={28} color="#ff5c35" /></div>
+              <div className="format-icon" style={{ background: "var(--soft-accent)" }}>
+                <Layers3 size={24} color="var(--accent)" />
+              </div>
               <h3>Карусель</h3>
-              <p>7 слайдов с крючком, тезисами и CTA. Экспертный контент, который сохраняют.</p>
+              <p>7 слайдов: крючок, разбор и призыв в конце. Экспертный контент, который сохраняют.</p>
               <span className="format-size">1080×1350</span>
             </Link>
             <Link href="/auth?mode=register&format=post" className="format-card">
-              <div className="format-icon" style={{ background: "#e8f0ff" }}><ImageIcon size={28} color="#3b82f6" /></div>
+              <div className="format-icon" style={{ background: "var(--soft-accent)" }}>
+                <ImageIcon size={24} color="var(--accent)" />
+              </div>
               <h3>Пост</h3>
-              <p>Одна картинка + подпись + хештеги. Всё, что нужно для ленты.</p>
+              <p>Одна картинка, подпись и хештеги от модели. Всё, что нужно для ленты.</p>
               <span className="format-size">1080×1080</span>
             </Link>
             <Link href="/auth?mode=register&format=reel" className="format-card">
-              <div className="format-icon" style={{ background: "#f0e8ff" }}><Video size={28} color="#8b5cf6" /></div>
+              <div className="format-icon" style={{ background: "var(--soft-accent)" }}>
+                <Video size={24} color="var(--accent)" />
+              </div>
               <h3>Обложка Reels</h3>
-              <p>Кадр для сетки и поиска. Ролик не снимаем и не монтируем.</p>
+              <p>Кадр для сетки и поиска плюс подпись под ролик. Сам ролик не снимаем и не монтируем.</p>
               <span className="format-size">1080×1920</span>
             </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-how" id="how">
-        <div className="landing-container">
-          <h2>Как это работает</h2>
-          <div className="how-steps">
-            <div className="how-step">
-              <span className="how-number">01</span>
-              <h3>Опишите тему</h3>
-              <p>Выберите рубрику, введите тему и загрузите референсы. Или нажмите «помочь с текстом».</p>
-            </div>
-            <div className="how-step">
-              <span className="how-number">02</span>
-              <h3>Выберите вариант</h3>
-              <p>Получите 3 направления: разные сценарии и раскладки. Выберите то, что ближе.</p>
-            </div>
-            <div className="how-step">
-              <span className="how-number">03</span>
-              <h3>Скачайте и публикуйте</h3>
-              <p>Подправьте текст в редакторе, сохраните шаблон и скачайте готовые файлы.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-examples">
-        <div className="landing-container">
-          <h2>Примеры работ</h2>
-          <div className="example-grid">
-            {[
-              { bg: "#1a1816", fg: "#f6f1e9", accent: "#ff5c35", title: "5 ошибок личного бренда", label: "Карусель" },
-              { bg: "#f6f1e9", fg: "#1a1816", accent: "#ffc857", title: "Как выбрать нишу", label: "Пост" },
-              { bg: "#2d1b4e", fg: "#f0e8ff", accent: "#8b5cf6", title: "3 правила Reels", label: "Обложка" },
-              { bg: "#0f2b1e", fg: "#c6f36b", accent: "#22c55e", title: "Чек-лист запуска", label: "Карусель" },
-            ].map((ex) => (
-              <div className="example-card" key={ex.title} style={{ background: ex.bg, color: ex.fg }}>
-                <span className="example-accent" style={{ background: ex.accent }} />
-                <span className="example-label">{ex.label}</span>
-                <strong>{ex.title}</strong>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-features">
-        <div className="landing-container">
-          <div className="features-grid">
-            {[
-              { icon: <Zap size={20} />, title: "Рубрики и шаблоны", desc: "Создайте шаблон один раз — используйте для каждой новой темы." },
-              { icon: <Sparkles size={20} />, title: "Генерация текста", desc: "AI напишет текст по вашей теме, нише и тону голоса." },
-              { icon: <Download size={20} />, title: "Экспорт одним кликом", desc: "PNG-файлы + подпись с хештегами. ZIP для каруселей." },
-            ].map((f) => (
-              <div className="feature-card" key={f.title}>
-                <div className="feature-icon">{f.icon}</div>
-                <h3>{f.title}</h3>
-                <p>{f.desc}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
@@ -125,27 +146,36 @@ export function LandingPage() {
       <section className="landing-pricing" id="pricing">
         <div className="landing-container">
           <h2>Тарифы</h2>
-          <p className="pricing-subtitle">Первые 5 генераций бесплатно. Потом — 1 в неделю или подписка.</p>
+          <p className="pricing-subtitle">
+            Первые 5 генераций бесплатно. Оплата пока не подключена — сейчас доступен бесплатный
+            доступ, платные тарифы откроются позже.
+          </p>
           <div className="pricing-grid">
-            {SUBSCRIPTION_TIERS.map((tier) => (
-              <div className={`pricing-card ${tier.tier === "pro" ? "pricing-popular" : ""}`} key={tier.tier}>
-                {tier.tier === "pro" && <span className="pricing-badge">Популярный</span>}
-                <h3>{tier.label}</h3>
-                <div className="pricing-price">
-                  {tier.priceRub > 0 ? <><b>{tier.priceRub} ₽</b><span>/ неделя</span></> : <b>0 ₽</b>}
+            {SUBSCRIPTION_TIERS.map((tier) => {
+              const paid = tier.priceRub > 0;
+              return (
+                <div className={`pricing-card ${tier.tier === "pro" ? "pricing-popular" : ""}`} key={tier.tier}>
+                  {tier.tier === "pro" && <span className="pricing-badge">Популярный</span>}
+                  <h3>{tier.label}</h3>
+                  <div className="pricing-price">
+                    {paid ? <><b>{tier.priceRub} ₽</b><span>/ неделя</span></> : <b>0 ₽</b>}
+                  </div>
+                  <ul>
+                    <li><Check size={14} /> {tier.description}</li>
+                    <li><Check size={14} /> Все форматы</li>
+                    <li><Check size={14} /> Рубрики и шаблоны</li>
+                    <li><Check size={14} /> Экспорт PNG + ZIP</li>
+                  </ul>
+                  {paid && <span className="pricing-note">Оплата откроется позже</span>}
+                  <Link
+                    href="/auth?mode=register"
+                    className={tier.tier === "pro" ? "btn-primary" : "btn-secondary"}
+                  >
+                    Попробовать бесплатно
+                  </Link>
                 </div>
-                <p>{tier.description}</p>
-                <ul>
-                  <li><Check size={14} /> {tier.generationsPerWeek} генераций в неделю</li>
-                  <li><Check size={14} /> Все форматы</li>
-                  <li><Check size={14} /> Рубрики и шаблоны</li>
-                  <li><Check size={14} /> Экспорт PNG + ZIP</li>
-                </ul>
-                <Link href="/auth?mode=register" className={tier.tier === "pro" ? "btn-primary" : "btn-secondary"}>
-                  Начать
-                </Link>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
