@@ -4,7 +4,8 @@ import { prisma } from "./db";
 import { Prisma, type FileKind } from "@prisma/client";
 
 const ROOT = path.join(process.cwd(), "uploads");
-const MAX_BYTES = 8 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+const MAX_BYTES = MAX_UPLOAD_BYTES;
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 function extFor(mime: string) {
@@ -23,33 +24,15 @@ export async function saveUserBuffer(input: {
   if (!ALLOWED.has(input.mimeType)) {
     throw new Error("Можно загрузить только PNG, JPEG или WEBP");
   }
-  return persistBuffer({
-    userId: input.userId,
-    rubricId: input.rubricId,
-    kind: input.kind,
-    mimeType: input.mimeType,
-    buffer: input.buffer,
-  });
-}
-
-export async function saveUserFile(input: {
-  userId: string;
-  rubricId?: string | null;
-  kind: FileKind;
-  file: File;
-}) {
-  if (!ALLOWED.has(input.file.type)) {
-    throw new Error("Можно загрузить только PNG, JPEG или WEBP");
-  }
-  if (input.file.size > MAX_BYTES) {
+  if (input.buffer.length > MAX_BYTES) {
     throw new Error("Файл больше 8 МБ");
   }
   return persistBuffer({
     userId: input.userId,
     rubricId: input.rubricId,
     kind: input.kind,
-    mimeType: input.file.type,
-    buffer: Buffer.from(await input.file.arrayBuffer()),
+    mimeType: input.mimeType,
+    buffer: input.buffer,
   });
 }
 
