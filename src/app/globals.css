@@ -113,6 +113,8 @@ body {
   background: var(--ink);
   color: var(--on-ink);
 }
+/* На широком экране ведут слова, иконка не нужна */
+.theme-toggle button svg { display: none; }
 
 button, input, textarea, select { font: inherit; }
 button { color: inherit; cursor: pointer; }
@@ -1531,8 +1533,25 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
   .landing-nav { padding: 6px 6px 6px 16px; gap: 10px; }
   .landing-nav-links { gap: 10px; }
   .landing-logo b { font-size: 14px; }
-  .theme-toggle button { padding: 6px 9px; font-size: 11.5px; }
   .landing-cta-sm { padding: 8px 14px; font-size: 12.5px; }
+
+  /* Узкий экран: вместо слов — солнце и месяц. Каждая кнопка показывает
+     свою тему, поэтому подпись не нужна (она осталась в aria-label). */
+  .theme-toggle { background: transparent; padding: 0; gap: 4px; }
+  .theme-label { display: none; }
+  .theme-toggle button svg { display: block; }
+  .theme-toggle button {
+    width: 32px; height: 32px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--glass-line);
+    transition: opacity 0.2s, box-shadow 0.2s;
+  }
+  .theme-toggle button.theme-light { background: #fdf6f0; color: #2a1f3d; }
+  .theme-toggle button.theme-dark { background: #14152a; color: #f4f5fb; }
+  /* Прозрачностью не приглушаем: она смешивает тёмную кнопку с фоном
+     шапки, и месяц оказывается на сером вместо тёмного. Выбранное
+     состояние показываем обводкой — цвет обеих кнопок остаётся честным. */
+  .theme-toggle button.is-active { box-shadow: 0 0 0 2px var(--accent-text); }
 
   .landing-container { padding: 0 20px; }
   .landing-hero { min-height: auto; padding: 108px 0 56px; }

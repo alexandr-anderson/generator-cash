@@ -1,5 +1,6 @@
 "use client";
 
+import { Moon, Sun } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 export type Theme = "light" | "dark";
@@ -36,21 +37,27 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
 
   return (
     <div className={`theme-toggle ${className}`.trim()} role="group" aria-label="Тема оформления">
+      {/* Подпись всегда живёт в aria-label: на узких экранах текст скрыт,
+          и без неё кнопка осталась бы для скринридера безымянной. */}
       <button
         type="button"
-        className={theme === "light" ? "is-active" : ""}
+        className={`theme-light ${theme === "light" ? "is-active" : ""}`.trim()}
         aria-pressed={theme === "light"}
+        aria-label="Светлая тема"
         onClick={() => applyTheme("light")}
       >
-        Светлая
+        <Sun size={15} aria-hidden />
+        <span className="theme-label">Светлая</span>
       </button>
       <button
         type="button"
-        className={theme === "dark" ? "is-active" : ""}
+        className={`theme-dark ${theme === "dark" ? "is-active" : ""}`.trim()}
         aria-pressed={theme === "dark"}
+        aria-label="Тёмная тема"
         onClick={() => applyTheme("dark")}
       >
-        Тёмная
+        <Moon size={15} aria-hidden />
+        <span className="theme-label">Тёмная</span>
       </button>
     </div>
   );
