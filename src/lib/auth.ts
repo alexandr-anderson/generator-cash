@@ -24,6 +24,8 @@ export async function verifyPassword(password: string, hash: string) {
 }
 
 function cookieSecure() {
+  // Never let a misconfigured APP_URL ship the session cookie without Secure.
+  if (process.env.NODE_ENV === "production") return true;
   return process.env.APP_URL?.startsWith("https://") ?? false;
 }
 

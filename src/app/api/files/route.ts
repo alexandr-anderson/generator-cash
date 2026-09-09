@@ -1,5 +1,7 @@
+import { prisma } from "@/lib/db";
 import { authed, json } from "@/lib/http";
-import { filePublicPath, saveUserBuffer } from "@/lib/storage";
+import { RATE_RULES, rateLimit } from "@/lib/rate-limit";
+import { MAX_UPLOAD_BYTES, filePublicPath, saveUserBuffer } from "@/lib/storage";
 import type { FileKind } from "@prisma/client";
 
 const KINDS = new Set<FileKind>(["logo", "reference", "photo", "export"]);
@@ -14,11 +16,27 @@ export async function POST(request: Request) {
   const { user, error } = await authed();
   if (error) return error;
 
+  const limited = rateLimit("upload", user.id, RATE_RULES.upload);
+  if (limited) return limited;
+
   const kind = (request.headers.get("x-file-kind") || "reference") as FileKind;
   const rubricIdHeader = request.headers.get("x-rubric-id");
   const rubricId = rubricIdHeader?.trim() || null;
   const mimeType = request.headers.get("content-type") || "";
   if (!KINDS.has(kind)) return json({ error: "Неизвестный тип файла" }, 400);
+
+  // Checked before reading the body: arrayBuffer() would otherwise pull the
+  // whole payload into memory before saveUserBuffer gets to reject its size.
+  const declaredSize = Number(request.headers.get("content-length") || 0);
+  if (declaredSize > MAX_UPLOAD_BYTES) return json({ error: "Файл больше 8 МБ" }, 413);
+
+  if (rubricId) {
+    const owned = await prisma.rubric.findFirst({
+      where: { id: rubricId, userId: user.id },
+      select: { id: true },
+    });
+    if (!owned) return json({ error: "Рубрика не найдена" }, 404);
+  }
 
   let buffer: Buffer;
   try {
