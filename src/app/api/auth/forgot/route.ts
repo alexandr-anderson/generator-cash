@@ -2,12 +2,19 @@ import { hashToken, newToken } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { json } from "@/lib/http";
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/mail";
+import { RATE_RULES, clientIp, rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  const ipLimited = rateLimit("forgot-ip", clientIp(request), RATE_RULES.forgotIp);
+  if (ipLimited) return ipLimited;
+
   const body = await request.json().catch(() => null);
   const email = String(body?.email || "").trim().toLowerCase();
   const mode = String(body?.mode || "reset");
   if (!email) return json({ ok: true });
+
+  const emailLimited = rateLimit("forgot-email", email, RATE_RULES.forgotEmail);
+  if (emailLimited) return emailLimited;
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) return json({ ok: true });

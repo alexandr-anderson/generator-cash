@@ -2,6 +2,7 @@ import { draftExpertText, draftReelHooks } from "@/lib/ai-copy";
 import { authed, json } from "@/lib/http";
 import { AiError } from "@/lib/openai";
 import { notifyGenerationFailure } from "@/lib/alerts";
+import { RATE_RULES, acquireSlot, busyResponse, rateLimit, releaseSlot } from "@/lib/rate-limit";
 
 export const maxDuration = 180;
 
@@ -12,11 +13,17 @@ export async function POST(request: Request) {
     return json({ error: "Подтвердите почту, чтобы создавать работы" }, 403);
   }
 
+  const limited = rateLimit("ai", user.id, RATE_RULES.ai);
+  if (limited) return limited;
+
   const body = await request.json().catch(() => null);
   const topic = String(body?.topic || "").trim();
   const format = String(body?.format || "");
   if (!topic) return json({ error: "Введите тему" }, 400);
   if (topic.length > 240) return json({ error: "Тема слишком длинная" }, 400);
+
+  // Taken last, so no validation branch can return while holding it.
+  if (!acquireSlot(user.id)) return busyResponse();
 
   try {
     if (format === "reel") {
@@ -42,5 +49,7 @@ export async function POST(request: Request) {
     console.error("[ai/text]", caught);
     notifyGenerationFailure("text", caught);
     return json({ error: "Не удалось сгенерировать текст. Попробуйте ещё раз." }, 502);
+  } finally {
+    releaseSlot(user.id);
   }
 }

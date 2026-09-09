@@ -3,6 +3,7 @@ import { authed, json } from "@/lib/http";
 import { AiError } from "@/lib/openai";
 import { notifyGenerationFailure } from "@/lib/alerts";
 import { consumeGeneration, quotaAvailable } from "@/lib/quota";
+import { RATE_RULES, acquireSlot, busyResponse, rateLimit, releaseSlot } from "@/lib/rate-limit";
 import { SCENARIO_SPECS } from "@/lib/ai-types";
 
 export const maxDuration = 180;
@@ -15,6 +16,9 @@ export async function POST(request: Request) {
   if (!user.emailVerifiedAt) {
     return json({ error: "Подтвердите почту, чтобы создавать работы" }, 403);
   }
+
+  const limited = rateLimit("ai", user.id, RATE_RULES.ai);
+  if (limited) return limited;
 
   const quota = quotaAvailable(user.usage);
   if (!quota.ok) return json({ error: quota.error, remaining: quota.remaining }, 402);
@@ -29,6 +33,9 @@ export async function POST(request: Request) {
   if (!firstSlide) return json({ error: "Нет текста первого слайда" }, 400);
   if (topic.length > 240 || firstSlide.length > 240) return json({ error: "Слишком длинный текст" }, 400);
   if (text.length > 5000) return json({ error: "Текст слишком длинный" }, 400);
+
+  // Taken last, so no validation branch can return while holding it.
+  if (!acquireSlot(user.id)) return busyResponse();
 
   try {
     const copy = await expandCarouselSlides({
@@ -52,5 +59,7 @@ export async function POST(request: Request) {
     console.error("[ai/expand]", caught);
     notifyGenerationFailure("expand", caught);
     return json({ error: "Не удалось дописать слайды. Попробуйте ещё раз." }, 502);
+  } finally {
+    releaseSlot(user.id);
   }
 }

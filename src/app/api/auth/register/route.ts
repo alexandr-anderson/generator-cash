@@ -3,8 +3,12 @@ import { prisma } from "@/lib/db";
 import { json } from "@/lib/http";
 import { LEGAL_VERSION, parseRegisterConsent } from "@/lib/legal";
 import { mailConfigured, sendVerificationEmail } from "@/lib/mail";
+import { RATE_RULES, clientIp, rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
+  const limited = rateLimit("register", clientIp(request), RATE_RULES.register);
+  if (limited) return limited;
+
   const body = await request.json().catch(() => null);
   const email = String(body?.email || "").trim().toLowerCase();
   const password = String(body?.password || "");

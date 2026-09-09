@@ -5,7 +5,18 @@ $method = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET'
 $uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
 $url = 'http://127.0.0.1:' . $targetPort . $uri;
 
-$skipReq = array('host' => 1, 'connection' => 1, 'content-length' => 1, 'accept-encoding' => 1);
+// x-forwarded-for and friends are dropped from the incoming request and set
+// here from REMOTE_ADDR. Without that the client picks its own value and every
+// rate limit keyed on the caller's IP is bypassed by rotating one header.
+$skipReq = array(
+  'host' => 1,
+  'connection' => 1,
+  'content-length' => 1,
+  'accept-encoding' => 1,
+  'x-forwarded-for' => 1,
+  'x-real-ip' => 1,
+  'forwarded' => 1,
+);
 $headers = array();
 foreach ($_SERVER as $key => $value) {
   if (strpos($key, 'HTTP_') !== 0) {
@@ -16,6 +27,9 @@ foreach ($_SERVER as $key => $value) {
     continue;
   }
   $headers[] = $name . ': ' . $value;
+}
+if (!empty($_SERVER['REMOTE_ADDR'])) {
+  $headers[] = 'x-forwarded-for: ' . $_SERVER['REMOTE_ADDR'];
 }
 if (!empty($_SERVER['CONTENT_TYPE'])) {
   $headers[] = 'content-type: ' . $_SERVER['CONTENT_TYPE'];

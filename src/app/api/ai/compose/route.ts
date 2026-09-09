@@ -5,6 +5,7 @@ import { authed, json } from "@/lib/http";
 import { AiError } from "@/lib/openai";
 import { notifyGenerationFailure } from "@/lib/alerts";
 import { consumeGeneration, quotaAvailable } from "@/lib/quota";
+import { RATE_RULES, acquireSlot, busyResponse, rateLimit, releaseSlot } from "@/lib/rate-limit";
 import type { CreativeFormat } from "@/lib/types";
 
 export const maxDuration = 300;
@@ -17,6 +18,9 @@ export async function POST(request: Request) {
   if (!user.emailVerifiedAt) {
     return json({ error: "Подтвердите почту, чтобы создавать работы" }, 403);
   }
+
+  const limited = rateLimit("ai", user.id, RATE_RULES.ai);
+  if (limited) return limited;
 
   const quota = quotaAvailable(user.usage);
   if (!quota.ok) return json({ error: quota.error, remaining: quota.remaining }, 402);
@@ -38,6 +42,9 @@ export async function POST(request: Request) {
   if (topic.length > 240) return json({ error: "Тема слишком длинная" }, 400);
   if (text.length > 5000) return json({ error: "Текст слишком длинный" }, 400);
   if (captionSource.length > 8000) return json({ error: "Текст подписи слишком длинный" }, 400);
+
+  // Taken last, so no validation branch can return while holding it.
+  if (!acquireSlot(user.id)) return busyResponse();
 
   try {
     const copy = format === "post"
@@ -89,6 +96,8 @@ export async function POST(request: Request) {
     console.error("[ai/compose]", caught);
     notifyGenerationFailure("compose", caught);
     return json({ error: "Не удалось создать варианты. Попробуйте ещё раз." }, 502);
+  } finally {
+    releaseSlot(user.id);
   }
 }
 
