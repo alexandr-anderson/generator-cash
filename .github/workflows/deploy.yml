@@ -14,16 +14,16 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      DEPLOY_PATH: /home/c/cm149295/postvmeste
-      PUBLIC_HTML: /home/c/cm149295/postvmeste/public_html
+      DEPLOY_PATH: /home/c/${{ secrets.SSH_USER }}/postvmeste
+      PUBLIC_HTML: /home/c/${{ secrets.SSH_USER }}/postvmeste/public_html
       APP_NAME: postvmeste
       APP_PORT: "3001"
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22
           cache: npm
@@ -41,10 +41,11 @@ jobs:
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           SSH_PORT="${SSH_PORT:-22}"
           install -m 700 -d ~/.ssh
-          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> ~/.ssh/known_hosts
 
@@ -111,6 +112,7 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHAT: ${{ vars.TELEGRAM_CHAT }}
         run: |
           SSH_PORT="${SSH_PORT:-22}"
           if [ -z "${TELEGRAM_BOT_TOKEN}" ]; then
@@ -120,7 +122,7 @@ jobs:
           umask 077
           {
             printf 'TELEGRAM_BOT_TOKEN=%s\n' "${TELEGRAM_BOT_TOKEN}"
-            printf 'TELEGRAM_CHAT=mr_anderson_say\n'
+            printf 'TELEGRAM_CHAT=%s\n' "${TELEGRAM_CHAT}"
             if [ -n "${TELEGRAM_CHAT_ID}" ]; then
               printf 'TELEGRAM_CHAT_ID=%s\n' "${TELEGRAM_CHAT_ID}"
             fi
