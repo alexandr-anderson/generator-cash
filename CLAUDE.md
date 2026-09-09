@@ -15,6 +15,8 @@ postvmeste.ru — Next.js-монолит: сервис собирает на б�
 - **План работ (источник правды по приоритетам и статусу пунктов): [docs/work-plan.md](docs/work-plan.md)**
   — открывать в начале любой рабочей сессии, статус пунктов там актуальнее, чем то, что ниже.
 - Архитектура и границы данных: [docs/architecture.md](docs/architecture.md)
+- Деплой, локальный запуск, разбор проблем с сервером: [docs/deploy.md](docs/deploy.md)
+  (README — только продуктовое описание для публики, не класть туда рабочую кухню)
 - Карта системы: [docs/system-map.md](docs/system-map.md)
 - Проверка гипотезы (concierge-тесты): [docs/concierge-playbook.md](docs/concierge-playbook.md)
 - Брендбук: [docs/brand-guidelines.md](docs/brand-guidelines.md)
