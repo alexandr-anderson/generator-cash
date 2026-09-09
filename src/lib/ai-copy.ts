@@ -191,6 +191,45 @@ export function composePostFromAuthorText(input: {
   };
 }
 
+export async function draftPostHashtags(input: {
+  topic: string;
+  niche: string;
+  text: string;
+}): Promise<string[]> {
+  const excerpt = input.text.trim().slice(0, 500);
+  const payload = await openaiJson<Record<string, unknown>>({
+    system: SYSTEM,
+    user: [
+      "Подбери хештеги в Instagram под пост.",
+      `Тема: ${input.topic}`,
+      `Ниша: ${input.niche || "экспертный контент"}`,
+      excerpt ? `Текст поста (опора, не переписывать):\n${excerpt}` : "",
+      "10–15 хештегов на русском, в теме и нише поста. Без общих спам-хвостов вроде #followme, #like, #instagood.",
+      'Верни JSON: { "hashtags": ["#тема"] }',
+    ].filter(Boolean).join("\n"),
+    timeoutMs: 180_000,
+    maxTokens: 300,
+  });
+  return normalizeHashtags(payload.hashtags);
+}
+
+export async function composePostCopy(input: {
+  topic: string;
+  text: string;
+  niche: string;
+}): Promise<ComposedCopy> {
+  const copy = composePostFromAuthorText(input);
+  try {
+    const hashtags = await draftPostHashtags(input);
+    return hashtags.length ? { ...copy, hashtags } : copy;
+  } catch (caught) {
+    // Хештеги — не главное в посте. Если модель недоступна, остаёмся на локальных
+    // (уже посчитаны в composePostFromAuthorText), не роняем создание поста.
+    if (caught instanceof AiError) return copy;
+    throw caught;
+  }
+}
+
 export async function expandCarouselSlides(input: {
   topic: string;
   text: string;

@@ -1,4 +1,4 @@
-import { composePostFromAuthorText, composeReelCopy, composeVariantPreviews } from "@/lib/ai-copy";
+import { composePostCopy, composeReelCopy, composeVariantPreviews } from "@/lib/ai-copy";
 import { attachPostImages, attachReelImages } from "@/lib/ai-image";
 import { ensureCarouselRecipe } from "@/lib/ensure-carousel-recipe";
 import { authed, json } from "@/lib/http";
@@ -104,7 +104,7 @@ async function composePost(
     referenceIds: string[];
   },
 ) {
-  const copy = composePostFromAuthorText({
+  const copy = await composePostCopy({
     topic: input.topic,
     text: input.text,
     niche: input.niche,
