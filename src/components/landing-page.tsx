@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { SUBSCRIPTION_TIERS } from "@/lib/types";
 import { PublicFooter } from "@/components/public-shell";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /**
  * Заготовленные примеры для первого экрана. Это не результат генерации на лету:
@@ -54,6 +55,7 @@ export function LandingPage() {
           <div className="landing-nav-links">
             <a href="#formats">Форматы</a>
             <a href="#pricing">Тарифы</a>
+            <ThemeToggle />
             <Link href="/auth" className="landing-cta-sm">Войти</Link>
           </div>
         </div>
