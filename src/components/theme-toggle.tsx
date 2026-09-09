@@ -42,7 +42,7 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
         aria-pressed={theme === "light"}
         onClick={() => applyTheme("light")}
       >
-        Светло
+        Светлая
       </button>
       <button
         type="button"
@@ -50,7 +50,7 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
         aria-pressed={theme === "dark"}
         onClick={() => applyTheme("dark")}
       >
-        Темно
+        Тёмная
       </button>
     </div>
   );
