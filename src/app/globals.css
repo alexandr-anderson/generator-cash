@@ -16,6 +16,11 @@
   --accent: #e8734a;       /* акцент: кнопки, активные состояния */
   --spark: #a86ad8;        /* второй акцент: градиенты, ключевые узлы */
   --soft-accent: #fdece4;  /* мягкая подложка к акценту */
+  /* Текстовые варианты акцентов: яркие #e8734a/#a86ad8 на светлой бумаге
+     дают всего 2.7:1 и 3.3:1 — мелкий текст ими красить нельзя.
+     Эти темнее и проходят AA; для декора остаются --accent/--spark. */
+  --accent-text: #b5471f;
+  --spark-text: #8a4fbe;
   --lime: #c6f36b;
   --danger: #dc2626;
 
@@ -50,6 +55,9 @@
   --accent: #8b7bff;
   --spark: #37e0c8;
   --soft-accent: #1c1b33;
+  /* в тёмной теме яркие акценты уже проходят AA — дублируем их */
+  --accent-text: #8b7bff;
+  --spark-text: #37e0c8;
   --lime: #c6f36b;
   --danger: #f87171;
 
@@ -130,7 +138,7 @@ img { max-width: 100%; }
   color: var(--on-ink);
   border-color: var(--ink);
 }
-.btn-primary:hover { background: var(--accent); border-color: var(--accent); }
+.btn-primary:hover { background: var(--accent-text); border-color: var(--accent-text); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary:disabled:hover { background: var(--ink); border-color: var(--ink); }
 
@@ -166,7 +174,7 @@ img { max-width: 100%; }
 .btn-xs { padding: 5px 10px; font-size: 10px; border-radius: 6px; }
 .btn-full { width: 100%; }
 
-.link-btn { background: none; border: none; color: var(--accent); font-weight: 600; padding: 0; text-decoration: underline; }
+.link-btn { background: none; border: none; color: var(--accent-text); font-weight: 600; padding: 0; text-decoration: underline; }
 
 /* ─── Fields ─── */
 .field { display: grid; gap: 6px; margin-bottom: 16px; }
@@ -262,7 +270,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
   background: var(--ink); color: var(--on-ink); padding: 9px 18px;
   border-radius: 99px; font-weight: 500; font-size: 13px;
 }
-.landing-cta-sm:hover { background: var(--accent); color: #fff; }
+.landing-cta-sm:hover { background: var(--accent-text); color: #fff; }
 
 /* Герой */
 .landing-hero {
@@ -281,7 +289,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 }
 .landing-hero h1 b {
   font-weight: 700;
-  background: linear-gradient(96deg, var(--accent), var(--spark));
+  background: linear-gradient(96deg, var(--accent-text), var(--spark-text));
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .hero-sub {
@@ -316,7 +324,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 .flow-tab.is-active { border-color: var(--accent); box-shadow: var(--shadow); }
 .flow-tab-name { font-size: 17px; font-weight: 500; letter-spacing: -0.025em; }
 .flow-tab.is-active .flow-tab-name { font-weight: 600; }
-.flow-tab-size { font-size: 11.5px; color: var(--accent); font-weight: 600; white-space: nowrap; }
+.flow-tab-size { font-size: 11.5px; color: var(--accent-text); font-weight: 600; white-space: nowrap; }
 
 .flow-path { width: 100%; height: 200px; display: block; overflow: visible; margin-top: 26px; }
 .flow-path-line {
@@ -349,7 +357,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
   font-size: 13px; font-weight: 600; color: var(--ink); box-shadow: var(--shadow);
 }
 .flow-stop.is-key .flow-dot {
-  background: var(--accent); color: #fff; border-color: transparent; transform: scale(1.14);
+  background: var(--accent-text); color: #fff; border-color: transparent; transform: scale(1.14);
 }
 [data-theme="dark"] .flow-stop.is-key .flow-dot {
   background: var(--spark); color: #062b26;
