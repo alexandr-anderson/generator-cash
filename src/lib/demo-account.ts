@@ -1,16 +1,13 @@
 import type { ArchiveItem, CreativeWork, Rubric, Subscription, UserProfile } from "./types";
 
-export const SERVICE_ACCOUNT = {
-  email: "demo@postvmeste.ru",
-  password: "demo1234",
-} as const;
+export const DEMO_EMAIL = "demo@postvmeste.ru";
 
 const now = Date.now();
 const day = 24 * 60 * 60 * 1000;
 
 export const DEMO_USER: UserProfile = {
   id: "demo-user",
-  email: SERVICE_ACCOUNT.email,
+  email: DEMO_EMAIL,
   niche: "Маркетинг",
   audience: "Эксперты и предприниматели 25–40 лет",
   tone: "Спокойный и уверенный",
@@ -144,19 +141,3 @@ export const DEMO_ARCHIVE: ArchiveItem[] = DEMO_WORKS.map((work) => {
   };
 }).sort((a, b) => b.createdAt - a.createdAt);
 
-export function isServiceAccount(email: string, password: string) {
-  return (
-    email.trim().toLowerCase() === SERVICE_ACCOUNT.email &&
-    password === SERVICE_ACCOUNT.password
-  );
-}
-
-export function createDemoState() {
-  return {
-    user: { ...DEMO_USER },
-    subscription: { ...DEMO_SUBSCRIPTION, weekStartedAt: Date.now() },
-    rubrics: DEMO_RUBRICS.map((r) => ({ ...r })),
-    archive: DEMO_ARCHIVE.map((a) => ({ ...a })),
-    works: DEMO_WORKS.map((w) => ({ ...w })),
-  };
-}

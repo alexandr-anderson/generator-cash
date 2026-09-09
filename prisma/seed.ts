@@ -5,21 +5,28 @@ import {
   DEMO_RUBRICS,
   DEMO_SUBSCRIPTION,
   DEMO_USER,
+  DEMO_EMAIL,
   DEMO_WORKS,
-  SERVICE_ACCOUNT,
 } from "../src/lib/demo-account";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash(SERVICE_ACCOUNT.password, 12);
+  const password = (process.env.SEED_DEMO_PASSWORD || "").trim();
+  if (!password) {
+    throw new Error(
+      "SEED_DEMO_PASSWORD не задан. Задайте пароль демо-аккаунта в окружении перед сидом — " +
+        "в репозитории он не хранится.",
+    );
+  }
+  const passwordHash = await bcrypt.hash(password, 12);
 
-  await prisma.user.deleteMany({ where: { email: SERVICE_ACCOUNT.email } });
+  await prisma.user.deleteMany({ where: { email: DEMO_EMAIL } });
 
   const user = await prisma.user.create({
     data: {
       id: DEMO_USER.id,
-      email: SERVICE_ACCOUNT.email,
+      email: DEMO_EMAIL,
       passwordHash,
       emailVerifiedAt: new Date(),
       niche: DEMO_USER.niche,
@@ -89,7 +96,7 @@ async function main() {
     });
   }
 
-  console.info(`Seeded ${SERVICE_ACCOUNT.email} / ${SERVICE_ACCOUNT.password}`);
+  console.info(`Seeded ${DEMO_EMAIL} (пароль из SEED_DEMO_PASSWORD)`);
   console.info(`Rubrics ${DEMO_RUBRICS.length}, works ${DEMO_WORKS.length}, archive ${DEMO_ARCHIVE.length}`);
 }
 

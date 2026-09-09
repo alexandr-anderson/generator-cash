@@ -94,10 +94,10 @@ Run once:
   nvm use 22
 
 Or:
-  bash /home/c/cm149295/postvmeste/scripts/setup-node-timeweb.sh
+  bash "$DEPLOY_PATH"/scripts/setup-node-timeweb.sh
 
 Then deploy:
-  cd /home/c/cm149295/postvmeste
+  cd "$DEPLOY_PATH"
   bash deploy.sh
 EOF
 }
@@ -213,7 +213,7 @@ load_server_env() {
     source "$env_file"
   fi
 
-  : "${DEPLOY_PATH:=/home/c/cm149295/postvmeste}"
+  : "${DEPLOY_PATH:=$HOME/postvmeste}"
   resolve_public_html
   : "${GIT_BRANCH:=main}"
   : "${GIT_REMOTE:=origin}"
@@ -238,7 +238,7 @@ load_deploy_env() {
   : "${SSH_HOST:?SSH_HOST is required}"
   : "${SSH_USER:?SSH_USER is required}"
   : "${SSH_PORT:=22}"
-  : "${DEPLOY_PATH:=/home/c/cm149295/postvmeste}"
+  : "${DEPLOY_PATH:=/home/c/${SSH_USER}/postvmeste}"
   resolve_public_html
   : "${GIT_BRANCH:=main}"
   : "${GIT_REMOTE:=origin}"

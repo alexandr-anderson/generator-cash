@@ -36,6 +36,8 @@ nvm install "${NODE_VERSION}"
 nvm alias default "${NODE_VERSION}"
 nvm use default
 
+ROOT_DIR="$(dirname "${SCRIPT_DIR}")"
+
 cat <<EOF
 
 Node.js setup complete:
@@ -43,6 +45,6 @@ Node.js setup complete:
   npm:  $(command -v npm) ($(npm -v))
 
 Next steps:
-  cd /home/c/cm149295/postvmeste
+  cd ${ROOT_DIR}
   bash deploy.sh
 EOF

@@ -9,7 +9,7 @@ Instagram-студия для экспертов: карусели, посты �
 ```bash
 npm install
 npx prisma migrate deploy
-npx prisma db seed   # demo@postvmeste.ru / demo1234
+SEED_DEMO_PASSWORD='ваш-пароль' npx prisma db seed   # создаст demo@postvmeste.ru
 npm run dev
 ```
 
@@ -51,20 +51,20 @@ npm run build
 
 Два окна, не смешивать команды:
 
-- **SSH Timeweb** — `cm149295@vh470:~$` (Linux bash)
+- **SSH Timeweb** — `<SSH_USER>@<SSH_HOST>:~$` (Linux bash)
 - **Локальный Windows** — PowerShell на вашем ПК
 
 **Не удаляйте** `~/filo` и `~/filo-src`.
 
 1. На сервере удалите только `postvmeste`, создайте пустые каталоги и `scripts/deploy.env` с `APP_PORT=3001`.
-2. В панели Timeweb корень сайта `postvmeste.ru` = `/home/c/cm149295/postvmeste/public_html`.
+2. В панели Timeweb корень сайта `postvmeste.ru` = `/home/c/<SSH_USER>/postvmeste/public_html`.
 3. На Windows удалите старый клон, затем `git clone https://github.com/alexandr-anderson/generator-cash.git`.
 4. Сборку и загрузку делайте **локально** (`npm run deploy`) или через **GitHub Actions**. На сервере `npm ci` / `npm run build` не запускайте.
 
 ### Структура на сервере
 
 ```text
-/home/c/cm149295/
+/home/c/<SSH_USER>/
   postvmeste/
     app/                     # standalone Next.js (server.js, .next, public)
     ecosystem.config.cjs
@@ -77,7 +77,7 @@ npm run build
 В панели Timeweb для домена `postvmeste.ru` укажите корень сайта:
 
 ```text
-/home/c/cm149295/postvmeste/public_html
+/home/c/<SSH_USER>/postvmeste/public_html
 ```
 
 PM2 запускает `app/server.js` на `APP_PORT` (на этом аккаунте `3001`). Apache в `public_html/.htaccess` проксирует запросы на этот порт.
@@ -91,11 +91,11 @@ Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — с�
 | Secret | Значение |
 |--------|----------|
 | `SSH_PRIVATE_KEY` | приватный ключ с доступом к Timeweb SSH |
-| `SSH_HOST` | `vh470.timeweb.ru` |
-| `SSH_USER` | `cm149295` |
+| `SSH_HOST` | `<SSH_HOST>` |
+| `SSH_USER` | `<ваш-логин>` |
 | `SSH_PORT` | `22` (опционально) |
 | `TELEGRAM_BOT_TOKEN` | токен бота от @BotFather — алерты в Telegram |
-| `TELEGRAM_CHAT_ID` | опционально, числовой chat id; иначе бот ждёт `/start` от @mr_anderson_say |
+| `TELEGRAM_CHAT_ID` | опционально, числовой chat id; иначе бот ждёт `/start` от получателя (задаётся переменной `TELEGRAM_CHAT`) |
 
 После push в `main` Actions соберёт проект, загрузит `release/` на сервер и выполнит `scripts/restart-app.sh`.
 
@@ -130,8 +130,8 @@ postvmeste/
 ```bash
 mkdir -p ~/postvmeste/scripts
 cat > ~/postvmeste/scripts/deploy.env << 'EOF'
-DEPLOY_PATH=/home/c/cm149295/postvmeste
-PUBLIC_HTML=/home/c/cm149295/postvmeste/public_html
+DEPLOY_PATH=/home/c/<SSH_USER>/postvmeste
+PUBLIC_HTML=/home/c/<SSH_USER>/postvmeste/public_html
 APP_NAME=postvmeste
 APP_PORT=3001
 NODE_ENV=production
@@ -201,8 +201,8 @@ npm run build
 Подключитесь по SSH (локально или через панель Timeweb):
 
 ```bash
-ssh cm149295@vh470.timeweb.ru
-bash /home/c/cm149295/postvmeste/scripts/setup-node-timeweb.sh
+ssh <SSH_USER>@<SSH_HOST>
+bash /home/c/<SSH_USER>/postvmeste/scripts/setup-node-timeweb.sh
 ```
 
 Подготовьте каталоги (с локальной машины):
@@ -220,8 +220,8 @@ npm run deploy
 Если release уже на сервере:
 
 ```bash
-ssh cm149295@vh470.timeweb.ru
-bash /home/c/cm149295/postvmeste/scripts/restart-app.sh
+ssh <SSH_USER>@<SSH_HOST>
+bash /home/c/<SSH_USER>/postvmeste/scripts/restart-app.sh
 ```
 
 Или через SSH с локальной машины:
@@ -235,7 +235,7 @@ npm run deploy:server
 ### Проверка на сервере
 
 ```bash
-bash /home/c/cm149295/postvmeste/scripts/doctor.sh
+bash /home/c/<SSH_USER>/postvmeste/scripts/doctor.sh
 pm2 status
 pm2 logs postvmeste
 curl -I http://127.0.0.1:3000
@@ -259,7 +259,7 @@ export NVM_DIR="$HOME/.nvm"
 . "$NVM_DIR/nvm.sh"
 nvm install 22
 nvm use 22
-bash /home/c/cm149295/postvmeste/scripts/setup-node-timeweb.sh
+bash /home/c/<SSH_USER>/postvmeste/scripts/setup-node-timeweb.sh
 ```
 
 ### Устаревший способ (не использовать)

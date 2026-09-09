@@ -49,7 +49,7 @@ flowchart LR
 | Картинки AI | `OPENAI_IMAGE_*`, модель `gpt-image-2` |
 | Почта | `src/lib/mail.ts`, Resend HTTPS |
 | Алерты | `src/lib/alerts.ts` + `telegram.ts` → [@mr_anderson_say](https://t.me/mr_anderson_say) |
-| Деплой | `.github/workflows/deploy.yml` → `/home/c/cm149295/postvmeste` |
+| Деплой | `.github/workflows/deploy.yml` → `/home/c/<SSH_USER>/postvmeste` |
 | ЮKassa | нет в коде; `POST /api/usage/tier` отвечает **403** |
 
 Dev: `localhost:3000`. Прод снаружи: `https://postvmeste.ru`.
