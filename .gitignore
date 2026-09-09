@@ -44,6 +44,13 @@ yarn-error.log*
 # uptime checker local state
 .uptime-state.json
 
+# исходники фонов от модели: ~1,5 МБ штука, в гит идёт только сжатый webp
+# из public/backgrounds (см. scripts/backgrounds.mjs)
+/.backgrounds-raw
+
+# временные макеты ДНК, живут только на время выбора направления
+/public/_refs
+
 
 # generated user brand DNA (not the product chrome)
 .brand/
