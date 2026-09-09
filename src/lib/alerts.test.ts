@@ -19,13 +19,16 @@ describe("alert text", () => {
 });
 
 describe("uptime snapshot", () => {
-  it("alerts down only after two consecutive failures", () => {
+  it("alerts down on the first failed run", () => {
     const first = nextUptimeSnapshot({ consecutiveFails: 0, alertedDown: false }, false);
-    expect(first).toMatchObject({ consecutiveFails: 1, alertedDown: false, notify: null });
+    expect(first).toMatchObject({ consecutiveFails: 1, alertedDown: true, notify: "down" });
+  });
+
+  it("does not repeat the down alert while still down", () => {
+    const first = nextUptimeSnapshot({ consecutiveFails: 0, alertedDown: false }, false);
     const second = nextUptimeSnapshot(first, false);
-    expect(second).toMatchObject({ consecutiveFails: 2, alertedDown: true, notify: "down" });
-    const still = nextUptimeSnapshot(second, false);
-    expect(still.notify).toBeNull();
+    expect(second).toMatchObject({ consecutiveFails: 2, alertedDown: true, notify: null });
+    expect(nextUptimeSnapshot(second, false).notify).toBeNull();
   });
 
   it("sends recovery once after a down alert", () => {

@@ -9,7 +9,12 @@ const TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
 const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || "").trim();
 const CHAT = (process.env.TELEGRAM_CHAT || "mr_anderson_say").trim().replace(/^@/, "");
 const STATE_FILE = process.env.UPTIME_STATE_FILE || path.join(__dirname, "..", ".uptime-state.json");
-const FAIL_THRESHOLD = 2;
+// One run now decides on its own: it retries a few times before calling the
+// site down, so a single blip no longer needs a second run hours later to be
+// confirmed. Keep in sync with UPTIME_FAIL_THRESHOLD in src/lib/uptime-state.ts.
+const FAIL_THRESHOLD = 1;
+const PROBE_ATTEMPTS = Math.max(1, Number(process.env.UPTIME_PROBE_ATTEMPTS) || 3);
+const PROBE_DELAY_MS = Math.max(0, Number(process.env.UPTIME_PROBE_DELAY_MS) || 15000);
 
 function loadState() {
   try {
@@ -118,6 +123,21 @@ async function ping() {
   }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function probe() {
+  let last = { healthy: false, detail: "нет попыток" };
+  for (let attempt = 1; attempt <= PROBE_ATTEMPTS; attempt += 1) {
+    last = await ping();
+    if (last.healthy) return { ...last, attempts: attempt };
+    console.log(`==> uptime-check: попытка ${attempt}/${PROBE_ATTEMPTS} — ${last.detail}`);
+    if (attempt < PROBE_ATTEMPTS) await sleep(PROBE_DELAY_MS);
+  }
+  return { ...last, attempts: PROBE_ATTEMPTS };
+}
+
 async function main() {
   if ((process.env.TELEGRAM_TEST || "").trim() === "1") {
     await sendTelegram("test", "Если это сообщение пришло — канал алертов работает.");
@@ -126,12 +146,17 @@ async function main() {
   }
 
   const previous = loadState();
-  const result = await ping();
+  const result = await probe();
   const next = nextSnapshot(previous, result.healthy);
   saveState({ consecutiveFails: next.consecutiveFails, alertedDown: next.alertedDown });
-  console.log(`==> uptime-check: healthy=${result.healthy} notify=${next.notify || "none"} ${result.detail}`);
+  console.log(
+    `==> uptime-check: healthy=${result.healthy} попыток=${result.attempts} notify=${next.notify || "none"} ${result.detail}`,
+  );
   if (next.notify) {
-    await sendTelegram(next.notify, `${HEALTH_URL}\n${result.detail}`);
+    const detail = result.healthy
+      ? result.detail
+      : `${result.detail} (не ответил ${result.attempts} раз подряд)`;
+    await sendTelegram(next.notify, `${HEALTH_URL}\n${detail}`);
   }
 }
 

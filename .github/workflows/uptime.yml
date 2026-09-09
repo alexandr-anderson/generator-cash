@@ -2,7 +2,11 @@ name: Uptime
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    # GitHub deprioritises high-frequency schedules: "*/5" was firing roughly
+    # every 2-5 hours, never every 5 minutes. Asking for less makes it likelier
+    # the run actually happens. Actions cannot do minute-level monitoring — an
+    # external uptime service is the only way to get that.
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       test_alert:
@@ -10,19 +14,29 @@ on:
         type: boolean
         default: true
 
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 6
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+      # Caches are immutable: a fixed key is written once and every later run
+      # only restores it, so the state froze on the day it was first saved and
+      # the down alert could never fire. The run id makes each save a new entry;
+      # restore-keys picks up the most recent one.
       - name: Restore uptime state
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .uptime-state.json
-          key: postvmeste-uptime-v1
+          key: postvmeste-uptime-v2-${{ github.run_id }}
+          restore-keys: |
+            postvmeste-uptime-v2-
 
       - name: Check health and alert Telegram
         env:

@@ -3,7 +3,11 @@ export type UptimeSnapshot = {
   alertedDown: boolean;
 };
 
-export const UPTIME_FAIL_THRESHOLD = 2;
+// scripts/uptime-check.js retries several times inside a single run before it
+// reports a failure, so one failed run is already a confirmed outage. Waiting
+// for a second run would add hours: GitHub fires the schedule far less often
+// than the cron asks for.
+export const UPTIME_FAIL_THRESHOLD = 1;
 
 export function nextUptimeSnapshot(
   previous: UptimeSnapshot,
