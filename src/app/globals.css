@@ -534,7 +534,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
   background: var(--panel); border: 1px solid var(--line); border-radius: 20px;
   padding: 7px 14px; font-size: 12px; cursor: pointer; transition: 0.15s;
 }
-.niche-chip.selected { background: var(--soft-accent); border-color: var(--accent); color: #c93e1d; }
+.niche-chip.selected { background: var(--soft-accent); border-color: var(--accent); color: var(--accent-text); }
 .custom-niche-input { margin-top: 8px; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1249,7 +1249,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 }
 .archive-info { padding: 12px; }
 .archive-meta { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--muted); margin-bottom: 4px; }
-.archive-rubric { background: var(--soft-accent); padding: 2px 6px; border-radius: 4px; color: var(--accent); font-size: 9px; font-weight: 700; }
+.archive-rubric { background: var(--soft-accent); padding: 2px 6px; border-radius: 4px; color: var(--accent-text); font-size: 9px; font-weight: 700; }
 .archive-info b { font-size: 13px; display: block; margin-bottom: 2px; }
 .archive-info small { font-size: 10px; color: var(--muted); display: block; margin-bottom: 8px; }
 .archive-actions { display: flex; gap: 6px; }
@@ -1265,7 +1265,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 
 .sub-status { margin-bottom: 16px; }
 .sub-current { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.sub-remaining { color: var(--accent); font-weight: 600; margin-left: auto; }
+.sub-remaining { color: var(--accent-text); font-weight: 600; margin-left: auto; }
 
 .pricing-grid.compact { grid-template-columns: repeat(3, 1fr); }
 .pricing-card-sm {
