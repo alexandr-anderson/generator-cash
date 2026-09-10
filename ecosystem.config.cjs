@@ -87,7 +87,6 @@ module.exports = {
         OPENAI_IMAGE_BASE_URL: process.env.OPENAI_IMAGE_BASE_URL || "",
         OPENAI_IMAGE_API_KEY: process.env.OPENAI_IMAGE_API_KEY || "",
         OPENAI_IMAGE_MODEL: process.env.OPENAI_IMAGE_MODEL || "",
-        OPENAI_IMAGE_QUALITY: process.env.OPENAI_IMAGE_QUALITY || "medium",
         TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
         TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || "",
         TELEGRAM_CHAT: process.env.TELEGRAM_CHAT || "mr_anderson_say",
