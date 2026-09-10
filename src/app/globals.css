@@ -21,7 +21,6 @@
      Эти темнее и проходят AA; для декора остаются --accent/--spark. */
   --accent-text: #b5471f;
   --spark-text: #8a4fbe;
-  --lime: #c6f36b;
   --danger: #dc2626;
 
   /* стекло: работает поверх генеративных фонов */
@@ -39,7 +38,6 @@
   --surface-muted: #f3ece8;  /* выключенные поля */
   --danger-soft: #fef2f2;    /* подложка ошибки */
   --focus-ring: rgba(232, 115, 74, 0.18);
-  --nav-active: #2a1f3d;     /* активный пункт тёмного сайдбара */
 
   --radius: 10px;
   color-scheme: light;
@@ -58,7 +56,6 @@
   /* в тёмной теме яркие акценты уже проходят AA — дублируем их */
   --accent-text: #8b7bff;
   --spark-text: #37e0c8;
-  --lime: #c6f36b;
   --danger: #f87171;
 
   --glass: rgba(255, 255, 255, 0.06);
@@ -73,7 +70,6 @@
   --surface-muted: #191b28;
   --danger-soft: #2a1416;
   --focus-ring: rgba(139, 123, 255, 0.28);
-  --nav-active: #232538;
 
   color-scheme: dark;
 }
@@ -544,10 +540,13 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    DASHBOARD SHELL
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-.dash-shell { display: flex; min-height: 100vh; }
+.dash-shell { display: flex; min-height: 100vh; background: var(--paper); }
 
+/* Оболочка следует теме (Рассвет/Ночь), без sky-картинки: здесь работают,
+   не любуются — правило раздела 1 брендбука. */
 .dash-sidebar {
-  background: #1a1a18; color: #f7f5ef;
+  background: var(--panel); color: var(--ink);
+  border-right: 1px solid var(--line);
   display: flex; flex-direction: column;
   padding: 20px 14px 16px;
   position: fixed; inset: 0 auto 0 0;
@@ -556,48 +555,62 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 
 .dash-logo {
   display: flex; align-items: center; gap: 8px;
-  font-size: 17px; letter-spacing: -0.5px; margin: 0 8px 28px;
+  font-size: 17px; letter-spacing: -0.5px; margin: 0 8px 24px;
 }
 .dash-logo > span {
-  background: var(--accent); border-radius: 8px 8px 8px 3px;
+  background: linear-gradient(135deg, var(--accent), var(--spark));
+  border-radius: 8px 8px 8px 3px;
   display: flex; align-items: center; justify-content: center;
-  height: 30px; width: 30px; color: #fff; transform: rotate(-4deg);
+  height: 30px; width: 30px; color: var(--on-accent); transform: rotate(-4deg);
 }
 
 .dash-nav { display: grid; gap: 4px; }
 
 .dash-nav-item {
   align-items: center; background: transparent; border: 0;
-  border-radius: 8px; color: #aaa9a3; display: flex;
+  border-radius: 8px; color: var(--muted); display: flex;
   font-size: 13px; font-weight: 600; gap: 10px;
   padding: 10px 11px; text-align: left; width: 100%;
+  transition: background 0.15s, color 0.15s;
 }
-.dash-nav-item:hover, .dash-nav-item.active { background: var(--nav-active); color: #fff; }
+.dash-nav-item:hover { background: var(--surface-muted); color: var(--ink); }
+.dash-nav-item.active { background: var(--soft-accent); color: var(--accent-text); }
 
-.dash-sidebar-bottom { display: grid; gap: 6px; margin-top: auto; }
+.dash-sidebar-bottom { display: grid; gap: 10px; margin-top: auto; }
+
+/* Компактный переключатель темы — та же ".theme-toggle", что в шапке лендинга,
+   но только иконки: на 220px сайдбара текстовым подписям тесно. */
+.dash-sidebar .theme-toggle { background: var(--surface-muted); padding: 3px; gap: 2px; width: 100%; }
+.dash-sidebar .theme-toggle button {
+  flex: 1; height: 32px; padding: 0; border-radius: 99px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.dash-sidebar .theme-toggle .theme-label { display: none; }
+.dash-sidebar .theme-toggle button svg { display: block; }
+.dash-sidebar .theme-toggle button.is-active { background: var(--panel); color: var(--ink); box-shadow: var(--shadow); }
 
 .gen-card {
-  background: #252522; border: 1px solid #33332f;
-  border-radius: 10px; padding: 12px; margin-bottom: 6px;
+  background: var(--soft-accent); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px;
 }
-.gen-card-label { color: var(--lime); font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
-.gen-card strong { font-size: 20px; display: block; margin-top: 8px; }
-.gen-card > span { color: #92918b; font-size: 10px; }
-.gen-bar { background: #3a3a36; border-radius: 8px; height: 4px; overflow: hidden; margin-top: 8px; }
-.gen-bar > div { background: var(--lime); height: 100%; border-radius: 8px; transition: width 0.3s; }
+.gen-card-label { color: var(--accent-text); font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+.gen-card strong { font-size: 20px; display: block; margin-top: 8px; color: var(--ink); }
+.gen-card > span { color: var(--muted); font-size: 10px; }
+.gen-bar { background: var(--surface-muted); border-radius: 8px; height: 4px; overflow: hidden; margin-top: 8px; }
+.gen-bar > div { background: linear-gradient(90deg, var(--accent), var(--spark)); height: 100%; border-radius: 8px; transition: width 0.3s; }
 
 .dash-user {
   display: grid; grid-template-columns: 32px 1fr;
   gap: 8px; align-items: center;
-  border-top: 1px solid #30302c; padding-top: 12px; margin-top: 6px;
+  border-top: 1px solid var(--line); padding-top: 12px;
 }
 .dash-avatar {
-  align-items: center; background: #f5bdae; border-radius: 50%;
-  color: #4c2118; display: flex; font-size: 12px; font-weight: 700;
+  align-items: center; background: linear-gradient(135deg, var(--accent), var(--spark));
+  border-radius: 50%; color: var(--on-accent); display: flex; font-size: 12px; font-weight: 700;
   height: 32px; justify-content: center;
 }
 .dash-user b { font-size: 12px; display: block; }
-.dash-user small { color: #817f79; font-size: 9px; display: block; margin-top: 2px; }
+.dash-user small { color: var(--muted); font-size: 9px; display: block; margin-top: 2px; }
 
 .dash-main {
   min-width: 0; padding-left: 220px; width: 100%;
@@ -607,6 +620,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
   display: none;
   position: fixed; bottom: 0; left: 0; right: 0;
   background: var(--panel); border-top: 1px solid var(--line);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.06);
   z-index: 20; height: 56px;
   align-items: center; justify-content: space-around;
 }
@@ -616,7 +630,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
   gap: 2px; font-size: 9px; font-weight: 600; color: var(--muted);
   padding: 6px 12px;
 }
-.tabbar-item.active { color: var(--accent); }
+.tabbar-item.active { color: var(--accent-text); }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    HOME PAGE

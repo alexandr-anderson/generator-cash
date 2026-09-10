@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { RubricManageProvider } from "@/components/rubric-manage";
 import { ProfilePopup } from "./profile-popup";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const tabs = [
   { href: "/dashboard", icon: Home, label: "Главная" },
@@ -75,6 +76,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <span>из {total} осталось</span>
             <div className="gen-bar"><div style={{ width: `${total > 0 ? ((total - used) / total) * 100 : 0}%` }} /></div>
           </div>
+          <ThemeToggle />
           <button className="dash-nav-item" onClick={async () => { await store.logout(); router.push("/"); }}>
             <LogOut size={18} />Выйти
           </button>
