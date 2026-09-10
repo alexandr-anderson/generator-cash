@@ -117,22 +117,27 @@ async function composePost(
     onDelta?: (chunk: string) => void;
   },
 ) {
-  const copy = await composePostCopy({
-    topic: input.topic,
-    text: input.text,
-    niche: input.niche,
-    onDelta: input.onDelta,
-  });
-  const imageUrls = await attachPostImages({
-    userId,
-    rubricId: input.rubricId,
-    topic: input.topic,
-    niche: input.niche,
-    tone: input.tone,
-    text: input.text,
-    colors: input.colors,
-    referenceIds: input.referenceIds,
-  });
+  // Текст и картинки друг от друга не зависят, а каждый заход к шлюзу стоит
+  // около двух минут (замер 2026-09-10), поэтому идут одновременно. Раньше
+  // ждали последовательно и складывали эти минуты без всякой нужды.
+  const [copy, imageUrls] = await Promise.all([
+    composePostCopy({
+      topic: input.topic,
+      text: input.text,
+      niche: input.niche,
+      onDelta: input.onDelta,
+    }),
+    attachPostImages({
+      userId,
+      rubricId: input.rubricId,
+      topic: input.topic,
+      niche: input.niche,
+      tone: input.tone,
+      text: input.text,
+      colors: input.colors,
+      referenceIds: input.referenceIds,
+    }),
+  ]);
 
   return {
     ...copy,
@@ -157,23 +162,26 @@ async function composeReel(
     onDelta?: (chunk: string) => void;
   },
 ) {
-  const copy = await composeReelCopy({
-    topic: input.topic,
-    niche: input.niche,
-    tone: input.tone,
-    authorHook: input.text,
-    captionSource: input.captionSource,
-    onDelta: input.onDelta,
-  });
-  const imageUrls = await attachReelImages({
-    userId,
-    rubricId: input.rubricId,
-    topic: input.topic,
-    niche: input.niche,
-    tone: input.tone,
-    colors: input.colors,
-    referenceIds: input.referenceIds,
-  });
+  // Как и у поста: текст и обложки независимы, ждём их одновременно.
+  const [copy, imageUrls] = await Promise.all([
+    composeReelCopy({
+      topic: input.topic,
+      niche: input.niche,
+      tone: input.tone,
+      authorHook: input.text,
+      captionSource: input.captionSource,
+      onDelta: input.onDelta,
+    }),
+    attachReelImages({
+      userId,
+      rubricId: input.rubricId,
+      topic: input.topic,
+      niche: input.niche,
+      tone: input.tone,
+      colors: input.colors,
+      referenceIds: input.referenceIds,
+    }),
+  ]);
 
   return {
     ...copy,

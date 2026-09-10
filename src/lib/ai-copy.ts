@@ -151,15 +151,38 @@ export async function composeReelCopy(input: {
   captionSource?: string;
   onDelta?: (chunk: string) => void;
 }): Promise<ComposedCopy> {
-  const hooks = await draftReelHooks(input);
   const source = input.captionSource?.trim();
-  const caption = source || await draftReelCaption({
+  const authorHook = input.authorHook?.trim();
+
+  // Подпись опирается на хук. Если хук написал сам человек — ждать модель незачем,
+  // и два захода идут одновременно: это минус ~2 минуты, потому что каждый заход к
+  // шлюзу стоит примерно столько независимо от размера запроса.
+  // Если хука нет, подписи нужен hooks[0], и порядок остаётся последовательным.
+  //
+  // Дельты отдаёт только черновик хуков: две параллельные модели, печатающие в один
+  // прогресс, смешали бы текст в кашу.
+  const captionFor = (hook: string) => draftReelCaption({
     topic: input.topic,
     niche: input.niche,
     tone: input.tone,
-    hook: input.authorHook?.trim() || hooks[0],
-    onDelta: input.onDelta,
+    hook,
   });
+
+  let hooks: string[];
+  let caption: string;
+
+  if (source) {
+    caption = source;
+    hooks = await draftReelHooks(input);
+  } else if (authorHook) {
+    [hooks, caption] = await Promise.all([
+      draftReelHooks(input),
+      captionFor(authorHook),
+    ]);
+  } else {
+    hooks = await draftReelHooks(input);
+    caption = await captionFor(hooks[0]);
+  }
   return composeReelFromHooks({
     topic: input.topic,
     niche: input.niche,
