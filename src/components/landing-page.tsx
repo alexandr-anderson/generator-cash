@@ -118,10 +118,10 @@ export function LandingPage() {
       <section className="landing-hero">
         <div className="landing-container">
           <span className="landing-badge glass"><i /> Для экспертов, которые ведут блог сами</span>
-          <h1>Сказать есть что.<br /><b>Показать — некогда</b></h1>
+          <h1>Единый визуальный код<br /><b>вашего блога</b></h1>
           <p className="hero-sub">
-            Знакомо: мысль на две минуты, а оформление — на весь вечер. Принесите одну строку темы —
-            студия соберёт из неё карусель, пост или обложку Reels. В ваших цветах, с подписью и хештегами.
+            AI-инструменты, которые упаковывают вашу экспертизу. Сохраните свой стиль, пока нейросети
+            делают рутину.
           </p>
           <div className="hero-actions">
             <Link href="/auth?mode=register" className="btn-primary btn-lg">
