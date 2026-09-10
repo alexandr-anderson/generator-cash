@@ -64,3 +64,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python bytecode cache (скрипты в .cursor/skills)
+__pycache__/
+*.py[cod]
