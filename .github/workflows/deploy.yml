@@ -87,8 +87,17 @@ jobs:
             {
               printf 'OPENAI_BASE_URL=%s\n' "${OPENAI_BASE_URL:-https://codex-free.com/v1}"
               printf 'OPENAI_API_KEY=%s\n' "${OPENAI_API_KEY}"
-              printf 'OPENAI_MODEL=%s\n' "${OPENAI_MODEL:-gpt-5.5}"
             } >> openai-incoming
+            # Пустой секрет — не повод записать выдуманную модель. Раньше здесь
+            # стоял "${OPENAI_MODEL:-gpt-5.5}", и он молча затирал серверное
+            # значение, из-за чего прод двое суток жил не на той модели, которую
+            # мы считали настроенной. Нечего писать — не пишем; отсутствие видно
+            # в health и в стартовом логе.
+            if [ -n "${OPENAI_MODEL}" ]; then
+              printf 'OPENAI_MODEL=%s\n' "${OPENAI_MODEL}" >> openai-incoming
+            else
+              echo "::warning::OPENAI_MODEL secret is empty - leaving the server value as is"
+            fi
           fi
           if [ -n "${OPENAI_IMAGE_API_KEY}" ]; then
             {

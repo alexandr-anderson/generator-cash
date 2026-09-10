@@ -37,6 +37,7 @@ console.info(
   `aiHost=${(process.env.OPENAI_BASE_URL || "https://codex-free.com/v1").replace(/^https?:\/\//, "").replace(/\/.*$/, "")}`,
   `image=${process.env.OPENAI_IMAGE_API_KEY ? "ok" : "MISSING_OPENAI_IMAGE_API_KEY"}`,
   `imageHost=${(process.env.OPENAI_IMAGE_BASE_URL || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "") || "unset"}`,
+  `textModel=${process.env.OPENAI_MODEL || "MISSING_OPENAI_MODEL"}`,
   `imageModel=${process.env.OPENAI_IMAGE_MODEL || "gpt-image-2"}`,
 );
 
@@ -79,7 +80,10 @@ module.exports = {
         RESEND_API_KEY: process.env.RESEND_API_KEY || "",
         OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
         OPENAI_BASE_URL: process.env.OPENAI_BASE_URL || "https://codex-free.com/v1",
-        OPENAI_MODEL: process.env.OPENAI_MODEL || "gpt-5.5",
+        // Без запасного значения намеренно: подставленная тут модель молча
+        // подменяла отсутствующую настройку, и прод двое суток работал не на той
+        // модели, которую мы думали. Пусто — приложение скажет об этом вслух.
+        OPENAI_MODEL: process.env.OPENAI_MODEL || "",
         OPENAI_IMAGE_BASE_URL: process.env.OPENAI_IMAGE_BASE_URL || "",
         OPENAI_IMAGE_API_KEY: process.env.OPENAI_IMAGE_API_KEY || "",
         OPENAI_IMAGE_MODEL: process.env.OPENAI_IMAGE_MODEL || "gpt-image-2",

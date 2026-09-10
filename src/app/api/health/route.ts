@@ -33,6 +33,7 @@ export async function GET() {
   return json({
     ...publicPayload,
     aiHost: env.openaiHost,
+    textModel: env.openaiModel || null,
     imageHost: env.openaiImageHost || null,
     imageModel: env.openaiImageModel,
     appUrl: env.appUrl || null,

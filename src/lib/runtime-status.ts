@@ -5,6 +5,7 @@ import {
   openaiImageConfigured,
   openaiImageHost,
   openaiImageModel,
+  openaiModelOrEmpty,
 } from "./openai";
 
 export type RuntimeStatus = {
@@ -12,6 +13,7 @@ export type RuntimeStatus = {
   databaseConfigured: boolean;
   openaiConfigured: boolean;
   openaiHost: string;
+  openaiModel: string;
   openaiImageConfigured: boolean;
   openaiImageHost: string;
   openaiImageModel: string;
@@ -25,6 +27,7 @@ export function runtimeStatus(): RuntimeStatus {
     databaseConfigured: Boolean(process.env.DATABASE_URL?.trim()),
     openaiConfigured: openaiConfigured(),
     openaiHost: openaiHost(),
+    openaiModel: openaiModelOrEmpty(),
     openaiImageConfigured: openaiImageConfigured(),
     openaiImageHost: openaiImageHost(),
     openaiImageModel: openaiImageModel(),
@@ -40,7 +43,7 @@ export function logBootStatus() {
       status.mailConfigured ? "ok" : "MISSING_RESEND_API_KEY"
     } db=${status.databaseConfigured ? "set" : "MISSING_DATABASE_URL"} ai=${
       status.openaiConfigured ? "ok" : "MISSING_OPENAI_API_KEY"
-    } aiHost=${status.openaiHost} image=${
+    } aiHost=${status.openaiHost} textModel=${status.openaiModel || "MISSING_OPENAI_MODEL"} image=${
       status.openaiImageConfigured ? "ok" : "MISSING_OPENAI_IMAGE_API"
     } imageHost=${status.openaiImageHost || "unset"} imageModel=${status.openaiImageModel}`,
   );
