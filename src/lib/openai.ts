@@ -9,19 +9,55 @@ export class AiError extends Error {
 }
 
 export function openaiConfigured() {
-  return Boolean(process.env.OPENAI_API_KEY?.trim());
+  // Модель входит в «настроено» наравне с ключом: без неё генерация не работает,
+  // и health должен показывать это сразу, а не после первой попытки.
+  return Boolean(process.env.OPENAI_API_KEY?.trim() && process.env.OPENAI_MODEL?.trim());
 }
 
 export function openaiBaseUrl() {
   return (process.env.OPENAI_BASE_URL || "https://codex-free.com/v1").replace(/\/$/, "");
 }
 
+/**
+ * Имя текстовой модели. Пусто — значит не настроено, и это ошибка, а не повод
+ * что-то подставить.
+ *
+ * Раньше здесь стоял запасной `gpt-5.5`, и такие же запасные лежали в
+ * `ecosystem.config.cjs` и в шаге деплоя. Из-за этого смена модели на
+ * `chatgpt-5.6` дважды «прошла успешно», а прод двое суток работал на старой
+ * модели: настройки не было, но никто не жаловался — подставлялось молча, да ещё
+ * и записывалось в серверный `.env`. Нашлось только по логам шлюза.
+ * Молчаливый дефолт скрывает отсутствие настройки — поэтому его больше нет.
+ */
 export function openaiModel() {
-  return process.env.OPENAI_MODEL?.trim() || "gpt-5.5";
+  const model = process.env.OPENAI_MODEL?.trim();
+  if (!model) {
+    throw new AiError("Модель текста не настроена. Задайте OPENAI_MODEL.", 503);
+  }
+  return model;
 }
 
+/** Для диагностики: имя модели или пустая строка, без исключения. */
+export function openaiModelOrEmpty() {
+  return process.env.OPENAI_MODEL?.trim() || "";
+}
+
+/**
+ * Имя модели картинок. Как и у текстовой: пусто — это ошибка, а не повод
+ * подставить своё. Запасное `gpt-image-2` лежало ровно в тех же трёх местах и
+ * скрывало бы отсутствие настройки точно так же.
+ */
 export function openaiImageModel() {
-  return process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-2";
+  const model = process.env.OPENAI_IMAGE_MODEL?.trim();
+  if (!model) {
+    throw new AiError("Модель картинок не настроена. Задайте OPENAI_IMAGE_MODEL.", 503);
+  }
+  return model;
+}
+
+/** Для диагностики: имя модели картинок или пустая строка, без исключения. */
+export function openaiImageModelOrEmpty() {
+  return process.env.OPENAI_IMAGE_MODEL?.trim() || "";
 }
 
 export function openaiImageKey() {
@@ -29,7 +65,8 @@ export function openaiImageKey() {
 }
 
 export function openaiImageConfigured() {
-  return Boolean(openaiImageKey() && openaiImageGenerationsUrl());
+  // Модель входит в «настроено» наравне с ключом и адресом.
+  return Boolean(openaiImageKey() && openaiImageGenerationsUrl() && openaiImageModelOrEmpty());
 }
 
 export function resolveImageGenerationsUrl(raw: string) {
