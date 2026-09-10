@@ -92,6 +92,29 @@ Workflow: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — 
 
 Чтобы выкатить другую ветку, не дожидаясь merge: **Actions → Deploy to Timeweb → Run workflow → выбрать ветку**. Рестарт PM2 на сервере **не** подтягивает git — в проде только тот бандл, который последний раз залил Actions или `npm run deploy`.
 
+Открытый pull request деплой **не** запускает: триггеры только `push` в `main` и ручной `workflow_dispatch`.
+
+### Как менять ключи и модели (важно)
+
+**Правьте GitHub Secrets, а не `.env` на сервере.** Шаги «Sync OpenAI env on server» и «Sync Telegram env on server» на каждом деплое переписывают в `~/postvmeste/.env` эти ключи значениями из секретов, через `scripts/upsert-env-keys.php` (он именно **заменяет** существующий ключ):
+
+`OPENAI_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_IMAGE_BASE_URL`, `OPENAI_IMAGE_API_KEY`, `OPENAI_IMAGE_MODEL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT`, `TELEGRAM_CHAT_ID`.
+
+Поэтому правка любого из них руками в серверном `.env` живёт **до первого следующего деплоя**, а потом молча откатывается. Хуже того: если секрет `OPENAI_MODEL` пуст, а `OPENAI_API_KEY` задан, деплой впишет дефолт `gpt-5.5` — то есть тихо вернёт модель, которую вы меняли.
+
+Правильный порядок смены модели или ключа: поменять секрет → **Actions → Deploy to Timeweb → Run workflow**. Деплой сам зальёт значение и рестартанёт PM2.
+
+Остальные переменные (`DATABASE_URL`, `SESSION_SECRET`, `RESEND_API_KEY`, `ADMIN_EMAILS`, `APP_URL`) деплой не трогает — они живут только в серверном `.env`, и править их надо там, с последующим `bash ~/postvmeste/scripts/restart-app.sh`.
+
+Проверить, что применилось, по логам не выйдет: `[pm2-env]` печатает `imageModel`, но текстовую модель не логирует, а `/api/health` имена моделей скрывает намеренно (recon material). Смена текстовой модели видна только по поведению генерации.
+
+**Шаг `Restart app on server` может упасть с exit code 124, хотя рестарт прошёл.** Проверено
+2026-09-10: деплой смены `OPENAI_MODEL` показал красный крест на этом шаге (сработал `timeout 90`
+вокруг `restart-app.sh` — тот самый затык PM2 на Timeweb, ради которого таймаут и поставлен), но
+приложение перезапустилось и подхватило новую модель — подтверждено сменой поведения генерации.
+То есть красный деплой на этом шаге **не значит**, что изменения не применились. Прежде чем
+перезапускать деплой, проверьте `https://postvmeste.ru/api/health` и фактическое поведение.
+
 После деплоя проверьте `https://postvmeste.ru/api/health`: `mail: "ok"` значит ключ Resend попал в процесс, `404` — на сервере ещё старый UI-бандл без почты.
 
 ### Миграция со старой структуры (полный git-клон на сервере)

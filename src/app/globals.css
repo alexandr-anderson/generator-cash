@@ -761,6 +761,10 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
   background: var(--warning-soft); color: var(--warning); padding: 8px 14px;
   border-radius: 8px; font-size: 12px; margin-bottom: 12px;
 }
+/* Ожидание модели — минуты, а не секунды: бегущий счётчик держит доверие. */
+.elapsed-timer { display: block; }
+.elapsed-timer strong { font-variant-numeric: tabular-nums; }
+.flow-warning-note { display: block; margin-top: 3px; opacity: 0.8; }
 .flow-promise {
   background: var(--soft-accent);
   border-radius: 10px;

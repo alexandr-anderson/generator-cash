@@ -1,4 +1,5 @@
 import { AiError, openaiJson } from "./openai";
+import { inspectRussian, logStrayLatin } from "./ru-guard";
 import { POST_SCENARIO_SPECS, REEL_SCENARIO_SPECS, SCENARIO_SPECS, scenarioSpecsFor, type ComposedCopy } from "./ai-types";
 import type { CreativeFormat } from "./types";
 
@@ -9,12 +10,46 @@ const SYSTEM = `Ты копирайтер Instagram-студии postvmeste.ru. 
 Короткий слайд читают за 2 секунды. Без эмодзи на слайдах. Слова «крючок», «разбор», «сценарий», «CTA» в текст слайдов не пиши — это внутренняя кухня.
 Отвечай только JSON.`;
 
+/** Добавка к промпту на второй заход, когда первый ответ приехал не на русском. */
+const RUSSIAN_REMINDER =
+  "ВАЖНО: предыдущий ответ был не на русском языке. Весь текст для пользователя — строго по-русски, кириллицей. Никаких иероглифов и английских фраз.";
+
+/**
+ * Вызов модели с проверкой, что ответ пришёл по-русски.
+ *
+ * Не прошло — один повтор с усиленной инструкцией, потом `AiError`. Ошибка важна
+ * не только текстом: в обоих роутах `consumeGeneration` стоит после `await`, так
+ * что брошенное отсюда исключение уводит в `catch` до списания — клиент не платит
+ * генерацией за мусор (п. 46 в docs/work-plan.md).
+ */
+async function openaiRussianJson<T extends Record<string, unknown>>(
+  args: Parameters<typeof openaiJson<T>>[0],
+  pick: (payload: T) => unknown,
+  label: string,
+): Promise<T> {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const payload = await openaiJson<T>(
+      attempt === 1 ? args : { ...args, user: `${args.user}\n${RUSSIAN_REMINDER}` },
+    );
+    const verdict = inspectRussian(pick(payload));
+
+    if (verdict.ok) {
+      logStrayLatin(label, verdict.strayLatin);
+      return payload;
+    }
+
+    console.error("[ru-guard] ответ не на русском", label, `попытка=${attempt}`, verdict.reason);
+  }
+
+  throw new AiError("Модель ответила не на русском. Попробуйте ещё раз — лимит не списан.", 502);
+}
+
 export async function draftExpertText(input: {
   topic: string;
   niche: string;
   tone?: string;
 }): Promise<string> {
-  const payload = await openaiJson<Record<string, unknown>>({
+  const payload = await openaiRussianJson<Record<string, unknown>>({
     system: SYSTEM,
     user: [
       "Напиши один редактируемый текст поста по теме.",
@@ -25,7 +60,10 @@ export async function draftExpertText(input: {
       'Верни JSON: { "text": "..." }',
     ].join("\n"),
     timeoutMs: 180_000,
-  });
+  },
+    (p) => p.text,
+    "draft:expert-text",
+  );
 
   const text = pickText(payload);
   if (!text) throw new AiError("Модель вернула пустой текст. Попробуйте ещё раз.", 502);
@@ -38,12 +76,15 @@ export async function draftReelHooks(input: {
   tone?: string;
   authorHook?: string;
 }): Promise<string[]> {
-  const payload = await openaiJson<Record<string, unknown>>({
+  const payload = await openaiRussianJson<Record<string, unknown>>({
     system: SYSTEM,
     user: reelHookPrompt(input),
     timeoutMs: 180_000,
     maxTokens: 400,
-  });
+  },
+    (p) => p.hooks,
+    "draft:reel-hooks",
+  );
   return normalizeReelHooks(payload.hooks, input.topic, input.authorHook);
 }
 
@@ -72,7 +113,7 @@ export async function draftReelCaption(input: {
   tone?: string;
   hook: string;
 }): Promise<string> {
-  const payload = await openaiJson<Record<string, unknown>>({
+  const payload = await openaiRussianJson<Record<string, unknown>>({
     system: SYSTEM,
     user: [
       "Напиши подпись к Reels в Instagram — текст под роликом.",
@@ -88,7 +129,10 @@ export async function draftReelCaption(input: {
     ].join("\n"),
     timeoutMs: 180_000,
     maxTokens: 700,
-  });
+  },
+    (p) => p.caption,
+    "draft:reel-caption",
+  );
   const caption = String(payload.caption || "").replace(/\s+\n/g, "\n").trim();
   if (!caption) throw new AiError("Модель вернула пустую подпись. Попробуйте ещё раз.", 502);
   return caption.slice(0, 2200);
@@ -139,7 +183,7 @@ export async function composeVariantPreviews(input: {
 
   const source = input.text.trim();
   const excerpt = source.slice(0, 700);
-  const payload = await openaiJson<Record<string, unknown>>({
+  const payload = await openaiRussianJson<Record<string, unknown>>({
     system: SYSTEM,
     user: [
       `Тема: ${input.topic}`,
@@ -153,7 +197,11 @@ export async function composeVariantPreviews(input: {
     ].filter(Boolean).join("\n"),
     timeoutMs: 180_000,
     maxTokens: 500,
-  });
+  },
+    // Имена сценариев служебные и заданы нами — смотрим только тексты крючков.
+    (p) => (Array.isArray(p.scenarios) ? p.scenarios.map((item) => (item as { slides?: unknown })?.slides) : []),
+    "compose:carousel-hooks",
+  );
 
   return normalizeComposedCopy(
     {
@@ -197,7 +245,7 @@ export async function draftPostHashtags(input: {
   text: string;
 }): Promise<string[]> {
   const excerpt = input.text.trim().slice(0, 500);
-  const payload = await openaiJson<Record<string, unknown>>({
+  const payload = await openaiRussianJson<Record<string, unknown>>({
     system: SYSTEM,
     user: [
       "Подбери хештеги в Instagram под пост.",
@@ -209,7 +257,10 @@ export async function draftPostHashtags(input: {
     ].filter(Boolean).join("\n"),
     timeoutMs: 180_000,
     maxTokens: 300,
-  });
+  },
+    (p) => p.hashtags,
+    "compose:post-hashtags",
+  );
   return normalizeHashtags(payload.hashtags);
 }
 
@@ -240,7 +291,7 @@ export async function expandCarouselSlides(input: {
 }): Promise<{ slides: string[]; caption: string; hashtags: string[] }> {
   const source = input.text.trim();
   const spec = SCENARIO_SPECS.find((item) => item.name === input.scenario) || SCENARIO_SPECS[0];
-  const payload = await openaiJson<Record<string, unknown>>({
+  const payload = await openaiRussianJson<Record<string, unknown>>({
     system: SYSTEM,
     user: [
       "Допиши карусель из 7 слайдов. Первый слайд уже выбран — не меняй его формулировку.",
@@ -260,7 +311,10 @@ export async function expandCarouselSlides(input: {
     ].filter(Boolean).join("\n"),
     timeoutMs: 180_000,
     maxTokens: 1600,
-  });
+  },
+    (p) => [p.slides, p.caption, p.hashtags],
+    "expand:carousel",
+  );
 
   const slides = normalizeExpandedSlides(payload.slides, input.firstSlide, input.topic, source, spec.name);
   return {
