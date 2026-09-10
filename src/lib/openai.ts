@@ -151,6 +151,13 @@ function chatBody(
   // первого байта (замер 2026-09-10: 119 с на запрос в 10 токенов). Такую паузу
   // соединение не переживает: рвётся и у нас, и по дороге к браузеру.
   // Со стримом первый байт приходит за ~3 с и связь больше не простаивает.
+  //
+  // ВАЖНО: раз стрим здесь безусловный, **любой** вызывающий обязан читать ответ
+  // через readStreamedContent, а не response.json(). Когда это правило завели,
+  // про openaiVisualBrief и openaiCarouselRecipe забыли — они продолжали звать
+  // response.json(), падали на потоке и молча возвращали пустоту: референсы
+  // перестали влиять и на картинки, и на рецепт карусели, при этом нигде ни
+  // одной ошибки. Нашлось только по логам шлюза.
   const body: Record<string, unknown> = { model, messages, stream: true };
   if (isGpt5(model)) {
     body.max_completion_tokens = maxTokens ?? 1600;
@@ -397,11 +404,10 @@ export async function openaiVisualBrief(args: {
       console.error("[ai-vision] skip brief", openaiHost(), response.status, body.slice(0, 200));
       return "";
     }
-    const payload = (await response.json()) as {
-      choices?: { message?: { content?: unknown } }[];
-      output_text?: string;
-    };
-    return pickMessageContent(payload).slice(0, 800);
+    // Через readStreamedContent, а не response.json(): chatBody включает
+    // `stream: true` всем подряд, и обычный разбор JSON здесь молча падал,
+    // оставляя бриф пустым (см. комментарий в chatBody).
+    return (await readStreamedContent(response)).slice(0, 800);
   } catch (error) {
     console.error("[ai-vision] brief failed", openaiHost(), error);
     return "";
@@ -461,11 +467,9 @@ export async function openaiCarouselRecipe(args: {
       console.error("[ai-vision] skip recipe", openaiHost(), response.status, body.slice(0, 200));
       return null;
     }
-    const payload = (await response.json()) as {
-      choices?: { message?: { content?: unknown } }[];
-      output_text?: string;
-    };
-    const contentText = pickMessageContent(payload);
+    // См. openaiVisualBrief: ответ приходит потоком, обычный response.json() тут
+    // молча ронял рецепт в null, и референсы переставали влиять на карусель.
+    const contentText = await readStreamedContent(response);
     if (!contentText) return null;
     return JSON.parse(stripFence(contentText)) as Record<string, unknown>;
   } catch (error) {
