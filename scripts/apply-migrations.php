@@ -105,6 +105,29 @@ CREATE TABLE IF NOT EXISTS `_prisma_migrations` (
   }
   sort($folders);
 
+  // Режим «только посмотреть»: ничего не применяем, а сообщаем кодом выхода,
+  // есть ли неприменённые миграции (10 — есть, 0 — нет). Нужен рестарту, чтобы
+  // не делать бэкап базы и не запускать применение там, где менять нечего:
+  // на шейред-хостинге Timeweb лишние процессы упираются в лимит аккаунта, и
+  // 2026-09-10 из-за этого node падал с uv_thread_create ещё до вызова PM2.
+  $checkOnly = in_array('--check', array_slice($argv, 1), true);
+
+  $pending = array();
+  foreach ($folders as $name) {
+    if (isset($applied[$name])) continue;
+    if (!is_file($migrationsDir . '/' . $name . '/migration.sql')) continue;
+    $pending[] = $name;
+  }
+
+  if ($checkOnly) {
+    if (count($pending) === 0) {
+      fwrite(STDOUT, "==> apply-migrations: nothing pending\n");
+      exit(0);
+    }
+    fwrite(STDOUT, "==> apply-migrations: pending " . count($pending) . " (" . implode(', ', $pending) . ")\n");
+    exit(10);
+  }
+
   $count = 0;
   foreach ($folders as $name) {
     if (isset($applied[$name])) continue;

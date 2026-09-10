@@ -128,13 +128,11 @@ export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
   ];
 
   try {
-    let response = await postChat(chatBody(messages, jsonMode, args.maxTokens), key, controller.signal);
-
-    if (response.status === 400 && jsonMode) {
-      const firstBody = await response.text();
-      console.error("[ai] 400, retry without json mode", openaiHost(), firstBody.slice(0, 400));
-      response = await postChat(chatBody(messages, false, args.maxTokens), key, controller.signal);
-    }
+    const response = await postChatTryingVariants(
+      chatBodiesForRequest(messages, jsonMode, args.maxTokens),
+      key,
+      controller.signal,
+    );
 
     if (!response.ok) {
       const body = await response.text();
@@ -173,37 +171,96 @@ export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
   }
 }
 
-function isGpt5(model: string) {
-  return /^gpt-5/i.test(model);
+/**
+ * Варианты тела запроса в порядке предпочтения.
+ *
+ * Раньше форму параметров выбирала эвристика по имени модели (`/^gpt-5/`), и это
+ * ломало обещание «смена провайдера — это замена секретов»: назови модель иначе,
+ * и ей молча уходил не тот набор. Наша собственная `chatgpt-5.6` под тот шаблон
+ * уже не подходила и работала лишь потому, что шлюз оказался терпимым.
+ *
+ * Теперь имя модели ни на что не влияет: пробуем современную форму, а если шлюз
+ * ответил `400`, переходим к следующему варианту. Так же устроены запасные формы
+ * для картинок и отключение JSON-режима.
+ */
+export function chatBodies(
+  model: string,
+  messages: { role: string; content: unknown }[],
+  jsonMode: boolean,
+  maxTokens?: number,
+): Record<string, unknown>[] {
+  const limit = maxTokens ?? 1600;
+  const base: Record<string, unknown> = { model, messages, stream: true };
+  const json = { response_format: { type: "json_object" } };
+  // Современная форма: без temperature, лимит в max_completion_tokens.
+  const modern = { max_completion_tokens: limit };
+  // Прежняя форма, её ждут модели постарше и часть шлюзов.
+  const legacy = { temperature: 0.7, max_tokens: limit };
+
+  const shapes = [modern, legacy];
+  const variants = jsonMode
+    ? [
+        ...shapes.map((shape) => ({ ...base, ...shape, ...json })),
+        // Если дело было не в параметрах, а в самом JSON-режиме.
+        ...shapes.map((shape) => ({ ...base, ...shape })),
+      ]
+    : shapes.map((shape) => ({ ...base, ...shape }));
+
+  return variants;
 }
 
-function chatBody(
+/**
+ * Стрим включён во всех вариантах, даже когда дельты никому не нужны. Дело не в
+ * скорости ответа целиком — она та же, — а в том, что шлюз молчит около двух
+ * минут до первого байта (замер 2026-09-10: 119 с на запрос в 10 токенов). Такую
+ * паузу соединение не переживает: рвётся и у нас, и по дороге к браузеру. Со
+ * стримом первый байт приходит за ~3 с и связь больше не простаивает.
+ *
+ * ВАЖНО: раз стрим безусловный, **любой** вызывающий обязан читать ответ через
+ * readStreamedContent, а не response.json(). Когда это правило завели, про
+ * openaiVisualBrief и openaiCarouselRecipe забыли — они продолжали звать
+ * response.json(), падали на потоке и молча возвращали пустоту: референсы
+ * перестали влиять и на картинки, и на рецепт карусели, при этом нигде ни одной
+ * ошибки. Нашлось только по логам шлюза.
+ */
+function chatBodiesForRequest(
   messages: { role: string; content: unknown }[],
   jsonMode: boolean,
   maxTokens?: number,
 ) {
-  const model = openaiModel();
-  // Стрим включён всегда, даже когда дельты никому не нужны. Дело не в скорости
-  // ответа целиком — она та же, — а в том, что шлюз молчит около двух минут до
-  // первого байта (замер 2026-09-10: 119 с на запрос в 10 токенов). Такую паузу
-  // соединение не переживает: рвётся и у нас, и по дороге к браузеру.
-  // Со стримом первый байт приходит за ~3 с и связь больше не простаивает.
-  //
-  // ВАЖНО: раз стрим здесь безусловный, **любой** вызывающий обязан читать ответ
-  // через readStreamedContent, а не response.json(). Когда это правило завели,
-  // про openaiVisualBrief и openaiCarouselRecipe забыли — они продолжали звать
-  // response.json(), падали на потоке и молча возвращали пустоту: референсы
-  // перестали влиять и на картинки, и на рецепт карусели, при этом нигде ни
-  // одной ошибки. Нашлось только по логам шлюза.
-  const body: Record<string, unknown> = { model, messages, stream: true };
-  if (isGpt5(model)) {
-    body.max_completion_tokens = maxTokens ?? 1600;
-  } else {
-    body.temperature = 0.7;
-    body.max_tokens = maxTokens ?? 1600;
+  return chatBodies(openaiModel(), messages, jsonMode, maxTokens);
+}
+
+/**
+ * Шлёт первый вариант, а пока шлюз отвечает `400` — переходит к следующему.
+ *
+ * Через него обязаны идти **все** вызовы чата, включая зрение: когда-то
+ * openaiVisualBrief и openaiCarouselRecipe остались в стороне от общего правила
+ * про стрим и молча перестали работать. Здесь тот же риск, поэтому перебор живёт
+ * в одном месте, а не переписывается в каждой функции.
+ *
+ * Каждый `400` возвращается быстро — до генерации дело не доходит, так что
+ * перебор почти ничего не стоит по времени.
+ */
+async function postChatTryingVariants(
+  variants: Record<string, unknown>[],
+  key: string,
+  signal: AbortSignal,
+): Promise<Response> {
+  let response = await postChat(variants[0], key, signal);
+
+  for (let next = 1; next < variants.length && response.status === 400; next += 1) {
+    const rejected = await response.text();
+    console.error(
+      "[ai] 400, пробуем другую форму запроса",
+      openaiHost(),
+      `вариант ${next + 1} из ${variants.length}`,
+      rejected.slice(0, 300),
+    );
+    response = await postChat(variants[next], key, signal);
   }
-  if (jsonMode) body.response_format = { type: "json_object" };
-  return body;
+
+  return response;
 }
 
 function pickMessageContent(payload: {
@@ -431,8 +488,8 @@ export async function openaiVisualBrief(args: {
   ];
 
   try {
-    const response = await postChat(
-      chatBody([{ role: "user", content }], false, 400),
+    const response = await postChatTryingVariants(
+      chatBodiesForRequest([{ role: "user", content }], false, 400),
       key,
       controller.signal,
     );
@@ -485,20 +542,13 @@ export async function openaiCarouselRecipe(args: {
   ];
 
   try {
-    let response = await postChat(
-      chatBody([{ role: "user", content }], true, 400),
+    // Перебор форм запроса тут общий: раньше был свой повтор только для
+    // JSON-режима, и форма параметров при смене провайдера оставалась чужой.
+    const response = await postChatTryingVariants(
+      chatBodiesForRequest([{ role: "user", content }], true, 400),
       key,
       controller.signal,
     );
-    if (response.status === 400) {
-      const firstBody = await response.text();
-      console.error("[ai-vision] recipe 400, retry", openaiHost(), firstBody.slice(0, 200));
-      response = await postChat(
-        chatBody([{ role: "user", content }], false, 400),
-        key,
-        controller.signal,
-      );
-    }
     if (!response.ok) {
       const body = await response.text();
       console.error("[ai-vision] skip recipe", openaiHost(), response.status, body.slice(0, 200));
