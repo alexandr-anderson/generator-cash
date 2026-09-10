@@ -765,6 +765,20 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 .elapsed-timer { display: block; }
 .elapsed-timer strong { font-variant-numeric: tabular-nums; }
 .flow-warning-note { display: block; margin-top: 3px; opacity: 0.8; }
+/* Текст, который модель печатает прямо сейчас. Одна строка: это признак жизни,
+   а не чтение — готовый результат человек увидит следующим шагом. */
+.flow-progress-text {
+  display: block;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid currentColor;
+  opacity: 0.55;
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .flow-promise {
   background: var(--soft-accent);
   border-radius: 10px;

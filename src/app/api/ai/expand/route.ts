@@ -4,6 +4,7 @@ import { AiError } from "@/lib/openai";
 import { notifyGenerationFailure } from "@/lib/alerts";
 import { consumeGeneration, quotaAvailable } from "@/lib/quota";
 import { RATE_RULES, acquireSlot, busyResponse, rateLimit, releaseSlot } from "@/lib/rate-limit";
+import { ndjsonStream } from "@/lib/http-stream";
 import { SCENARIO_SPECS } from "@/lib/ai-types";
 
 // Вызов модели ждёт до 180 с. Раньше здесь стояло ровно 180 — роут мог умереть
@@ -40,29 +41,28 @@ export async function POST(request: Request) {
   // Taken last, so no validation branch can return while holding it.
   if (!acquireSlot(user.id)) return busyResponse();
 
-  try {
-    const copy = await expandCarouselSlides({
-      topic,
-      text,
-      niche: user.niche,
-      tone: user.tone || undefined,
-      scenario,
-      firstSlide,
-    });
-    const consumed = await consumeGeneration(user.id);
-    if (!consumed.ok) {
-      return json({ error: consumed.error, remaining: consumed.remaining }, 402);
-    }
-    return json({ ...copy, remaining: consumed.remaining });
-  } catch (caught) {
-    if (caught instanceof AiError) {
-      notifyGenerationFailure("expand", caught);
-      return json({ error: caught.message }, caught.status);
-    }
-    console.error("[ai/expand]", caught);
-    notifyGenerationFailure("expand", caught);
-    return json({ error: "Не удалось дописать слайды. Попробуйте ещё раз." }, 502);
-  } finally {
-    releaseSlot(user.id);
-  }
+  // Дальше начинается работа с моделью — уходим в поток. Всё, что могло
+  // отказать до этой точки, уже ответило обычным JSON с честным кодом.
+  return ndjsonStream(
+    async (emit) => {
+      try {
+        const copy = await expandCarouselSlides({
+          topic,
+          text,
+          niche: user.niche,
+          tone: user.tone || undefined,
+          scenario,
+          firstSlide,
+          onDelta: (chunk) => emit({ type: "delta", text: chunk }),
+        });
+        const consumed = await consumeGeneration(user.id);
+        if (!consumed.ok) throw new AiError(consumed.error || "Генерации закончились", 402);
+        return { ...copy, remaining: consumed.remaining };
+      } catch (caught) {
+        notifyGenerationFailure("expand", caught);
+        throw caught;
+      }
+    },
+    () => releaseSlot(user.id),
+  );
 }

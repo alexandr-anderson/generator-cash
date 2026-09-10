@@ -49,8 +49,11 @@ type AppActions = {
     rubricId?: string | null;
     colors?: string[];
     referenceIds?: string[];
-  }) => Promise<ComposedCopy & { carouselRecipe?: CarouselRecipe | null }>;
-  expandCarousel: (input: { topic: string; text: string; scenario: string; firstSlide: string }) => Promise<{
+  }, onDelta?: (text: string) => void) => Promise<ComposedCopy & { carouselRecipe?: CarouselRecipe | null }>;
+  expandCarousel: (
+    input: { topic: string; text: string; scenario: string; firstSlide: string },
+    onDelta?: (text: string) => void,
+  ) => Promise<{
     slides: string[];
     caption: string;
     hashtags: string[];
@@ -111,6 +114,85 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
     throw Object.assign(new Error(data.error || "Ошибка запроса"), { status: response.status, data });
   }
   return data;
+}
+
+/**
+ * Читает NDJSON-ответ AI-роутов: строка `result` — итог, `error` — сорвалось,
+ * `delta` — кусок текста от модели, который показываем как живой прогресс.
+ *
+ * Ошибки до обращения к модели (квота, лимиты, занятый слот) прилетают обычным
+ * JSON с честным кодом — их разбираем как раньше, до чтения потока.
+ */
+async function apiStream<T>(
+  url: string,
+  body: unknown,
+  onDelta?: (text: string) => void,
+): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw Object.assign(
+      new Error("Извините, связь с сервером оборвалась — ответ до нас не дошёл. Проверьте счётчик генераций и попробуйте ещё раз."),
+      { status: 0 },
+    );
+  }
+
+  if (!response.ok || !response.body) {
+    const raw = await response.text();
+    let message = "Ошибка запроса";
+    try {
+      message = (JSON.parse(raw) as { error?: string }).error || message;
+    } catch {
+      if (response.status >= 500) message = "Модель думала слишком долго. Нажмите «Создать» ещё раз.";
+    }
+    throw Object.assign(new Error(message), { status: response.status });
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result: T | null = null;
+  let failure: string | null = null;
+
+  const handle = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    let parsed: { type?: string; text?: string; error?: string };
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      return; // одна битая строка не повод терять весь ответ
+    }
+    if (parsed.type === "delta" && parsed.text) onDelta?.(parsed.text);
+    else if (parsed.type === "error") failure = parsed.error || "Ошибка запроса";
+    else if (parsed.type === "result") result = parsed as unknown as T;
+  };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let cut = buffer.indexOf("\n");
+    while (cut !== -1) {
+      handle(buffer.slice(0, cut));
+      buffer = buffer.slice(cut + 1);
+      cut = buffer.indexOf("\n");
+    }
+  }
+  handle(buffer);
+
+  if (failure) throw new Error(failure);
+  if (!result) {
+    // Поток кончился, а итога не было: связь оборвалась на полпути.
+    throw new Error("Извините, ответ оборвался на полпути. Проверьте счётчик генераций и попробуйте ещё раз.");
+  }
+  return result;
 }
 
 function applyStudio(
@@ -295,11 +377,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     rubricId?: string | null;
     colors?: string[];
     referenceIds?: string[];
-  }) => {
-    const result = await api<ComposedCopy & { remaining: number; carouselRecipe?: CarouselRecipe | null }>("/api/ai/compose", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
+  }, onDelta?: (text: string) => void) => {
+    const result = await apiStream<ComposedCopy & { remaining: number; carouselRecipe?: CarouselRecipe | null }>(
+      "/api/ai/compose",
+      input,
+      onDelta,
+    );
     setState((current) => ({
       ...current,
       remaining: result.remaining,
@@ -360,11 +443,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     text: string;
     scenario: string;
     firstSlide: string;
-  }) => {
-    const result = await api<{ slides: string[]; caption: string; hashtags: string[]; remaining: number }>("/api/ai/expand", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
+  }, onDelta?: (text: string) => void) => {
+    const result = await apiStream<{ slides: string[]; caption: string; hashtags: string[]; remaining: number }>(
+      "/api/ai/expand",
+      input,
+      onDelta,
+    );
     setState((current) => ({ ...current, remaining: result.remaining }));
     return {
       slides: result.slides,

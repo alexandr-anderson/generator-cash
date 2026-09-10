@@ -6,6 +6,7 @@ import { AiError } from "@/lib/openai";
 import { notifyGenerationFailure } from "@/lib/alerts";
 import { consumeGeneration, quotaAvailable } from "@/lib/quota";
 import { RATE_RULES, acquireSlot, busyResponse, rateLimit, releaseSlot } from "@/lib/rate-limit";
+import { ndjsonStream } from "@/lib/http-stream";
 import type { CreativeFormat } from "@/lib/types";
 
 export const maxDuration = 300;
@@ -46,59 +47,61 @@ export async function POST(request: Request) {
   // Taken last, so no validation branch can return while holding it.
   if (!acquireSlot(user.id)) return busyResponse();
 
-  try {
-    const copy = format === "post"
-      ? await composePost(user.id, {
-          topic,
-          text,
-          niche: user.niche,
-          tone: user.tone || undefined,
-          rubricId,
-          colors,
-          referenceIds,
-        })
-      : format === "reel"
-        ? await composeReel(user.id, {
-            topic,
-            text,
-            captionSource,
-            niche: user.niche,
-            tone: user.tone || undefined,
+  // Дальше начинается работа с моделью — уходим в поток. Всё, что могло
+  // отказать до этой точки, уже ответило обычным JSON с честным кодом.
+  return ndjsonStream(
+    async (emit) => {
+      const onDelta = (chunk: string) => emit({ type: "delta", text: chunk });
+      try {
+        const copy = format === "post"
+          ? await composePost(user.id, {
+              topic,
+              text,
+              niche: user.niche,
+              tone: user.tone || undefined,
+              rubricId,
+              colors,
+              referenceIds,
+              onDelta,
+            })
+          : format === "reel"
+            ? await composeReel(user.id, {
+                topic,
+                text,
+                captionSource,
+                niche: user.niche,
+                tone: user.tone || undefined,
+                rubricId,
+                colors,
+                referenceIds,
+                onDelta,
+              })
+          : await composeVariantPreviews({
+              format,
+              topic,
+              text,
+              niche: user.niche,
+              tone: user.tone || undefined,
+              onDelta,
+            });
+        if (format === "carousel") {
+          const carouselRecipe = await ensureCarouselRecipe({
+            userId: user.id,
             rubricId,
-            colors,
             referenceIds,
-          })
-      : await composeVariantPreviews({
-          format,
-          topic,
-          text,
-          niche: user.niche,
-          tone: user.tone || undefined,
-        });
-    if (format === "carousel") {
-      const carouselRecipe = await ensureCarouselRecipe({
-        userId: user.id,
-        rubricId,
-        referenceIds,
-      });
-      return json({ ...copy, remaining: quota.remaining, carouselRecipe });
-    }
-    const consumed = await consumeGeneration(user.id);
-    if (!consumed.ok) {
-      return json({ error: consumed.error, remaining: consumed.remaining }, 402);
-    }
-    return json({ ...copy, remaining: consumed.remaining });
-  } catch (caught) {
-    if (caught instanceof AiError) {
-      notifyGenerationFailure("compose", caught);
-      return json({ error: caught.message }, caught.status);
-    }
-    console.error("[ai/compose]", caught);
-    notifyGenerationFailure("compose", caught);
-    return json({ error: "Не удалось создать варианты. Попробуйте ещё раз." }, 502);
-  } finally {
-    releaseSlot(user.id);
-  }
+          });
+          return { ...copy, remaining: quota.remaining, carouselRecipe };
+        }
+        const consumed = await consumeGeneration(user.id);
+        if (!consumed.ok) throw new AiError(consumed.error || "Генерации закончились", 402);
+        return { ...copy, remaining: consumed.remaining };
+      } catch (caught) {
+        notifyGenerationFailure("compose", caught);
+        throw caught;
+      }
+    },
+    () => releaseSlot(user.id),
+  );
 }
 
 async function composePost(
@@ -111,12 +114,14 @@ async function composePost(
     rubricId: string | null;
     colors: string[];
     referenceIds: string[];
+    onDelta?: (chunk: string) => void;
   },
 ) {
   const copy = await composePostCopy({
     topic: input.topic,
     text: input.text,
     niche: input.niche,
+    onDelta: input.onDelta,
   });
   const imageUrls = await attachPostImages({
     userId,
@@ -149,6 +154,7 @@ async function composeReel(
     rubricId: string | null;
     colors: string[];
     referenceIds: string[];
+    onDelta?: (chunk: string) => void;
   },
 ) {
   const copy = await composeReelCopy({
@@ -157,6 +163,7 @@ async function composeReel(
     tone: input.tone,
     authorHook: input.text,
     captionSource: input.captionSource,
+    onDelta: input.onDelta,
   });
   const imageUrls = await attachReelImages({
     userId,

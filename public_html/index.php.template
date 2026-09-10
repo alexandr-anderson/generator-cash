@@ -1,5 +1,29 @@
 <?php
-set_time_limit(200);
+// Timeweb shared hosting does not allow Apache [P] / mod_proxy.
+// PHP index.php forwards requests to Next.js on 127.0.0.1:__APP_PORT__.
+//
+// The response is forwarded CHUNK BY CHUNK, not collected first. That matters for
+// the AI routes: the model gateway stays silent for about two minutes before the
+// first byte, and a buffering proxy turned that into a dead connection. Until
+// 2026-09-10 this file used CURLOPT_RETURNTRANSFER plus a 200-second cap, so any
+// generation running past 200s died as net::ERR_CONNECTION_TIMED_OUT in the
+// browser — that cap, not some middlebox, was the cause.
+//
+// Time limits are now shaped for slow streams: no hard ceiling, but the transfer
+// is dropped if it genuinely stalls (see CURLOPT_LOW_SPEED_* below).
+
+// Generous ceiling rather than 0: shared hosting often forbids "unlimited", and a
+// refused set_time_limit(0) would silently leave the old short limit in place.
+set_time_limit(600);
+ignore_user_abort(false);
+
+// Nothing may sit in a buffer between us and the client, otherwise the whole
+// point of streaming is lost.
+while (ob_get_level() > 0) {
+  ob_end_flush();
+}
+ob_implicit_flush(true);
+
 $targetPort = (int) (__APP_PORT__);
 $method = isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET';
 $uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
@@ -35,52 +59,82 @@ if (!empty($_SERVER['CONTENT_TYPE'])) {
   $headers[] = 'content-type: ' . $_SERVER['CONTENT_TYPE'];
 }
 
-$body = file_get_contents('php://input');
-$ch = curl_init($url);
-curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method === 'HEAD' ? 'GET' : $method);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HEADER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-curl_setopt($ch, CURLOPT_TIMEOUT, 200);
-curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
-if ($body !== false && $body !== '' && $method !== 'GET' && $method !== 'HEAD') {
-  curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-}
+$isHead = ($method === 'HEAD');
 
-$resp = curl_exec($ch);
-if ($resp === false) {
-  http_response_code(502);
-  header('Content-Type: text/plain; charset=utf-8');
-  echo 'upstream down';
-  exit;
-}
-
-$size = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-$code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-http_response_code($code > 0 ? $code : 502);
-
+// Hop-by-hop headers describe our own connection to Next.js and must not be
+// replayed to the client. content-length goes too: we forward chunks as they
+// arrive, so the length we were told no longer describes what we send.
 $skipRes = array(
   'connection' => 1,
   'keep-alive' => 1,
   'transfer-encoding' => 1,
   'upgrade' => 1,
+  'content-length' => 1,
 );
-foreach (preg_split("/\r\n|\n|\r/", substr($resp, 0, $size)) as $line) {
-  if ($line === '' || stripos($line, 'HTTP/') === 0) {
-    continue;
+
+$body = file_get_contents('php://input');
+$ch = curl_init($url);
+curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $isHead ? 'GET' : $method);
+curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+
+// No total-time cap — a generation legitimately runs for minutes. Instead we
+// abort only when the stream is truly dead: less than a byte per second for two
+// minutes straight. A thinking model still sends keep-alive chunks, so this
+// catches a hung upstream without punishing a slow one.
+curl_setopt($ch, CURLOPT_TIMEOUT, 0);
+curl_setopt($ch, CURLOPT_LOW_SPEED_LIMIT, 1);
+curl_setopt($ch, CURLOPT_LOW_SPEED_TIME, 120);
+
+curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($ch, $line) use ($skipRes, $isHead) {
+  $length = strlen($line);
+  $trimmed = trim($line);
+  if ($trimmed === '') {
+    return $length;
   }
-  $pos = strpos($line, ':');
+  if (stripos($trimmed, 'HTTP/') === 0) {
+    // Читаем код прямо из строки статуса: curl_getinfo в момент разбора
+    // заголовков ещё может его не знать.
+    $parts = explode(' ', $trimmed);
+    $code = isset($parts[1]) ? (int) $parts[1] : 0;
+    if ($code <= 0) {
+      $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    }
+    http_response_code($code > 0 ? $code : 502);
+    return $length;
+  }
+  $pos = strpos($trimmed, ':');
   if ($pos === false) {
-    continue;
+    return $length;
   }
-  $hname = strtolower(substr($line, 0, $pos));
-  if (isset($skipRes[$hname])) {
-    continue;
+  if (isset($skipRes[strtolower(substr($trimmed, 0, $pos))])) {
+    return $length;
   }
-  header($line, false);
+  header($trimmed, false);
+  return $length;
+});
+
+curl_setopt($ch, CURLOPT_WRITEFUNCTION, function ($ch, $chunk) use ($isHead) {
+  $length = strlen($chunk);
+  if (!$isHead) {
+    echo $chunk;
+    flush();
+  }
+  return $length;
+});
+
+if ($body !== false && $body !== '' && !$isHead && $method !== 'GET') {
+  curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
 }
 
-if ($method !== 'HEAD') {
-  echo substr($resp, $size);
+$ok = curl_exec($ch);
+
+// Only report a failure if nothing has gone out yet. Once bytes are on the wire
+// the status line is long gone, and a half-written response is all we can offer.
+if ($ok === false && !headers_sent()) {
+  http_response_code(502);
+  header('Content-Type: text/plain; charset=utf-8');
+  echo 'upstream down';
 }
+curl_close($ch);
