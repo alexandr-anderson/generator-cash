@@ -42,8 +42,22 @@ export function openaiModelOrEmpty() {
   return process.env.OPENAI_MODEL?.trim() || "";
 }
 
+/**
+ * Имя модели картинок. Как и у текстовой: пусто — это ошибка, а не повод
+ * подставить своё. Запасное `gpt-image-2` лежало ровно в тех же трёх местах и
+ * скрывало бы отсутствие настройки точно так же.
+ */
 export function openaiImageModel() {
-  return process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-2";
+  const model = process.env.OPENAI_IMAGE_MODEL?.trim();
+  if (!model) {
+    throw new AiError("Модель картинок не настроена. Задайте OPENAI_IMAGE_MODEL.", 503);
+  }
+  return model;
+}
+
+/** Для диагностики: имя модели картинок или пустая строка, без исключения. */
+export function openaiImageModelOrEmpty() {
+  return process.env.OPENAI_IMAGE_MODEL?.trim() || "";
 }
 
 export function openaiImageKey() {
@@ -51,7 +65,8 @@ export function openaiImageKey() {
 }
 
 export function openaiImageConfigured() {
-  return Boolean(openaiImageKey() && openaiImageGenerationsUrl());
+  // Модель входит в «настроено» наравне с ключом и адресом.
+  return Boolean(openaiImageKey() && openaiImageGenerationsUrl() && openaiImageModelOrEmpty());
 }
 
 export function resolveImageGenerationsUrl(raw: string) {

@@ -4,7 +4,7 @@ import {
   openaiHost,
   openaiImageConfigured,
   openaiImageHost,
-  openaiImageModel,
+  openaiImageModelOrEmpty,
   openaiModelOrEmpty,
 } from "./openai";
 
@@ -30,7 +30,7 @@ export function runtimeStatus(): RuntimeStatus {
     openaiModel: openaiModelOrEmpty(),
     openaiImageConfigured: openaiImageConfigured(),
     openaiImageHost: openaiImageHost(),
-    openaiImageModel: openaiImageModel(),
+    openaiImageModel: openaiImageModelOrEmpty(),
     appUrl: (process.env.APP_URL || "").replace(/\/$/, ""),
     nodeEnv: process.env.NODE_ENV || "",
   };
@@ -45,6 +45,6 @@ export function logBootStatus() {
       status.openaiConfigured ? "ok" : "MISSING_OPENAI_API_KEY"
     } aiHost=${status.openaiHost} textModel=${status.openaiModel || "MISSING_OPENAI_MODEL"} image=${
       status.openaiImageConfigured ? "ok" : "MISSING_OPENAI_IMAGE_API"
-    } imageHost=${status.openaiImageHost || "unset"} imageModel=${status.openaiImageModel}`,
+    } imageHost=${status.openaiImageHost || "unset"} imageModel=${status.openaiImageModel || "MISSING_OPENAI_IMAGE_MODEL"}`,
   );
 }

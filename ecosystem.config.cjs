@@ -38,7 +38,7 @@ console.info(
   `image=${process.env.OPENAI_IMAGE_API_KEY ? "ok" : "MISSING_OPENAI_IMAGE_API_KEY"}`,
   `imageHost=${(process.env.OPENAI_IMAGE_BASE_URL || "").replace(/^https?:\/\//, "").replace(/\/.*$/, "") || "unset"}`,
   `textModel=${process.env.OPENAI_MODEL || "MISSING_OPENAI_MODEL"}`,
-  `imageModel=${process.env.OPENAI_IMAGE_MODEL || "gpt-image-2"}`,
+  `imageModel=${process.env.OPENAI_IMAGE_MODEL || "MISSING_OPENAI_IMAGE_MODEL"}`,
 );
 
 const appName = process.env.APP_NAME || "postvmeste";
@@ -86,7 +86,7 @@ module.exports = {
         OPENAI_MODEL: process.env.OPENAI_MODEL || "",
         OPENAI_IMAGE_BASE_URL: process.env.OPENAI_IMAGE_BASE_URL || "",
         OPENAI_IMAGE_API_KEY: process.env.OPENAI_IMAGE_API_KEY || "",
-        OPENAI_IMAGE_MODEL: process.env.OPENAI_IMAGE_MODEL || "gpt-image-2",
+        OPENAI_IMAGE_MODEL: process.env.OPENAI_IMAGE_MODEL || "",
         OPENAI_IMAGE_QUALITY: process.env.OPENAI_IMAGE_QUALITY || "medium",
         TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
         TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || "",
