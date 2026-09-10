@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ImagePlus, Layers3, Palette, Tag } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { SUBSCRIPTION_TIERS } from "@/lib/types";
@@ -58,6 +58,41 @@ const FORMATS: Format[] = [
 ];
 
 const KEY_STOP = 2;
+
+type RubricStep = { icon: typeof Tag; title: string; example: string; note: string };
+
+/**
+ * Как на самом деле устроена настройка рубрики в create-flow.tsx:
+ * название → цвета (по умолчанию из профиля, store.updateRubric) → референс
+ * (uploadReference, снимает композицию через carouselRecipe) → шаблон
+ * (saveTemplate, отдельный на формат). Пример — сквозной, одна ниша (нутрициолог).
+ */
+const RUBRIC_STEPS: RubricStep[] = [
+  {
+    icon: Tag,
+    title: "Название",
+    example: "«Мифы о похудении»",
+    note: "Рубрика — как папка в контент-плане: под одной темой собираются все карусели, посты и обложки.",
+  },
+  {
+    icon: Palette,
+    title: "Цвета",
+    example: "3–4 цвета из профиля",
+    note: "Стартуют из общего бренда, но для рубрики их можно подвинуть — и они лягут на каждый слайд, пост и обложку внутри неё.",
+  },
+  {
+    icon: ImagePlus,
+    title: "Референс",
+    example: "до 4 картинок, по желанию",
+    note: "Пример композиции — свой старый пост или чужой, который нравится. Модель снимает раскладку, цвета всё равно берёт ваши.",
+  },
+  {
+    icon: Layers3,
+    title: "Шаблон",
+    example: "«Сохранить как шаблон для рубрики»",
+    note: "Понравившийся результат закрепляете за рубрикой — отдельно для карусели, поста и обложки. Дальше рубрика стартует не с нуля, а с него.",
+  },
+];
 
 const PROMISES = [
   { title: "В ваших цветах", note: "Не в наших — палитра берётся из профиля" },
@@ -135,6 +170,33 @@ export function LandingPage() {
 
       <section className={`landing-flow ${flowShown ? "is-shown" : ""}`} id="flow" ref={flowRef}>
         <div className="landing-container">
+          <div className="rubric-intro">
+            <span className="rubric-kicker">Прежде всего</span>
+            <h2 className="sec-title">Всё держится на <b>рубриках</b></h2>
+            <p className="sec-sub">
+              Рубрика — серия контента с одним закреплённым стилем. Внутри неё живут карусель, пост и
+              обложка Reels — и все выходят в одном визуальном коде. У нутрициолога, например, может
+              быть рубрика «Мифы о похудении», «Разбор меню» и «Личный дневник» — у каждой свой стиль,
+              и подгонять новый контент под него каждый раз не нужно.
+            </p>
+            <ol className="rubric-steps">
+              {RUBRIC_STEPS.map((s, index) => (
+                <li className="rubric-step glass" key={s.title}>
+                  <span className="rubric-step-top">
+                    <span className="rubric-step-num">{`0${index + 1}`}</span>
+                    <s.icon size={16} />
+                  </span>
+                  <h3>{s.title}</h3>
+                  <span className="rubric-step-example">{s.example}</span>
+                  <p>{s.note}</p>
+                </li>
+              ))}
+            </ol>
+            <p className="rubric-outro">
+              Один раз настроили рубрику — дальше от вас только тема. Вот что можно собрать внутри неё:
+            </p>
+          </div>
+
           <h2 className="sec-title">С чего <b>начнём?</b></h2>
           <p className="sec-sub">
             Наведите на формат — покажем весь путь до готового файла. Ничего не прячем: на любом шаге
