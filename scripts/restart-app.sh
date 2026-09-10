@@ -30,7 +30,16 @@ render_public_html_htaccess "$ROOT_DIR"
 
 if [[ -f "${SCRIPT_DIR}/backup-db.js" ]]; then
   echo "==> Backing up database"
-  if ! "$NODE_BIN" "${SCRIPT_DIR}/backup-db.js"; then
+  # Бэкап идёт первым и раньше не имел внешнего ограничения, а mysqldump внутри
+  # ждёт до 120 с плюс gzip до 30 — больше, чем весь бюджет скрипта. Из-за этого
+  # 2026-09-10 рестарт стабильно падал по таймауту, ни разу не дойдя до PM2:
+  # серверный .env обновлялся, а процесс продолжал жить со старым окружением, и
+  # прод работал не на той модели. Бэкап важен, но не ценой самого рестарта.
+  if command -v timeout >/dev/null 2>&1; then
+    if ! timeout --signal=TERM --kill-after=8 60 "$NODE_BIN" "${SCRIPT_DIR}/backup-db.js"; then
+      echo "==> backup-db failed or timed out (non-fatal, continuing)"
+    fi
+  elif ! "$NODE_BIN" "${SCRIPT_DIR}/backup-db.js"; then
     echo "==> backup-db failed (non-fatal, continuing)"
   fi
 fi
@@ -63,12 +72,31 @@ pm2_version="$(run_pm2_timeout 15 -v)"
 echo "==> PM2: ${pm2_version} (${PM2_BIN})"
 
 echo "==> Restarting PM2 process (does not pull git or upload a new build)"
+# Запоминаем pid до рестарта: в fork-режиме перезапуск его меняет, и это
+# единственный честный признак, что процесс действительно поднялся заново, а не
+# продолжил работать со старым окружением. Раньше этого никто не проверял —
+# и деплой считался «ну наверное применился», хотя не применялся.
+pid_before="$(run_pm2_timeout 10 pid "${APP_NAME}" 2>/dev/null | tr -d '[:space:]' || true)"
+echo "==> PM2 pid before: ${pid_before:-none}"
+
 APP_NAME="${APP_NAME}" APP_PORT="${APP_PORT}" NODE_ENV="${NODE_ENV}" NODE_BIN="${NODE_BIN}" \
   run_pm2_timeout 60 startOrReload ecosystem.config.cjs --update-env
 run_pm2_timeout 20 save || echo "pm2 save timed out (non-fatal)"
 
+pid_after="$(run_pm2_timeout 10 pid "${APP_NAME}" 2>/dev/null | tr -d '[:space:]' || true)"
+echo "==> PM2 pid after: ${pid_after:-none}"
+
+if [[ -z "${pid_after}" ]]; then
+  echo "Рестарт не удался: PM2 не сообщает pid процесса ${APP_NAME}." >&2
+  exit 1
+fi
+if [[ -n "${pid_before}" && "${pid_before}" == "${pid_after}" ]]; then
+  echo "Рестарт не удался: pid не изменился (${pid_after}) — процесс остался со старым окружением." >&2
+  echo "Новые значения из .env (модель, ключи) в него НЕ попали." >&2
+  exit 1
+fi
+
 echo "==> Restart finished"
-echo "==> PM2 pid: $(run_pm2_timeout 10 pid "${APP_NAME}" || echo unknown)"
 
 echo "==> Health check http://127.0.0.1:${APP_PORT}"
 sleep 2

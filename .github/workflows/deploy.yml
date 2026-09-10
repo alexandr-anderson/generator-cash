@@ -151,7 +151,11 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
           SSH_PORT="${SSH_PORT:-22}"
-          timeout 120 ssh -i ~/.ssh/deploy_key -p "${SSH_PORT}" -o BatchMode=yes -o ConnectTimeout=20 \
+          # Бюджет считаем по худшему случаю, а не на глаз: бэкап до 60 с,
+          # миграции до 45, PM2 до 60+20+10, health-check ~10. Прежние 90 секунд
+          # не покрывали даже бэкап, и рестарт стабильно не доходил до PM2 —
+          # .env на сервере обновлялся, а процесс жил со старым окружением.
+          timeout 300 ssh -i ~/.ssh/deploy_key -p "${SSH_PORT}" -o BatchMode=yes -o ConnectTimeout=20 \
             -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o RequestTTY=no \
             "${SSH_USER}@${SSH_HOST}" \
-            "export DEPLOY_PATH='${DEPLOY_PATH}' PUBLIC_HTML='${PUBLIC_HTML}' APP_NAME='${APP_NAME}' APP_PORT='${APP_PORT}' NODE_ENV='production' NPM_CI_ARGS='--ignore-scripts' && cd '${DEPLOY_PATH}' && if command -v timeout >/dev/null; then timeout 90 bash scripts/restart-app.sh; else bash scripts/restart-app.sh; fi"
+            "export DEPLOY_PATH='${DEPLOY_PATH}' PUBLIC_HTML='${PUBLIC_HTML}' APP_NAME='${APP_NAME}' APP_PORT='${APP_PORT}' NODE_ENV='production' NPM_CI_ARGS='--ignore-scripts' && cd '${DEPLOY_PATH}' && if command -v timeout >/dev/null; then timeout 240 bash scripts/restart-app.sh; else bash scripts/restart-app.sh; fi"
