@@ -69,6 +69,11 @@ type ChatJsonArgs = {
   timeoutMs?: number;
   jsonMode?: boolean;
   maxTokens?: number;
+  /**
+   * Зовётся по мере того, как модель печатает — кусками текста, как они пришли.
+   * Нужен, чтобы дотянуть живой прогресс до браузера; на результат не влияет.
+   */
+  onDelta?: (chunk: string) => void;
 };
 
 export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
@@ -106,11 +111,7 @@ export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
       throw new AiError("Не удалось сгенерировать текст. Попробуйте ещё раз.", 502);
     }
 
-    const payload = (await response.json()) as {
-      choices?: { message?: { content?: unknown }; finish_reason?: string }[];
-      output_text?: string;
-    };
-    const content = pickMessageContent(payload);
+    const content = await readStreamedContent(response, args.onDelta);
     if (!content) {
       throw new AiError("Пустой ответ модели. Попробуйте ещё раз.", 502);
     }
@@ -145,7 +146,12 @@ function chatBody(
   maxTokens?: number,
 ) {
   const model = openaiModel();
-  const body: Record<string, unknown> = { model, messages };
+  // Стрим включён всегда, даже когда дельты никому не нужны. Дело не в скорости
+  // ответа целиком — она та же, — а в том, что шлюз молчит около двух минут до
+  // первого байта (замер 2026-09-10: 119 с на запрос в 10 токенов). Такую паузу
+  // соединение не переживает: рвётся и у нас, и по дороге к браузеру.
+  // Со стримом первый байт приходит за ~3 с и связь больше не простаивает.
+  const body: Record<string, unknown> = { model, messages, stream: true };
   if (isGpt5(model)) {
     body.max_completion_tokens = maxTokens ?? 1600;
   } else {
@@ -179,6 +185,69 @@ function pickMessageContent(payload: {
     return payload.output_text.trim();
   }
   return "";
+}
+
+/**
+ * Собирает текст ответа из SSE-потока `chat/completions`.
+ *
+ * Поток приходит строками `data: {...}` и закрывается `data: [DONE]`. Куски сети
+ * режутся где угодно, в том числе посередине строки, поэтому держим буфер и
+ * разбираем только завершённые строки.
+ *
+ * Некоторые шлюзы на тот же адрес отвечают обычным JSON, игнорируя `stream: true`,
+ * — такой ответ тоже понимаем, чтобы не зависеть от поведения конкретного шлюза.
+ */
+export async function readStreamedContent(
+  response: Response,
+  onDelta?: (chunk: string) => void,
+): Promise<string> {
+  const type = response.headers.get("content-type") || "";
+  if (!response.body || !/event-stream/i.test(type)) {
+    const payload = (await response.json()) as {
+      choices?: { message?: { content?: unknown } }[];
+      output_text?: string;
+    };
+    const whole = pickMessageContent(payload);
+    if (whole) onDelta?.(whole);
+    return whole;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let content = "";
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let cut = buffer.indexOf("\n");
+    while (cut !== -1) {
+      const line = buffer.slice(0, cut).trim();
+      buffer = buffer.slice(cut + 1);
+      cut = buffer.indexOf("\n");
+
+      if (!line.startsWith("data:")) continue;
+      const data = line.slice(5).trim();
+      if (!data || data === "[DONE]") continue;
+
+      try {
+        const chunk = JSON.parse(data) as {
+          choices?: { delta?: { content?: unknown } }[];
+        };
+        const piece = chunk.choices?.[0]?.delta?.content;
+        if (typeof piece === "string" && piece) {
+          content += piece;
+          onDelta?.(piece);
+        }
+      } catch {
+        // Одна битая строка потока не повод терять весь ответ — пропускаем её.
+      }
+    }
+  }
+
+  return content.trim();
 }
 
 async function postChat(body: unknown, key: string, signal: AbortSignal) {

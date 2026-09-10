@@ -36,6 +36,7 @@ import { scenarioLabel } from "@/lib/ai-types";
 import { CarouselSlideFace } from "@/components/carousel-slide";
 import { ReelCover } from "@/components/reel-cover";
 import { ElapsedTimer } from "@/components/elapsed-timer";
+import { readableTail } from "@/lib/stream-preview";
 
 type Step = "format" | "rubric" | "topic" | "text" | "variants" | "editor";
 type RetryAction = "generate" | "expand";
@@ -114,6 +115,14 @@ export function CreateFlow() {
   const [exporting, setExporting] = useState<"zip" | "phone" | "png" | null>(null);
   const [error, setError] = useState("");
   const [retryAction, setRetryAction] = useState<RetryAction | null>(null);
+  // Текст, который модель печатает прямо сейчас. Сырой поток копим в ref, чтобы
+  // каждый чанк не вызывал перерисовку по всей накопленной строке.
+  const [progress, setProgress] = useState("");
+  const progressRaw = useRef("");
+  const appendProgress = useCallback((chunk: string) => {
+    progressRaw.current += chunk;
+    setProgress(readableTail(progressRaw.current));
+  }, []);
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -250,6 +259,8 @@ export function CreateFlow() {
     setGenerating(true);
     setError("");
     setRetryAction(null);
+    setProgress("");
+    progressRaw.current = "";
     try {
       const copy = await store.composeCopy({
         format,
@@ -259,7 +270,7 @@ export function CreateFlow() {
         rubricId,
         colors,
         referenceIds: (rubric?.references || []).map(fileIdFromUrl).filter(Boolean),
-      });
+      }, appendProgress);
       if (format === "carousel" && !userText.trim()) setUserText(copy.text);
       const v = generateVariants(
         format,
@@ -303,13 +314,15 @@ export function CreateFlow() {
     setExpanding(true);
     setError("");
     setRetryAction(null);
+    setProgress("");
+    progressRaw.current = "";
     try {
       const expanded = await store.expandCarousel({
         topic: topic.trim(),
         text: userText.trim(),
         scenario: v.eyebrow,
         firstSlide: v.slides[0]?.text || topic.trim(),
-      });
+      }, appendProgress);
       setWork({
         ...applySlideTexts(v, expanded.slides),
         caption: expanded.caption,
@@ -717,6 +730,7 @@ export function CreateFlow() {
                   ? "Не закрывайте вкладку. Дальше будет второй шаг такой же длины — сборка семи слайдов."
                   : "Не закрывайте вкладку."}
               </span>
+              {progress && <span className="flow-progress-text">{progress}</span>}
             </div>
           )}
 
@@ -837,6 +851,7 @@ export function CreateFlow() {
               <span className="flow-warning-note">
                 Не закрывайте вкладку. Лимит спишется после успеха.
               </span>
+              {progress && <span className="flow-progress-text">{progress}</span>}
             </div>
           )}
           <div className="flow-actions">

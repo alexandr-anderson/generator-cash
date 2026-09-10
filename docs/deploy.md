@@ -71,6 +71,22 @@ npm run build
 
 PM2 запускает `app/server.js` на `APP_PORT` (на этом аккаунте `3001`). Apache в `public_html/.htaccess` проксирует запросы на этот порт.
 
+### Прокси — это PHP, и он стримит
+
+Timeweb не даёт Apache `[P]` / mod_proxy, поэтому весь трафик идёт через `public_html/index.php`, который генерируется из `index.php.template` (подстановка `__APP_PORT__` в `scripts/lib.sh`). **Это входная дверь всего сайта: синтаксическая ошибка в нём кладёт домен целиком.** После правок стоит проверить на сервере:
+
+```bash
+php -l ~/postvmeste/public_html/index.php
+```
+
+Скрипт пересылает ответ **чанками**, а не собирает целиком. Это не украшательство: шлюз модели молчит около двух минут до первого байта, и буферизующий прокси превращал это в оборванное соединение. До 2026-09-10 здесь стояли `CURLOPT_RETURNTRANSFER` и потолок в 200 секунд — именно он, а не какой-то сторонний middlebox, убивал длинные генерации (`net::ERR_CONNECTION_TIMED_OUT` в браузере).
+
+Что важно не сломать при будущих правках:
+- `CURLOPT_HEADERFUNCTION` / `CURLOPT_WRITEFUNCTION` вместо `CURLOPT_RETURNTRANSFER`;
+- сброшенные буферы (`ob_end_flush`, `ob_implicit_flush`) и `flush()` после каждого чанка;
+- `content-length` не пересылается — длина исходного ответа больше не описывает то, что уходит клиенту;
+- нет `CURLOPT_TIMEOUT`, зависание ловится `CURLOPT_LOW_SPEED_LIMIT` / `LOW_SPEED_TIME`.
+
 ### GitHub Actions (рекомендуется)
 
 Workflow: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — срабатывает на push в `main` или вручную.

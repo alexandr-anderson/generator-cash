@@ -29,6 +29,7 @@ async function openaiRussianJson<T extends Record<string, unknown>>(
   pick: (payload: T) => unknown,
   label: string,
 ): Promise<T> {
+  // args.onDelta уже внутри args — прокидывать отдельно нечего.
   const payload = await openaiJson<T>(args);
   const verdict = inspectRussian(pick(payload));
 
@@ -75,12 +76,14 @@ export async function draftReelHooks(input: {
   niche: string;
   tone?: string;
   authorHook?: string;
+  onDelta?: (chunk: string) => void;
 }): Promise<string[]> {
   const payload = await openaiRussianJson<Record<string, unknown>>({
     system: SYSTEM,
     user: reelHookPrompt(input),
     timeoutMs: 180_000,
     maxTokens: 400,
+    onDelta: input.onDelta,
   },
     (p) => p.hooks,
     "draft:reel-hooks",
@@ -112,6 +115,7 @@ export async function draftReelCaption(input: {
   niche: string;
   tone?: string;
   hook: string;
+  onDelta?: (chunk: string) => void;
 }): Promise<string> {
   const payload = await openaiRussianJson<Record<string, unknown>>({
     system: SYSTEM,
@@ -129,6 +133,7 @@ export async function draftReelCaption(input: {
     ].join("\n"),
     timeoutMs: 180_000,
     maxTokens: 700,
+    onDelta: input.onDelta,
   },
     (p) => p.caption,
     "draft:reel-caption",
@@ -144,6 +149,7 @@ export async function composeReelCopy(input: {
   tone?: string;
   authorHook?: string;
   captionSource?: string;
+  onDelta?: (chunk: string) => void;
 }): Promise<ComposedCopy> {
   const hooks = await draftReelHooks(input);
   const source = input.captionSource?.trim();
@@ -152,6 +158,7 @@ export async function composeReelCopy(input: {
     niche: input.niche,
     tone: input.tone,
     hook: input.authorHook?.trim() || hooks[0],
+    onDelta: input.onDelta,
   });
   return composeReelFromHooks({
     topic: input.topic,
@@ -169,6 +176,7 @@ export async function composeVariantPreviews(input: {
   niche: string;
   tone?: string;
   captionSource?: string;
+  onDelta?: (chunk: string) => void;
 }): Promise<ComposedCopy> {
   if (input.format === "post") return composePostFromAuthorText(input);
   if (input.format === "reel") {
@@ -178,6 +186,7 @@ export async function composeVariantPreviews(input: {
       tone: input.tone,
       authorHook: input.text,
       captionSource: input.captionSource,
+      onDelta: input.onDelta,
     });
   }
 
@@ -197,6 +206,7 @@ export async function composeVariantPreviews(input: {
     ].filter(Boolean).join("\n"),
     timeoutMs: 180_000,
     maxTokens: 500,
+    onDelta: input.onDelta,
   },
     // Имена сценариев служебные и заданы нами — смотрим только тексты крючков.
     (p) => (Array.isArray(p.scenarios) ? p.scenarios.map((item) => (item as { slides?: unknown })?.slides) : []),
@@ -243,6 +253,7 @@ export async function draftPostHashtags(input: {
   topic: string;
   niche: string;
   text: string;
+  onDelta?: (chunk: string) => void;
 }): Promise<string[]> {
   const excerpt = input.text.trim().slice(0, 500);
   const payload = await openaiRussianJson<Record<string, unknown>>({
@@ -257,6 +268,7 @@ export async function draftPostHashtags(input: {
     ].filter(Boolean).join("\n"),
     timeoutMs: 180_000,
     maxTokens: 300,
+    onDelta: input.onDelta,
   },
     (p) => p.hashtags,
     "compose:post-hashtags",
@@ -268,6 +280,7 @@ export async function composePostCopy(input: {
   topic: string;
   text: string;
   niche: string;
+  onDelta?: (chunk: string) => void;
 }): Promise<ComposedCopy> {
   const copy = composePostFromAuthorText(input);
   try {
@@ -288,6 +301,7 @@ export async function expandCarouselSlides(input: {
   tone?: string;
   scenario: string;
   firstSlide: string;
+  onDelta?: (chunk: string) => void;
 }): Promise<{ slides: string[]; caption: string; hashtags: string[] }> {
   const source = input.text.trim();
   const spec = SCENARIO_SPECS.find((item) => item.name === input.scenario) || SCENARIO_SPECS[0];
@@ -311,6 +325,7 @@ export async function expandCarouselSlides(input: {
     ].filter(Boolean).join("\n"),
     timeoutMs: 180_000,
     maxTokens: 1600,
+    onDelta: input.onDelta,
   },
     (p) => [p.slides, p.caption, p.hashtags],
     "expand:carousel",
