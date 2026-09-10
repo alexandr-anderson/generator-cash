@@ -404,7 +404,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 .landing-promises { padding: 0 0 110px; }
 .promises {
   border-radius: 20px; padding: 22px 26px;
-  display: flex; gap: 34px; flex-wrap: wrap; justify-content: space-between;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px 34px;
 }
 .promises div { font-size: 13.5px; font-weight: 300; color: var(--muted); }
 .promises b {
@@ -1616,8 +1616,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
   .flow-dot { margin: 0; grid-row: span 2; }
   .flow-stop h3 { align-self: end; }
 
-  .promises { gap: 18px; }
-  .promises div { flex: 1 1 45%; }
+  .promises { gap: 16px 18px; }
   .pricing-grid { grid-template-columns: repeat(2, 1fr); }
   .final-card { padding: 36px 22px; }
 
