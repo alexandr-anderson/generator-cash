@@ -646,7 +646,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 .home-section { margin-bottom: 36px; }
 .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .section-header h2 { font-size: 16px; margin: 0; }
-.section-link { font-size: 12px; color: var(--accent); display: flex; align-items: center; gap: 2px; font-weight: 600; }
+.section-link { font-size: 12px; color: var(--accent-text); display: flex; align-items: center; gap: 2px; font-weight: 600; }
 
 .rubric-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px; }
 .rubric-card {
@@ -669,15 +669,28 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
   text-decoration: none;
 }
 .rubric-colors { display: flex; gap: -4px; }
-.rubric-colors span { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; margin-left: -4px; }
+.rubric-colors span { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--panel); margin-left: -4px; }
 .rubric-colors span:first-child { margin-left: 0; }
 .rubric-add { align-items: center; justify-content: center; color: var(--muted); border-style: dashed; }
 
+/* Пустое состояние — короткая сессия, эмоция уместна: тот же приём
+   стекло-поверх-картинки, что на лендинге (брендбук, раздел 4). */
 .empty-state {
-  text-align: center; padding: 40px 20px;
-  background: var(--panel); border: 1px dashed var(--line); border-radius: 14px;
+  position: relative; overflow: hidden; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px 20px;
 }
-.empty-state p { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+.empty-state-sky {
+  position: absolute; inset: 0;
+  background-image: url("/backgrounds/dawn-2-960.webp");
+  background-size: cover; background-position: center;
+}
+[data-theme="dark"] .empty-state-sky { background-image: url("/backgrounds/night-2-960.webp"); }
+.empty-state-content {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 24px 32px; border-radius: 14px;
+}
+.empty-state p { color: var(--ink); font-size: 13px; font-weight: 500; margin: 0; }
 
 .works-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
 .work-card {
@@ -703,7 +716,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 }
 .work-info { padding: 12px; }
 .work-meta { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--muted); margin-bottom: 4px; }
-.work-rubric { background: var(--soft-accent); padding: 2px 6px; border-radius: 4px; color: var(--accent); font-size: 9px; font-weight: 700; }
+.work-rubric { background: var(--soft-accent); padding: 2px 6px; border-radius: 4px; color: var(--accent-text); font-size: 9px; font-weight: 700; }
 .work-info b { font-size: 13px; display: block; margin-bottom: 2px; }
 .work-info small { font-size: 10px; color: var(--muted); }
 

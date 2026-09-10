@@ -71,8 +71,11 @@ export function HomePage() {
         </div>
         {store.archive.length === 0 ? (
           <div className="empty-state">
-            <p>Здесь появятся ваши работы</p>
-            <Link href="/dashboard/create" className="btn-primary">Создать первый контент</Link>
+            <div className="empty-state-sky" aria-hidden />
+            <div className="empty-state-content glass">
+              <p>Здесь появятся ваши работы</p>
+              <Link href="/dashboard/create" className="btn-primary">Создать первый контент</Link>
+            </div>
           </div>
         ) : (
           <div className="works-list">
