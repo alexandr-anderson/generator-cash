@@ -26,9 +26,20 @@ export function ndjsonStream<T extends object>(
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let closed = false;
       const emit = (line: object) => {
+        if (closed) return; // после close() enqueue бросает
         controller.enqueue(encoder.encode(`${JSON.stringify(line)}\n`));
       };
+
+      // Дельты идут только пока печатает текстовая модель. Картинки рисуются
+      // молча — это несколько минут тишины, и её убивал сторож в PHP-прокси
+      // (CURLOPT_LOW_SPEED_TIME): поймано живым прогоном 2026-09-10, пост падал
+      // ровно на 159-й секунде. Поэтому сердцебиение: пока идёт работа, в поток
+      // капают строки, которые клиент молча пропускает.
+      // Раз в 10 секунд, не реже: сторож считает среднюю скорость за 120 секунд
+      // и рвёт связь ниже байта в секунду, так что запас должен быть заметным.
+      const heartbeat = setInterval(() => emit({ type: "ping" }), 10_000);
 
       try {
         // Первая строка уходит сразу — она и держит соединение живым, пока
@@ -43,7 +54,9 @@ export function ndjsonStream<T extends object>(
         if (!(caught instanceof AiError)) console.error("[ndjson]", caught);
         emit({ type: "error", error: message });
       } finally {
+        clearInterval(heartbeat);
         onSettled?.();
+        closed = true;
         controller.close();
       }
     },
