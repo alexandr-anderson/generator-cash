@@ -10,38 +10,38 @@ const SYSTEM = `Ты копирайтер Instagram-студии postvmeste.ru. 
 Короткий слайд читают за 2 секунды. Без эмодзи на слайдах. Слова «крючок», «разбор», «сценарий», «CTA» в текст слайдов не пиши — это внутренняя кухня.
 Отвечай только JSON.`;
 
-/** Добавка к промпту на второй заход, когда первый ответ приехал не на русском. */
-const RUSSIAN_REMINDER =
-  "ВАЖНО: предыдущий ответ был не на русском языке. Весь текст для пользователя — строго по-русски, кириллицей. Никаких иероглифов и английских фраз.";
-
 /**
  * Вызов модели с проверкой, что ответ пришёл по-русски.
  *
- * Не прошло — один повтор с усиленной инструкцией, потом `AiError`. Ошибка важна
- * не только текстом: в обоих роутах `consumeGeneration` стоит после `await`, так
- * что брошенное отсюда исключение уводит в `catch` до списания — клиент не платит
- * генерацией за мусор (п. 46 в docs/work-plan.md).
+ * Ошибка важна не только текстом: в обоих роутах `consumeGeneration` стоит после
+ * `await`, так что брошенное отсюда исключение уводит в `catch` до списания —
+ * клиент не платит генерацией за мусор (п. 46 в docs/work-plan.md).
+ *
+ * **Повтора внутри запроса сознательно нет** (решение от 2026-09-10). Один заход к
+ * модели и так занимает 2–3 минуты, и на этой длине соединение уже рвётся на
+ * полпути (`net::ERR_CONNECTION_TIMED_OUT`, поймано на проде). Повтор удваивал бы
+ * ожидание, которое и без него ходит по границе, ради результата, который клиент
+ * может и не дождаться. Вместо этого падаем сразу и внятно — а повтором управляет
+ * человек кнопкой «Попробовать ещё раз», которая лимит не списывает.
  */
 async function openaiRussianJson<T extends Record<string, unknown>>(
   args: Parameters<typeof openaiJson<T>>[0],
   pick: (payload: T) => unknown,
   label: string,
 ): Promise<T> {
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const payload = await openaiJson<T>(
-      attempt === 1 ? args : { ...args, user: `${args.user}\n${RUSSIAN_REMINDER}` },
+  const payload = await openaiJson<T>(args);
+  const verdict = inspectRussian(pick(payload));
+
+  if (!verdict.ok) {
+    console.error("[ru-guard] ответ не на русском", label, verdict.reason);
+    throw new AiError(
+      "Извините, модель ответила не на русском. Лимит не списан — нажмите «Попробовать ещё раз».",
+      502,
     );
-    const verdict = inspectRussian(pick(payload));
-
-    if (verdict.ok) {
-      logStrayLatin(label, verdict.strayLatin);
-      return payload;
-    }
-
-    console.error("[ru-guard] ответ не на русском", label, `попытка=${attempt}`, verdict.reason);
   }
 
-  throw new AiError("Модель ответила не на русском. Попробуйте ещё раз — лимит не списан.", 502);
+  logStrayLatin(label, verdict.strayLatin);
+  return payload;
 }
 
 export async function draftExpertText(input: {

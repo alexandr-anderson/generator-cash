@@ -72,11 +72,25 @@ const emptySubscription: Subscription = {
 const StoreContext = createContext<(StudioPayload & AppActions & { ready: boolean }) | null>(null);
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    ...init,
-    headers: { "content-type": "application/json", ...(init?.headers || {}) },
-    credentials: "include",
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...init,
+      headers: { "content-type": "application/json", ...(init?.headers || {}) },
+      credentials: "include",
+    });
+  } catch {
+    // `fetch` отклоняется только на сетевом уровне: обрыв связи, таймаут соединения,
+    // уснувшая вкладка. Наружу это уходило сырым «Failed to fetch» — по-английски и
+    // бессмысленно для человека; поймано живой проверкой 2026-09-10 (п. 32, 47).
+    //
+    // Про лимит намеренно ничего не обещаем: связь могла оборваться уже после того,
+    // как сервер досчитал и списал генерацию. Врать в извинении — хуже, чем молчать.
+    throw Object.assign(
+      new Error("Извините, связь с сервером оборвалась — ответ до нас не дошёл. Проверьте счётчик генераций и попробуйте ещё раз."),
+      { status: 0 },
+    );
+  }
   const raw = await response.text();
   let data = {} as T & { error?: string };
   try {

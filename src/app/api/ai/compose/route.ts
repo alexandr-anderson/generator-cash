@@ -8,8 +8,7 @@ import { consumeGeneration, quotaAvailable } from "@/lib/quota";
 import { RATE_RULES, acquireSlot, busyResponse, rateLimit, releaseSlot } from "@/lib/rate-limit";
 import type { CreativeFormat } from "@/lib/types";
 
-// Как и у expand: держим запас поверх таймаута модели с учётом ретрая ru-guard.
-export const maxDuration = 400;
+export const maxDuration = 300;
 
 const FORMATS = new Set<CreativeFormat>(["carousel", "post", "reel"]);
 

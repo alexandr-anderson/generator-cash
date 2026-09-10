@@ -6,9 +6,10 @@ import { consumeGeneration, quotaAvailable } from "@/lib/quota";
 import { RATE_RULES, acquireSlot, busyResponse, rateLimit, releaseSlot } from "@/lib/rate-limit";
 import { SCENARIO_SPECS } from "@/lib/ai-types";
 
-// Вызов модели сам по себе ждёт до 180 с, а с ретраем ru-guard — вдвое дольше.
-// Держим запас поверх него, иначе роут умрёт раньше, чем спишет лимит и ответит.
-export const maxDuration = 400;
+// Вызов модели ждёт до 180 с. Раньше здесь стояло ровно 180 — роут мог умереть
+// раньше, чем спишет лимит и ответит, а замеры показали 2,5 минуты на ответ.
+// Держим запас поверх таймаута модели.
+export const maxDuration = 300;
 
 const SCENARIO_NAMES = new Set<string>(SCENARIO_SPECS.map((item) => item.name));
 
