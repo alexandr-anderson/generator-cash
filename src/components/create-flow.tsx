@@ -39,10 +39,10 @@ import { ReelCover } from "@/components/reel-cover";
 type Step = "format" | "rubric" | "topic" | "text" | "variants" | "editor";
 type RetryAction = "generate" | "expand";
 
-const FORMAT_OPTIONS: { id: CreativeFormat; icon: typeof Layers3; color: string; bg: string; blurb: string }[] = [
-  { id: "carousel", icon: Layers3, color: "#ff5c35", bg: "#fff0e8", blurb: "7 слайдов после выбора сценария" },
-  { id: "post", icon: ImageIcon, color: "#3b82f6", bg: "#e8f0ff", blurb: "Три картинки к вашей подписи" },
-  { id: "reel", icon: Video, color: "#8b5cf6", bg: "#f0e8ff", blurb: "Обложка для сетки и поиска. Ролик не снимаем" },
+const FORMAT_OPTIONS: { id: CreativeFormat; icon: typeof Layers3; color: string; blurb: string }[] = [
+  { id: "carousel", icon: Layers3, color: "#ff5c35", blurb: "7 слайдов после выбора сценария" },
+  { id: "post", icon: ImageIcon, color: "#3b82f6", blurb: "Три картинки к вашей подписи" },
+  { id: "reel", icon: Video, color: "#8b5cf6", blurb: "Обложка для сетки и поиска. Ролик не снимаем" },
 ];
 
 function parseFormat(value: string | null): CreativeFormat | null {
@@ -459,7 +459,7 @@ export function CreateFlow() {
           <div className="format-grid">
             {FORMAT_OPTIONS.map((f) => (
               <button key={f.id} className="format-option" onClick={() => selectFormat(f.id)}>
-                <div className="format-option-icon" style={{ background: f.bg }}>
+                <div className={`format-option-icon format-icon-${f.id}`}>
                   <f.icon size={32} color={f.color} />
                 </div>
                 <h3>{FORMAT_LABELS[f.id]}</h3>
