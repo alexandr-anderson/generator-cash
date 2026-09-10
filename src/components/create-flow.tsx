@@ -35,6 +35,7 @@ import { reelCoverToPngBlob, slideToSvg, svgToPngBlob } from "@/lib/render";
 import { scenarioLabel } from "@/lib/ai-types";
 import { CarouselSlideFace } from "@/components/carousel-slide";
 import { ReelCover } from "@/components/reel-cover";
+import { ElapsedTimer } from "@/components/elapsed-timer";
 
 type Step = "format" | "rubric" | "topic" | "text" | "variants" | "editor";
 type RetryAction = "generate" | "expand";
@@ -702,11 +703,20 @@ export function CreateFlow() {
 
           {generating && (
             <div className="flow-warning">
-              {format === "post"
-                ? "Рисую три картинки — подождите, не закрывайте вкладку"
-                : format === "reel"
-                  ? "Рисую три обложки — подождите, не закрывайте вкладку"
-                : "Собираю три крючка — подождите, не закрывайте вкладку"}
+              <ElapsedTimer
+                hint={
+                  format === "post"
+                    ? "Рисую три картинки — обычно 2–3 минуты"
+                    : format === "reel"
+                      ? "Рисую три обложки — обычно 2–3 минуты"
+                    : "Собираю три крючка — обычно 2–3 минуты"
+                }
+              />
+              <span className="flow-warning-note">
+                {format === "carousel"
+                  ? "Не закрывайте вкладку. Дальше будет второй шаг такой же длины — сборка семи слайдов."
+                  : "Не закрывайте вкладку."}
+              </span>
             </div>
           )}
 
@@ -822,7 +832,12 @@ export function CreateFlow() {
             />
           )}
           {expanding && (
-            <div className="flow-warning">Собираю семь слайдов, подпись и хештеги. Лимит спишется после успеха.</div>
+            <div className="flow-warning">
+              <ElapsedTimer hint="Собираю семь слайдов, подпись и хештеги — обычно 2–3 минуты" />
+              <span className="flow-warning-note">
+                Не закрывайте вкладку. Лимит спишется после успеха.
+              </span>
+            </div>
           )}
           <div className="flow-actions">
             <button className="btn-primary btn-lg" onClick={selectVariant} disabled={expanding || !selectedId}>
