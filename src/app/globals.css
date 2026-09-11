@@ -468,6 +468,12 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 .landing-footer-nav { display: flex; flex-wrap: wrap; gap: 14px; }
 .landing-footer a { color: var(--muted); }
 .landing-footer a:hover { color: var(--ink); }
+/* Обязательная отметка про Meta: нужна, но не должна тянуть на себя внимание. */
+.landing-footer-note {
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 11px; line-height: 1.5; opacity: 0.75;
+}
 
 .legal-doc {
   max-width: 720px;

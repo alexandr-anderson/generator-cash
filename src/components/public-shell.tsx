@@ -32,6 +32,13 @@ export function PublicFooter() {
         </nav>
         <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
       </div>
+      {/* Продукт весь построен вокруг Instagram, а отметки про Meta на публичных
+          страницах не было ни одной. Формулировка стандартная для РФ; если юрист
+          предложит свою, правится здесь — подвал общий для всех публичных страниц. */}
+      <div className="landing-container landing-footer-note">
+        Instagram принадлежит компании Meta, признанной экстремистской организацией и
+        запрещённой на территории Российской Федерации.
+      </div>
     </footer>
   );
 }
