@@ -17,19 +17,24 @@ function ResetInner() {
     e.preventDefault();
     setError("");
     setPending(true);
-    const response = await fetch("/api/auth/reset", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ token, password }),
-    });
-    const data = await response.json();
-    setPending(false);
-    if (!response.ok) {
-      setError(data.error || "Не удалось сменить пароль");
-      return;
+    try {
+      const response = await fetch("/api/auth/reset", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ token, password }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || "Не удалось сменить пароль");
+        return;
+      }
+      router.push("/dashboard");
+    } catch {
+      setError("Не получилось связаться с сервером. Проверьте интернет и попробуйте ещё раз.");
+    } finally {
+      setPending(false);
     }
-    router.push("/dashboard");
   }
 
   return (
@@ -40,16 +45,34 @@ function ResetInner() {
           <b>postvmeste.ru</b>
         </Link>
         <h1>Новый пароль</h1>
-        <form onSubmit={submit} className="auth-form">
-          <div className="field">
-            <label htmlFor="password">Пароль</label>
-            <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required />
-          </div>
-          {error && <div className="auth-error">{error}</div>}
-          <button className="btn-primary btn-full" disabled={pending || !token}>
-            {pending ? "Сохраняем…" : "Сохранить и войти"}
-          </button>
-        </form>
+        {/* Без токена форма раньше показывала намертво серую кнопку и молчала о
+            причине: человек вводил пароль, жал на мёртвую кнопку и решал, что
+            сломан сайт. */}
+        {!token ? (
+          <>
+            <p className="auth-subtitle">
+              Ссылка открылась без кода — похоже, она скопировалась не целиком. Откройте её из
+              письма ещё раз, полностью, или запросите новую.
+            </p>
+            <Link href="/auth/forgot" className="btn-primary btn-full">Запросить новую ссылку</Link>
+          </>
+        ) : (
+          <form onSubmit={submit} className="auth-form">
+            <p className="auth-subtitle">
+              Придумайте новый пароль — минимум 6 символов. Старый перестанет работать, и на других
+              устройствах придётся войти заново.
+            </p>
+            <div className="field">
+              <label htmlFor="password">Пароль</label>
+              <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required />
+            </div>
+            {error && <div className="auth-error">{error}</div>}
+            <button className="btn-primary btn-full" disabled={pending}>
+              {pending ? "Сохраняем…" : "Сохранить и войти"}
+            </button>
+          </form>
+        )}
+        <div className="auth-switch"><Link href="/auth">Ко входу</Link></div>
       </div>
     </div>
   );

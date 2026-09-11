@@ -56,19 +56,6 @@ async function main() {
         name: rubric.name,
         colors: rubric.colors ?? [],
         createdAt: new Date(rubric.createdAt),
-        templates: rubric.templates
-          ? {
-              create: Object.entries(rubric.templates).map(([format, template]) => ({
-                format: format as "carousel" | "post" | "reel",
-                layout: template.layout,
-                scenario: template.scenario,
-                decorStyle: template.decorStyle,
-                font: template.font,
-                colors: template.colors,
-                slideCount: template.slideCount,
-              })),
-            }
-          : undefined,
       },
     });
   }

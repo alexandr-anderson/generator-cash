@@ -13,4 +13,17 @@ describe("rubric copy", () => {
     expect(deleteRubricCopy("Ошибки", 3)).toContain("3 работы останутся в архиве без рубрики");
     expect(deleteRubricCopy("Кейсы", 0)).not.toContain("архиве");
   });
+
+  it("agrees the verb with the number, not just with one", () => {
+    // 21 работа останутся — грубая ошибка ровно там, где человек читает внимательно.
+    expect(deleteRubricCopy("Ошибки", 21)).toContain("21 работа останется");
+    expect(deleteRubricCopy("Ошибки", 11)).toContain("11 работ останутся");
+    expect(deleteRubricCopy("Ошибки", 1)).toContain("1 работа останется");
+  });
+
+  it("does not promise that reference files are deleted", () => {
+    // FileAsset.rubricId — onDelete: SetNull, картинки остаются на сервере.
+    expect(deleteRubricCopy("Ошибки", 0)).not.toContain("Референсы удал");
+    expect(deleteRubricCopy("Ошибки", 0)).toContain("Отменить нельзя");
+  });
 });

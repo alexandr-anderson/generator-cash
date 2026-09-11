@@ -22,7 +22,7 @@ type AdminListResponse = {
 
 const FILTERS: { id: AdminUserFilter; label: string }[] = [
   { id: "all", label: "Все" },
-  { id: "paid", label: "С подпиской" },
+  { id: "paid", label: "Платные" },
   { id: "free", label: "Бесплатные" },
   { id: "banned", label: "Заблокированные" },
 ];
@@ -129,7 +129,7 @@ export function AdminPage() {
     <div className="admin-page">
       <div className="page-header">
         <h1>Пользователи</h1>
-        <p>Регистрации, подписки, бесплатные генерации и блокировки.</p>
+        <p>Регистрации, тарифы, стартовые генерации и блокировки. Смена тарифа применяется сразу и начинает недельный лимит заново.</p>
       </div>
 
       {data && (
@@ -139,7 +139,7 @@ export function AdminPage() {
             <b>{data.stats.registered}</b>
           </div>
           <div className="admin-stat">
-            <small>С оплаченным тарифом</small>
+            <small>На платном тарифе</small>
             <b>{data.stats.paid}</b>
           </div>
           <div className="admin-stat">
@@ -177,7 +177,9 @@ export function AdminPage() {
 
       {loading && !data ? (
         <div className="admin-loading"><div className="loading-spinner" /></div>
-      ) : !data || data.users.length === 0 ? (
+      /* При упавшем запросе data остаётся null, и рядом с красным баннером
+         висело спокойное «Пользователей по этому запросу нет» — два разных ответа. */
+      ) : !data ? null : data.users.length === 0 ? (
         <div className="admin-empty">
           <Users size={22} aria-hidden="true" />
           <p>Пользователей по этому запросу нет.</p>
@@ -190,8 +192,8 @@ export function AdminPage() {
                 <tr>
                   <th>Пользователь</th>
                   <th>Подписка</th>
-                  <th>Бесплатные</th>
-                  <th>Неделя</th>
+                  <th>Стартовые</th>
+                  <th>Осталось на неделе</th>
                   <th>Статус</th>
                   <th></th>
                 </tr>
@@ -253,7 +255,7 @@ export function AdminPage() {
             <p className="popup-subtitle">
               {confirmBan.bannedAt
                 ? `${confirmBan.email} снова сможет войти.`
-                : `${confirmBan.email} не сможет войти, текущие сессии закроются.`}
+                : `${confirmBan.email} не сможет войти, текущие сессии закроются. Работы и рубрики останутся.`}
             </p>
             <div className="popup-actions">
               <button type="button" className="btn-secondary" onClick={() => setConfirmBan(null)}>Отмена</button>
@@ -322,7 +324,7 @@ function UserRow({
       </td>
       <td>
         <span className="admin-week">
-          {user.weeklyRemaining} / {user.subscription.generationsPerWeek}
+          {user.weeklyRemaining} из {user.subscription.generationsPerWeek}
         </span>
       </td>
       <td>
@@ -372,14 +374,14 @@ function UserCard({
         </select>
       </label>
       <label className="admin-card-field">
-        <span>Бесплатные генерации</span>
+        <span>Стартовые генерации</span>
         <FreeGensEditor
           value={user.subscription.initialFreeRemaining}
           disabled={busy}
           onSave={(value) => onPatch({ initialFreeRemaining: value })}
         />
       </label>
-      <p className="admin-week">Неделя: {user.weeklyRemaining} / {user.subscription.generationsPerWeek}</p>
+      <p className="admin-week">Осталось на неделе: {user.weeklyRemaining} из {user.subscription.generationsPerWeek}</p>
       <BanButton user={user} busy={busy} onAskBan={onAskBan} />
     </article>
   );
@@ -391,6 +393,9 @@ function StatusPill({ user }: { user: AdminUserRow }) {
   if (user.subscription.tier !== "free") {
     return <span className="admin-pill paid">{tierLabel(user.subscription.tier)}</span>;
   }
+  // Без подтверждённой почты человек вообще не может войти (login отвечает 403),
+  // а пилюля говорила «Активен» — и поддержка искала причину жалобы не там.
+  if (!user.emailVerifiedAt) return <span className="admin-pill muted">Не подтверждён</span>;
   return <span className="admin-pill muted">Активен</span>;
 }
 
@@ -443,7 +448,7 @@ function FreeGensEditor({
         step={1}
         value={draft}
         disabled={disabled}
-        aria-label="Бесплатные генерации"
+        aria-label="Стартовые генерации"
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && dirty && parsed >= 0) onSave(parsed);
@@ -454,7 +459,7 @@ function FreeGensEditor({
         className="btn-primary btn-xs"
         disabled={disabled || !dirty || parsed < 0 || parsed > 999}
         onClick={() => onSave(parsed)}
-        aria-label="Сохранить бесплатные генерации"
+        aria-label="Сохранить стартовые генерации"
       >
         <Check size={12} aria-hidden="true" />
       </button>

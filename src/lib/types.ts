@@ -64,18 +64,13 @@ export type Rubric = {
   inspirationUrl?: string;
   colors?: string[];
   carouselRecipe?: CarouselRecipe | null;
-  templates?: Partial<Record<CreativeFormat, Template>>;
   createdAt: number;
 };
 
-export type Template = {
-  layout: CreativeLayout;
-  scenario: string;
-  decorStyle: string;
-  font: string;
-  colors: string[];
-  slideCount: number;
-};
+// Здесь был Template: раскладка, сценарий, декор, шрифт, цвета и число слайдов,
+// которые галочка «Сохранить как шаблон» писала на рубрику. Механизм убран
+// (2026-09-11): стиль серии и так держат цвета рубрики и carouselRecipe с
+// референсов, а второй способ хранить то же самое при генерации не читался вовсе.
 
 export type SlideContent = {
   text: string;

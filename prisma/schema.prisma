@@ -132,28 +132,10 @@ model Rubric {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  templates      RubricTemplate[]
   works          Work[]
   files          FileAsset[]
 
   @@index([userId])
-}
-
-model RubricTemplate {
-  id         String         @id @default(cuid())
-  rubricId   String
-  rubric     Rubric         @relation(fields: [rubricId], references: [id], onDelete: Cascade)
-  format     CreativeFormat
-  layout     String
-  scenario   String
-  decorStyle String
-  font       String
-  colors     Json
-  slideCount Int
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-
-  @@unique([rubricId, format])
 }
 
 model Work {

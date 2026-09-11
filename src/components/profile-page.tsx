@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Pencil, Trash2, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Check, LogOut, Pencil, Trash2, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { generationsGenitive } from "@/lib/plural";
 import { SUPPORT_EMAIL } from "@/lib/legal";
-import { NICHES, TONES, SUBSCRIPTION_TIERS, FORMAT_LABELS } from "@/lib/types";
+import { NICHES, TONES, SUBSCRIPTION_TIERS } from "@/lib/types";
 import { useRubricManage } from "@/components/rubric-manage";
 
 export function ProfilePage() {
   const store = useStore();
+  const router = useRouter();
   const { openDelete } = useRubricManage();
   const [editingRubric, setEditingRubric] = useState<string | null>(null);
   const [rubricName, setRubricName] = useState("");
@@ -16,17 +19,32 @@ export function ProfilePage() {
   const [tone, setTone] = useState(store.user?.tone || "");
   const [niche, setNiche] = useState(store.user?.niche || "");
   const [colors, setColors] = useState<string[]>(store.user?.colors || ["#ff5c35", "#ffc857", "#f6f1e9", "#191817"]);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   if (!store.user) return null;
 
-  function saveProfile() {
-    void store.updateProfile({
-      audience: audience || undefined,
-      tone: tone || undefined,
-      niche,
-      colors,
-      profileCompleted: true,
-    });
+  async function saveProfile() {
+    setSaving(true);
+    setSaveError("");
+    try {
+      await store.updateProfile({
+        audience: audience || undefined,
+        tone: tone || undefined,
+        niche,
+        colors,
+        profileCompleted: true,
+      });
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2500);
+    } catch (caught) {
+      setSaveError(
+        caught instanceof Error ? caught.message : "Не удалось сохранить. Попробуйте ещё раз.",
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   function startEditRubric(id: string) {
@@ -51,7 +69,9 @@ export function ProfilePage() {
       </div>
 
       <section className="profile-section">
-        <h2>Бренд-анкета</h2>
+        {/* «Бренд-анкета» — слово из нашего словаря, а не из словаря автора блога. */}
+        <h2>О вашем блоге</h2>
+        <p className="muted">Модель опирается на эти поля, когда пишет текст и подбирает картинку.</p>
         <div className="profile-form">
           <div className="field">
             <label>Email</label>
@@ -96,7 +116,12 @@ export function ProfilePage() {
               ))}
             </div>
           </div>
-          <button className="btn-primary" onClick={saveProfile}>Сохранить изменения</button>
+          {/* Раньше после нажатия на экране не менялось ничего, и человек жал
+              кнопку повторно, не понимая, сохранилось ли. */}
+          <button className="btn-primary" onClick={() => void saveProfile()} disabled={saving}>
+            {saving ? "Сохраняем…" : saved ? "Сохранено" : "Сохранить изменения"}
+          </button>
+          {saveError && <p className="flow-error" role="alert">{saveError}</p>}
         </div>
       </section>
 
@@ -106,7 +131,7 @@ export function ProfilePage() {
           <div className="sub-current">
             <Sparkles size={16} />
             <span>Текущий план: <b>{SUBSCRIPTION_TIERS.find((t) => t.tier === store.subscription.tier)?.label || "Бесплатно"}</b></span>
-            <span className="sub-remaining">{remaining} из {total} генераций</span>
+            <span className="sub-remaining">Осталось {remaining} из {total} {generationsGenitive(total)}</span>
           </div>
         </div>
         <div className="pricing-grid compact">
@@ -116,7 +141,7 @@ export function ProfilePage() {
               <b>{tier.priceRub} ₽ <span>/ нед.</span></b>
               <p>{tier.description}</p>
               <button className="btn-secondary btn-sm" disabled>
-                {store.subscription.tier === tier.tier ? "Текущий" : "Скоро оплата"}
+                {store.subscription.tier === tier.tier ? "Текущий" : "Откроется позже"}
               </button>
             </div>
           ))}
@@ -130,7 +155,7 @@ export function ProfilePage() {
       <section className="profile-section">
         <h2>Рубрики</h2>
         {store.rubrics.length === 0 ? (
-          <p className="muted">Рубрик пока нет. Создайте первую при создании контента.</p>
+          <p className="muted">Рубрик пока нет. Первая появится, когда вы начнёте первую работу.</p>
         ) : (
           <div className="rubric-manage-list">
             {store.rubrics.map((r) => (
@@ -144,9 +169,6 @@ export function ProfilePage() {
                   <>
                     <div>
                       <b>{r.name}</b>
-                      {r.templates && (
-                        <small>Шаблоны: {Object.keys(r.templates).map((f) => FORMAT_LABELS[f as keyof typeof FORMAT_LABELS]).join(", ")}</small>
-                      )}
                     </div>
                     <div className="rubric-manage-actions">
                       <button type="button" onClick={() => startEditRubric(r.id)}><Pencil size={14} /></button>
@@ -158,6 +180,22 @@ export function ProfilePage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* На телефоне боковая панель скрыта (globals.css, max-width: 768px), а в
+          таббаре выхода нет — до этой кнопки выйти из аккаунта с телефона было нечем. */}
+      <section className="profile-section">
+        <h2>Аккаунт</h2>
+        <p className="muted">
+          Удалить аккаунт вместе с работами и файлами можно по письму в поддержку:{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+        </p>
+        <button
+          className="btn-secondary"
+          onClick={async () => { await store.logout(); router.push("/"); }}
+        >
+          <LogOut size={14} /> Выйти из аккаунта
+        </button>
       </section>
     </div>
   );

@@ -16,7 +16,7 @@ function VerifyInner() {
     const token = params.get("token");
     if (!token) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setError("В ссылке нет токена");
+      setError("Ссылка скопировалась не целиком — в ней нет кода подтверждения. Откройте ссылку из письма ещё раз, полностью.");
       return;
     }
     void fetch(`/api/auth/verify?token=${encodeURIComponent(token)}`, { credentials: "include" })
@@ -26,7 +26,13 @@ function VerifyInner() {
         await store.refresh();
         router.push("/dashboard");
       })
-      .catch((err: Error) => setError(err.message));
+      // Сюда падает и обрыв связи: без этой ветки на русский экран выводилось
+      // браузерное «Failed to fetch».
+      .catch((err: Error) => setError(
+        err instanceof TypeError
+          ? "Не получилось связаться с сервером. Проверьте интернет и откройте ссылку из письма ещё раз."
+          : err.message,
+      ));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params, router]);
 
@@ -42,7 +48,7 @@ function VerifyInner() {
           <span><Sparkles size={16} /></span>
           <b>postvmeste.ru</b>
         </Link>
-        <h1>{error ? "Не получилось" : "Подтверждаем почту…"}</h1>
+        <h1>{error ? "Почта не подтвердилась" : "Подтверждаем почту…"}</h1>
         <p className="auth-subtitle">{error || "Секунду, открываем студию."}</p>
         {error && <Link href="/auth" className="btn-primary btn-full">Ко входу</Link>}
       </div>

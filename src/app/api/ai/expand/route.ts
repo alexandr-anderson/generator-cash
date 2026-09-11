@@ -1,5 +1,6 @@
 import { expandCarouselSlides } from "@/lib/ai-copy";
 import { authed, json } from "@/lib/http";
+import { SUPPORT_EMAIL } from "@/lib/legal";
 import { AiError } from "@/lib/openai";
 import { notifyGenerationFailure } from "@/lib/alerts";
 import { consumeGeneration, quotaAvailable } from "@/lib/quota";
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
   const { user, error } = await authed();
   if (error) return error;
   if (!user.emailVerifiedAt) {
-    return json({ error: "Подтвердите почту, чтобы создавать работы" }, 403);
+    return json({ error: `Почта ещё не подтверждена: откройте ссылку из письма, которое пришло при регистрации. Если письма нет, напишите на ${SUPPORT_EMAIL}.` }, 403);
   }
 
   const limited = rateLimit("ai", user.id, RATE_RULES.ai);
@@ -35,8 +36,8 @@ export async function POST(request: Request) {
   if (!topic) return json({ error: "Введите тему" }, 400);
   if (!scenario || !SCENARIO_NAMES.has(scenario)) return json({ error: "Выберите сценарий" }, 400);
   if (!firstSlide) return json({ error: "Нет текста первого слайда" }, 400);
-  if (topic.length > 240 || firstSlide.length > 240) return json({ error: "Слишком длинный текст" }, 400);
-  if (text.length > 5000) return json({ error: "Текст слишком длинный" }, 400);
+  if (topic.length > 240 || firstSlide.length > 240) return json({ error: "Тема или первый слайд длиннее 240 символов. Сократите их." }, 400);
+  if (text.length > 5000) return json({ error: "Текст длиннее 5000 символов. Укоротите его." }, 400);
 
   // Taken last, so no validation branch can return while holding it.
   if (!acquireSlot(user.id)) return busyResponse();

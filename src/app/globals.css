@@ -432,6 +432,8 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 .pricing-amount i { font-style: normal; font-size: 13px; color: var(--muted); font-weight: 400; }
 .pricing-gen { font-size: 13.5px; font-weight: 300; }
 .pricing-state {
+.pricing-note { margin-top: 20px; text-align: center; font-size: 13px; color: var(--muted); }
+.pricing-note a { color: var(--accent-text); font-weight: 600; }
   margin-top: auto; padding-top: 14px; border-top: 1px solid var(--hair);
   font-size: 12px; color: var(--muted); font-weight: 300;
 }
@@ -468,6 +470,12 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 .landing-footer-nav { display: flex; flex-wrap: wrap; gap: 14px; }
 .landing-footer a { color: var(--muted); }
 .landing-footer a:hover { color: var(--ink); }
+/* Обязательная отметка про Meta: нужна, но не должна тянуть на себя внимание. */
+.landing-footer-note {
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 11px; line-height: 1.5; opacity: 0.75;
+}
 
 .legal-doc {
   max-width: 720px;
@@ -509,6 +517,8 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 .auth-subtitle { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
 .auth-form { display: grid; gap: 0; }
 .auth-error { background: var(--danger-soft); color: var(--danger); padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
+/* Подтверждение успеха рядом с .auth-error: тот же размер, но спокойный тон. */
+.auth-note { background: var(--soft-accent); color: var(--accent-text); padding: 8px 12px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; }
 .auth-switch { text-align: center; margin-top: 20px; font-size: 12px; color: var(--muted); }
 .auth-switch button { background: none; border: none; color: var(--accent); font-weight: 600; }
 .consent-row {
@@ -600,6 +610,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 .gen-card-label { color: var(--accent-text); font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
 .gen-card strong { font-size: 20px; display: block; margin-top: 8px; color: var(--ink); }
 .gen-card > span { color: var(--muted); font-size: 10px; }
+.gen-card-note { display: block; margin-top: 8px; color: var(--muted); font-size: 10px; line-height: 1.4; }
 .gen-bar { background: var(--surface-muted); border-radius: 8px; height: 4px; overflow: hidden; margin-top: 8px; }
 .gen-bar > div { background: linear-gradient(90deg, var(--accent), var(--spark)); height: 100%; border-radius: 8px; transition: width 0.3s; }
 

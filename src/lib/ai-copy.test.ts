@@ -107,7 +107,7 @@ describe("composeReelFromHooks", () => {
       hooks: ["Хватит украшать пустое", "Дыру в оффере не закроет визуал", "Сначала смысл"],
       caption: "Сначала смысл оффера, потом картинка.",
     });
-    expect(copy.scenarios.map((item) => item.name)).toEqual(["Провокация", "Дыра", "Обещание"]);
+    expect(copy.scenarios.map((item) => item.name)).toEqual(["Провокация", "Недосказанность", "Обещание"]);
     expect(copy.scenarios.every((item) => item.slides.length === 1)).toBe(true);
     expect(copy.caption).toBe("Сначала смысл оффера, потом картинка.");
     expect(copy.reelScript).toBeUndefined();

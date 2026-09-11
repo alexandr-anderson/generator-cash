@@ -1,18 +1,25 @@
+import { pluralRu } from "./plural";
+
 export const DETACHED_RUBRIC_LABEL = "Без рубрики";
 
 export function worksCountLabel(count: number) {
-  const abs = Math.abs(count) % 100;
-  const last = abs % 10;
-  if (abs > 10 && abs < 20) return `${count} работ`;
-  if (last === 1) return `${count} работа`;
-  if (last >= 2 && last <= 4) return `${count} работы`;
-  return `${count} работ`;
+  return `${count} ${pluralRu(count, "работа", "работы", "работ")}`;
 }
 
+/**
+ * Последний экран перед необратимым действием, поэтому он называет всё, что уходит.
+ *
+ * По схеме вместе с рубрикой каскадом удаляются её шаблоны (до трёх, по одному на
+ * формат — отсюда множественное число), цвета и снятый с референсов carouselRecipe.
+ * Работы не удаляются: Work.rubricId ставится в null. Сами файлы референсов тоже
+ * остаются (FileAsset.rubricId — onDelete: SetNull), поэтому «референсы удалятся»
+ * было бы неправдой: из рубрики они пропадают, с сервера — нет.
+ */
 export function deleteRubricCopy(name: string, works: number) {
+  const tail = "Цвета, шаблоны и снятый с референсов стиль пропадут вместе с ней. Отменить нельзя.";
   if (works <= 0) {
-    return `«${name}» исчезнет из списка. Шаблон и стиль серии удалятся.`;
+    return `«${name}» исчезнет из списка. ${tail}`;
   }
-  const remain = works === 1 ? "останется" : "останутся";
-  return `«${name}» исчезнет из списка. ${worksCountLabel(works)} ${remain} в архиве без рубрики. Шаблон и стиль серии удалятся.`;
+  const remain = pluralRu(works, "останется", "останутся", "останутся");
+  return `«${name}» исчезнет из списка. ${worksCountLabel(works)} ${remain} в архиве без рубрики. ${tail}`;
 }

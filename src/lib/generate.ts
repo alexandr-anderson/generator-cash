@@ -15,13 +15,19 @@ const SCENARIOS = SCENARIO_SPECS.map((spec, index) => ({
 const LAYOUTS: CreativeLayout[] = ["poster", "band", "centered"];
 
 
+/**
+ * Запасная раскладка, когда модель не вернула сценарии: текст пользователя режется
+ * по предложениям. Пустой слайд здесь лучше заглушки: «Мысль 3» выглядит как
+ * готовый текст, её легко не заметить и выложить под своим именем, а пустое поле
+ * человек в редакторе увидит сразу.
+ */
 function generateSlideTexts(topic: string, text: string, scenario: typeof SCENARIOS[0]): string[] {
   const sentences = text.split(/[.!?]+/).map((s) => s.trim()).filter(Boolean);
   return scenario.structure.map((type, i) => {
     if (type === "hook") return topic;
     if (type === "cta") return "Сохраните, чтобы не потерять →";
-    if (type === "amplify") return sentences[Math.min(i, sentences.length - 1)] || "Попробуйте сегодня";
-    return sentences[Math.min(i - 1, sentences.length - 1)] || `Мысль ${i}`;
+    if (type === "amplify") return sentences[Math.min(i, sentences.length - 1)] || "";
+    return sentences[Math.min(i - 1, sentences.length - 1)] || "";
   });
 }
 
@@ -141,16 +147,6 @@ function generateHashtags(topic: string, niche: string): string[] {
   return all.map((t) => `#${t}`);
 }
 
-export function generateText(topic: string, niche: string, tone?: string): string {
-  const toneLabel = tone || "спокойный и уверенный";
-  return [
-    `${topic} — тема, которая волнует многих.`,
-    `Как эксперт в области «${niche}», я часто вижу одни и те же вопросы.`,
-    `Давайте разберём основные моменты.`,
-    `Первое, на что стоит обратить внимание — это базовые принципы.`,
-    `Второе — практическое применение в вашей ситуации.`,
-    `Третье — типичные ошибки, которых можно избежать.`,
-    `И наконец, конкретный план действий, который вы можете начать прямо сейчас.`,
-    `Тон: ${toneLabel}.`,
-  ].join(" ");
-}
+// Здесь была generateText — шаблонный абзац «тема, которая волнует многих» со
+// строкой «Тон: спокойный и уверенный.» в конце, похожей на утёкшую служебную
+// инструкцию. Функция не вызывалась нигде: текст пишет модель (ai-copy.ts).

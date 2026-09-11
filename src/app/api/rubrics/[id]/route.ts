@@ -27,7 +27,7 @@ export async function PATCH(request: Request, { params }: Params) {
   const rubric = await prisma.rubric.update({
     where: { id },
     data,
-    include: { templates: true, files: true },
+    include: { files: true },
   });
   return json({ rubric: toRubric(rubric) });
 }

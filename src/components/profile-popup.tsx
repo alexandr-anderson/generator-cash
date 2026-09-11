@@ -25,8 +25,12 @@ export function ProfilePopup({ onClose }: { onClose: () => void }) {
     <div className="popup-overlay" onClick={onClose}>
       <div className="popup-card" onClick={(e) => e.stopPropagation()}>
         <button className="popup-close" onClick={onClose}><X size={18} /></button>
-        <h2>Дополните профиль</h2>
-        <p className="popup-subtitle">Это улучшит генерации. Все поля необязательны.</p>
+        {/* Окно всплывает ровно после первой сохранённой работы (dashboard-shell),
+            поэтому заголовок называет момент, а не требует анкету с порога. */}
+        <h2>Первая работа сохранена</h2>
+        <p className="popup-subtitle">
+          Аудитория, тон и цвета — чтобы следующие были ближе к вашему стилю. Можно заполнить не всё.
+        </p>
 
         <div className="field">
           <label>Кто ваша аудитория?</label>
@@ -50,7 +54,7 @@ export function ProfilePopup({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="field">
-          <label>Основные цвета (до 4)</label>
+          <label>Основные цвета</label>
           <div className="color-inputs">
             {colors.map((c, i) => (
               <input
@@ -68,7 +72,9 @@ export function ProfilePopup({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="popup-actions">
-          <button className="btn-secondary" onClick={onClose}>Пропустить</button>
+          {/* onClose помечает окно показанным навсегда, так что «Пропустить»
+              обещало «спросим позже», которого не будет. Называем место, где поля живут. */}
+          <button className="btn-secondary" onClick={onClose}>Заполню в профиле</button>
           <button className="btn-primary" onClick={save}>Сохранить</button>
         </div>
       </div>

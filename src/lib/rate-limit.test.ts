@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkLimit, pruneStore, type RateLimitStore } from "./rate-limit";
+import { checkLimit, pruneStore, retryAfterLabel, type RateLimitStore } from "./rate-limit";
 
 const RULE = { limit: 3, windowMs: 1000 };
 
@@ -68,5 +68,16 @@ describe("pruneStore", () => {
 
     expect(s.has("old")).toBe(false);
     expect(s.get("fresh")).toEqual([900]);
+  });
+});
+
+describe("retryAfterLabel", () => {
+  it("говорит, сколько ждать, вместо расплывчатого «позже»", () => {
+    expect(retryAfterLabel(30)).toBe("минуту");
+    expect(retryAfterLabel(90)).toBe("минуту");
+    expect(retryAfterLabel(300)).toBe("5 минут");
+    expect(retryAfterLabel(120)).toBe("2 минуты");
+    expect(retryAfterLabel(3600)).toBe("час");
+    expect(retryAfterLabel(7200)).toBe("2 часа");
   });
 });

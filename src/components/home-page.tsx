@@ -3,9 +3,11 @@
 import { Plus, Sparkles, ChevronRight, Layers3, Image as ImageIcon, Video } from "lucide-react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { FORMAT_LABELS } from "@/lib/types";
+import { generationsGenitive } from "@/lib/plural";
+import { worksCountLabel } from "@/lib/rubric-copy";
 import { WorkThumb } from "@/components/work-thumb";
 import { RubricOverflow } from "@/components/rubric-manage";
+import { FORMAT_LABELS } from "@/lib/types";
 
 const formatIcons = {
   carousel: Layers3,
@@ -24,19 +26,23 @@ export function HomePage() {
     <div className="home-page">
       <div className="home-header">
         <div>
-          <h1>Привет, {store.user.email.split("@")[0]}</h1>
+          {/* Имени в базе нет, раньше сюда подставлялся кусок почты: «Привет,
+              alexandrriver8» читается как строка из лога, а не как обращение. */}
+          <h1>Привет!</h1>
           <p className="home-niche">{store.user.niche}</p>
         </div>
         <div className="gen-counter">
           <Sparkles size={16} />
-          <span><b>{remaining}</b> из {total} генераций</span>
+          <span>Осталось <b>{remaining}</b> из {total} {generationsGenitive(total)}</span>
         </div>
       </div>
 
       <section className="home-section">
         <div className="section-header">
           <h2>Мои рубрики</h2>
-          <Link href="/dashboard/create" className="section-link">Все <ChevronRight size={14} /></Link>
+          {/* Раньше «Все» вело в /dashboard/create — то есть на первый шаг мастера,
+              а не к списку рубрик. Список с переименованием и удалением — в профиле. */}
+          <Link href="/dashboard/profile" className="section-link">Все <ChevronRight size={14} /></Link>
         </div>
         <div className="rubric-scroll">
           {store.rubrics.map((r) => (
@@ -48,11 +54,10 @@ export function HomePage() {
                   ))}
                 </div>
                 <b>{r.name}</b>
-                <small>
-                  {r.templates
-                    ? Object.keys(r.templates).map((f) => FORMAT_LABELS[f as keyof typeof FORMAT_LABELS]).join(", ")
-                    : "Нет шаблонов"}
-                </small>
+                {/* Было перечисление форматов шаблона, а у новой рубрики — «Нет шаблонов»:
+                    слово «шаблон» человек впервые встречал здесь, в виде отрицания, и
+                    читал его как недоделку. Сколько работ в рубрике — понятнее и правда. */}
+                <small>{worksCountLabel(store.archive.filter((item) => item.rubricId === r.id).length)}</small>
               </Link>
               <RubricOverflow rubric={r} />
             </article>
@@ -74,7 +79,7 @@ export function HomePage() {
             <div className="empty-state-sky" aria-hidden />
             <div className="empty-state-content glass">
               <p>Здесь появятся ваши работы</p>
-              <Link href="/dashboard/create" className="btn-primary">Создать первый контент</Link>
+              <Link href="/dashboard/create" className="btn-primary">Создать первую работу</Link>
             </div>
           </div>
         ) : (

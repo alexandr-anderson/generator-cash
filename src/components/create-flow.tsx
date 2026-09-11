@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   Archive,
   ArrowLeft,
@@ -19,6 +19,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { SUPPORT_EMAIL } from "@/lib/legal";
 import { RubricOverflow } from "@/components/rubric-manage";
 import {
   FORMAT_LABELS,
@@ -27,7 +28,6 @@ import {
   type CreativeWork,
   type Rubric,
   type SlideContent,
-  type Template,
 } from "@/lib/types";
 import { applySlideTexts, generateVariants } from "@/lib/generate";
 import { captionTxt, textFileBlob } from "@/lib/export-package";
@@ -42,7 +42,9 @@ type Step = "format" | "rubric" | "topic" | "text" | "variants" | "editor";
 type RetryAction = "generate" | "expand";
 
 const FORMAT_OPTIONS: { id: CreativeFormat; icon: typeof Layers3; color: string; blurb: string }[] = [
-  { id: "carousel", icon: Layers3, color: "#ff5c35", blurb: "7 слайдов после выбора сценария" },
+  // «Сценарий» в продукте уже занят значением «текст для съёмки» («Сценарий ролика
+  // не пишем»), а свой выбор человек везде видит как «заход».
+  { id: "carousel", icon: Layers3, color: "#ff5c35", blurb: "Семь слайдов после выбора захода" },
   { id: "post", icon: ImageIcon, color: "#3b82f6", blurb: "Три картинки к вашей подписи" },
   { id: "reel", icon: Video, color: "#8b5cf6", blurb: "Обложка для сетки и поиска. Ролик не снимаем" },
 ];
@@ -83,7 +85,6 @@ function FlowErrorBanner({
 
 export function CreateFlow() {
   const store = useStore();
-  const router = useRouter();
   const params = useSearchParams();
 
   const [format, setFormat] = useState<CreativeFormat | null>(() => parseFormat(params.get("format")));
@@ -94,6 +95,7 @@ export function CreateFlow() {
   });
   const [newRubricName, setNewRubricName] = useState("");
   const [showNewRubric, setShowNewRubric] = useState(false);
+  const [rubricError, setRubricError] = useState("");
   const [topic, setTopic] = useState(params.get("topic") || "");
   const [userText, setUserText] = useState("");
   const [reelCaptionDraft, setReelCaptionDraft] = useState("");
@@ -108,7 +110,6 @@ export function CreateFlow() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [work, setWork] = useState<CreativeWork | null>(null);
   const [activeSlide, setActiveSlide] = useState(0);
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [expanding, setExpanding] = useState(false);
   const [drafting, setDrafting] = useState(false);
@@ -173,13 +174,29 @@ export function CreateFlow() {
   }
 
   async function createRubric() {
-    if (!newRubricName.trim()) return;
-    const r = await store.addRubric(newRubricName.trim());
-    if (!r) return;
-    setRubricId(r.id);
-    setShowNewRubric(false);
-    setNewRubricName("");
-    setStep("topic");
+    // Раньше обе неудачи были беззвучными: пустое поле — тихий return, упавший
+    // запрос — отклонённый промис в пустоту. Кнопка выглядела сломанной, а
+    // человеческий текст про обрыв связи из store.tsx до экрана не доезжал.
+    if (!newRubricName.trim()) {
+      setRubricError("Введите название");
+      return;
+    }
+    setRubricError("");
+    try {
+      const r = await store.addRubric(newRubricName.trim());
+      if (!r) {
+        setRubricError("Не удалось создать рубрику. Попробуйте ещё раз.");
+        return;
+      }
+      setRubricId(r.id);
+      setShowNewRubric(false);
+      setNewRubricName("");
+      setStep("topic");
+    } catch (caught) {
+      setRubricError(
+        caught instanceof Error ? caught.message : "Не удалось создать рубрику. Попробуйте ещё раз.",
+      );
+    }
   }
 
   async function handleReferenceUpload(fileList: FileList | null) {
@@ -251,7 +268,7 @@ export function CreateFlow() {
 
     const remainingNow = store.getGenerationsRemaining();
     if (remainingNow <= 0) {
-      setError("Генерации закончились. Обновите подписку.");
+      setError(`Генерации закончились. Оплата пока не подключена — тариф меняет поддержка: ${SUPPORT_EMAIL}`);
       setRetryAction(null);
       return;
     }
@@ -306,7 +323,7 @@ export function CreateFlow() {
     }
 
     if (store.getGenerationsRemaining() <= 0) {
-      setError("Генерации закончились. Обновите подписку.");
+      setError(`Генерации закончились. Оплата пока не подключена — тариф меняет поддержка: ${SUPPORT_EMAIL}`);
       setRetryAction(null);
       return;
     }
@@ -353,17 +370,6 @@ export function CreateFlow() {
 
   async function handleSave() {
     if (!work || !rubricId) return;
-    if (saveAsTemplate && format) {
-      const template: Template = {
-        layout: work.layout,
-        scenario: work.eyebrow,
-        decorStyle: "geometric",
-        font: "Arial",
-        colors: [work.background, work.foreground, work.accent],
-        slideCount: work.slides.length,
-      };
-      await store.saveTemplate(rubricId, format, template);
-    }
     if (rubricId && colors.length) {
       await store.updateRubric(rubricId, { colors });
     }
@@ -391,9 +397,13 @@ export function CreateFlow() {
           zip.file(captionFile.name, captionFile.blob);
           downloadBlob(await zip.generateAsync({ type: "blob" }), "carousel.zip");
         } else {
-          for (const [i, file] of files.entries()) {
+          // Раньше в телефонном режиме уезжали только картинки: caption.txt
+          // клался лишь в ZIP, и человек оставался без подписи и хештегов,
+          // ради которых и ждал генерацию. Восстановить их после ухода со
+          // страницы уже нельзя.
+          for (const [i, file] of [...files, captionFile].entries()) {
             downloadBlob(file.blob, file.name);
-            if (i < files.length - 1) {
+            if (i < files.length) {
               await new Promise((resolve) => setTimeout(resolve, 700));
             }
           }
@@ -420,7 +430,7 @@ export function CreateFlow() {
       zip.file(captionFile.name, captionFile.blob);
       downloadBlob(await zip.generateAsync({ type: "blob" }), "post.zip");
     } catch {
-      setError("Ошибка при экспорте. Попробуйте ещё раз.");
+      setError("Не получилось сохранить и скачать. Попробуйте ещё раз — генерация на это не тратится.");
     } finally {
       setExporting(null);
     }
@@ -468,7 +478,7 @@ export function CreateFlow() {
         <div className="flow-step flow-center">
           <div className="flow-heading">
             <h1>Что создаём?</h1>
-            <p>Выберите формат контента</p>
+            <p>Формат можно поменять и дальше — на шаге с темой</p>
           </div>
           <div className="format-grid">
             {FORMAT_OPTIONS.map((f) => (
@@ -489,8 +499,10 @@ export function CreateFlow() {
         <div className="flow-step flow-narrow">
           <button className="flow-back" onClick={() => setStep("format")}><ArrowLeft size={16} /> Назад</button>
           <div className="flow-heading">
-            <h1>Выберите рубрику</h1>
-            <p>Рубрика — серия постов с единым стилем</p>
+            {/* У нового аккаунта рубрик нет вообще: единственное место, где они
+                создаются, — форма ниже. «Выберите» командовало выбрать из пустоты. */}
+            <h1>{store.rubrics.length ? "Выберите рубрику" : "Создайте первую рубрику"}</h1>
+            <p>Рубрика — серия публикаций с одним закреплённым стилем</p>
           </div>
           <div className="rubric-list">
             {store.rubrics.map((r) => (
@@ -503,7 +515,11 @@ export function CreateFlow() {
                   </div>
                   <div>
                     <b>{r.name}</b>
-                    {r.templates?.[format!] && <small className="has-template">Есть шаблон</small>}
+                    {/* Метка «Есть шаблон» обещала, что рубрика стартует не с нуля.
+                        Сохранённый шаблон при генерации не читает никто (см. generate.ts),
+                        так что с меткой и без неё результат одинаковый. Вернуть, когда
+                        шаблон начнёт влиять на сборку. */}
+                    {r.references?.length ? <small className="has-template">Есть референс</small> : null}
                   </div>
                   <ArrowRight size={16} />
                 </button>
@@ -519,15 +535,18 @@ export function CreateFlow() {
               <div className="new-rubric-form">
                 <input
                   value={newRubricName}
-                  onChange={(e) => setNewRubricName(e.target.value)}
-                  placeholder="Название рубрики"
+                  onChange={(e) => { setNewRubricName(e.target.value); setRubricError(""); }}
+                  placeholder="Например: Мифы о похудении"
                   autoFocus
                   onKeyDown={(e) => e.key === "Enter" && createRubric()}
                 />
-                <button className="btn-primary btn-sm" onClick={createRubric}>Создать</button>
-                <button className="btn-secondary btn-sm" onClick={() => setShowNewRubric(false)}>Отмена</button>
+                {/* Не «Создать»: через шаг так называется кнопка, которая тратит
+                    генерацию, а здесь заводится папка и ничего не списывается. */}
+                <button className="btn-primary btn-sm" onClick={createRubric}>Добавить</button>
+                <button className="btn-secondary btn-sm" onClick={() => { setShowNewRubric(false); setRubricError(""); }}>Отмена</button>
               </div>
             )}
+            {rubricError && <p className="flow-error" role="alert">{rubricError}</p>}
           </div>
         </div>
       )}
@@ -539,10 +558,13 @@ export function CreateFlow() {
             <h1>{format === "reel" ? "Тема и обложка" : "Тема и текст"}</h1>
             <p>
               {format === "reel"
-                ? "Тема обязательна. Референс со своего рилса помогает попасть в ваш кадр."
+                ? "Тема обязательна. Остальное по желанию: референс, хук и подпись."
                 : format === "carousel"
-                  ? "Тема обязательна. Референс первого слайда снимем в стиль рубрики."
-                  : "Тема, референсы и текст — модель от них оттолкнётся"}
+                  // Для карусели «Создать» лимит не списывает: consumeGeneration стоит
+                  // в /api/ai/expand. Без этой фразы человек с одной генерацией либо
+                  // боится нажать, либо не понимает, почему счётчик не двинулся.
+                  ? "Тема обязательна. Соберём в два шага по 2–3 минуты, лимит спишется на втором."
+                  : "Тема и текст обязательны. По ним нарисуем три картинки, а сам текст уйдёт в подпись как есть."}
             </p>
           </div>
           {format === "reel" && (
@@ -580,7 +602,14 @@ export function CreateFlow() {
           </div>
 
           <div className="field">
-            <label>Цвета (3–4)</label>
+            <label>Цвета рубрики</label>
+            {/* «(3–4)» обещало выбор количества, которого нет. И главное: handleSave
+                при экспорте делает updateRubric({ colors }) — правка тут молча меняет
+                цвета всей серии, а не одной работы. */}
+            <p className="field-hint">
+              Взяли из рубрики. Если поменяете, после скачивания работы они останутся
+              цветами рубрики по умолчанию.
+            </p>
             <div className="color-picker-row">
               {colors.map((c, i) => (
                 <div key={i} className="color-picker-item">
@@ -596,12 +625,17 @@ export function CreateFlow() {
           </div>
 
           <div className="field">
-            <label>{format === "reel" ? "Референсы" : "Референсы — до 4 картинок"}</label>
-            {format === "reel" && (
-              <p className="field-hint">
-                Лучше стоп-кадр с лицом из своего рилса или чужие обложки, которые нравятся. До 4 картинок.
-              </p>
-            )}
+            <label>Референсы</label>
+            {/* Ограничения сервера (saveUserBuffer: png/jpeg/webp, 8 МБ) не были названы
+                нигде: человек с HEIC или фото на 12 МБ узнавал правило после отказа. */}
+            <p className="field-hint">
+              До 4 картинок, PNG, JPEG или WEBP до 8 МБ.
+              {format === "reel"
+                ? " Лучше стоп-кадр с лицом из своего рилса или чужие обложки, которые нравятся."
+                : format === "post"
+                  ? " Лучше свои фото или картинки в нужном стиле — по ним поймём, какую картинку рисовать."
+                  : ""}
+            </p>
             {format === "carousel" && (
               <p className="field-hint">
                 {rubric?.carouselRecipe
@@ -642,23 +676,32 @@ export function CreateFlow() {
               value={inspirationUrl}
               onChange={(e) => setInspirationUrl(e.target.value)}
               onBlur={saveInspiration}
-              placeholder="Ссылка, откуда вдохновение — необязательно"
+              // Ссылка сохраняется в рубрику и больше нигде не читается: в compose и
+              // ai-image.ts inspirationUrl не передаётся. Не обещаем, что по ней сходят.
+              placeholder="Ссылка на пример — заметка для себя, на генерацию не влияет"
               className="reference-url"
             />
           </div>
 
           <div className="field">
             <label>
-              {format === "post" ? "Подпись поста" : format === "reel" ? "Хук на обложке" : "Опора для карусели"}
+              {format === "post"
+                ? "Подпись поста"
+                : format === "reel"
+                  ? "Хук на обложке"
+                  // «Опора» — внутреннее слово команды; в соседних форматах здесь стоят
+                  // понятные «Подпись поста» и «Хук на обложке».
+                  : "Черновик для карусели — по желанию"}
             </label>
             {format === "reel" && (
               <p className="field-hint">
-                По желанию, 3–6 слов. Если оставить пустым — напишем три хука сами.
+                По желанию, 3–6 слов — длиннее обрежем. Ваш хук станет первым вариантом,
+                ещё два напишем сами. Если оставить пустым — напишем все три.
               </p>
             )}
             {format === "carousel" && (
               <p className="field-hint">
-                Черновик или заметки по желанию. Подпись и хештеги напишем после семёрки — ёмко, не лонгридом.
+                Черновик или заметки по желанию. Подпись и хештеги напишем после семи слайдов — ёмко, не лонгридом.
               </p>
             )}
             <textarea
@@ -666,13 +709,13 @@ export function CreateFlow() {
               value={userText}
               onChange={(e) => setUserText(e.target.value)}
               placeholder={format === "post"
-                ? "Это текст публикации. Его «Создать» уже не будет переписывать"
+                ? "Это текст публикации. Кнопка «Создать» его не перепишет"
                 : format === "reel"
                   ? "Например: Хватит снимать в лоб"
-                  : "Вставьте опору или нажмите «Помочь с текстом»"}
+                  : "Вставьте свои заметки или нажмите «Помочь с текстом»"}
             />
             <button className="btn-secondary btn-sm" onClick={handleGenerateText} disabled={drafting || generating}>
-              <Sparkles size={14} /> {drafting ? "Пишу..." : format === "reel" ? "Предложить хуки" : "Помочь с текстом"}
+              <Sparkles size={14} /> {drafting ? "Пишу…" : format === "reel" ? "Предложить хуки" : "Помочь с текстом"}
             </button>
             {format === "reel" && hookDrafts.length > 0 && (
               <div className="hook-drafts">
@@ -700,7 +743,7 @@ export function CreateFlow() {
                 rows={6}
                 value={reelCaptionDraft}
                 onChange={(e) => setReelCaptionDraft(e.target.value)}
-                placeholder="Вставьте подпись, транскрипт или саммари — или оставьте пустым"
+                placeholder="Например: расшифровка того, что вы говорите в ролике"
               />
             </div>
           )}
@@ -722,25 +765,35 @@ export function CreateFlow() {
                     ? "Рисую три картинки — обычно 2–3 минуты"
                     : format === "reel"
                       ? "Рисую три обложки — обычно 2–3 минуты"
-                    : "Собираю три крючка — обычно 2–3 минуты"
+                    : "Собираю три захода — обычно 2–3 минуты"
                 }
               />
               <span className="flow-warning-note">
                 {format === "carousel"
-                  ? "Не закрывайте вкладку. Дальше будет второй шаг такой же длины — сборка семи слайдов."
-                  : "Не закрывайте вкладку."}
+                  ? "Не закрывайте вкладку. Дальше будет второй шаг такой же длины — сборка семи слайдов, на нём и спишется лимит."
+                  // Для поста и обложки генерация списывается именно здесь
+                  // (compose/route.ts), и до сих пор об этом не говорилось ни слова.
+                  : "Не закрывайте вкладку. Лимит спишется, только если генерация дойдёт до конца."}
               </span>
-              {progress && <span className="flow-progress-text">{progress}</span>}
+              {progress && (
+                <span className="flow-progress-text">Модель отвечает: {progress}</span>
+              )}
             </div>
           )}
 
           {remaining <= 1 && remaining > 0 && (
-            <div className="flow-warning">Осталась {remaining} генерация</div>
+            <div className="flow-warning">
+              Осталась последняя генерация
+              {format === "carousel" ? ". На этом шаге она не спишется — только на сборке слайдов" : ""}
+            </div>
           )}
           {remaining <= 0 && (
+            // Кнопка вела в профиль, где все тарифы выключены с подписью «Скоро
+            // оплата»: обещала выход, а приводила в комнату без двери.
             <div className="flow-error">
-              <AlertCircle size={14} /> Генерации закончились.{" "}
-              <button onClick={() => router.push("/dashboard/profile")} className="link-btn">Обновить подписку</button>
+              <AlertCircle size={14} /> Генерации закончились. Оплата пока не подключена — тариф
+              меняет поддержка:{" "}
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="link-btn">{SUPPORT_EMAIL}</a>
             </div>
           )}
 
@@ -791,7 +844,7 @@ export function CreateFlow() {
             </h1>
             <p>
               {format === "carousel"
-                ? "Сейчас только первый слайд каждого сценария. Семь слайдов, подпись и хештеги соберём после выбора. Лимит спишется тогда."
+                ? "Сейчас только первый слайд каждого захода. Семь слайдов, подпись и хештеги соберём после выбора. Лимит спишется тогда."
                 : format === "post"
                   ? "Три картинки к вашей подписи. Текст публикации уже готов и не меняется."
                   : "Три хука на обложке. Ролик не снимаем — это кадр для сетки и поиска."}
@@ -849,9 +902,11 @@ export function CreateFlow() {
             <div className="flow-warning">
               <ElapsedTimer hint="Собираю семь слайдов, подпись и хештеги — обычно 2–3 минуты" />
               <span className="flow-warning-note">
-                Не закрывайте вкладку. Лимит спишется после успеха.
+                Не закрывайте вкладку. Лимит спишется, только если сборка дойдёт до конца.
               </span>
-              {progress && <span className="flow-progress-text">{progress}</span>}
+              {progress && (
+                <span className="flow-progress-text">Модель пишет: {progress}</span>
+              )}
             </div>
           )}
           <div className="flow-actions">
@@ -895,7 +950,7 @@ export function CreateFlow() {
               {work.format === "reel" && work.slides[activeSlide]?.imageUrl ? (
                 <>
                   <p className="editor-note">
-                    Картинка не переписывается. Хук правите здесь — он должен читаться в центре сетки.
+                    Картинку здесь не поменять. Нужна другая — вернитесь назад и выберите другой вариант, генерация на это не тратится. Хук правьте тут: он должен читаться в сетке профиля.
                   </p>
                   <div className="field">
                     <label>Хук на обложке</label>
@@ -938,7 +993,7 @@ export function CreateFlow() {
                   </div>
                 </>
               ) : work.slides[activeSlide]?.imageUrl ? (
-                <p className="editor-note">Картинка без текста. Править можно подпись и хештеги.</p>
+                <p className="editor-note">На картинке нет текста. Править можно подпись, хештеги — только удалять лишние.</p>
               ) : (
                 <>
               <div className="field">
@@ -989,7 +1044,7 @@ export function CreateFlow() {
                 </label>
                 {work.format === "reel" && (
                   <p className="field-hint">
-                    Свой текст, транскрипт или саммари оставляем как есть. Если поле было пустым — написали по хуку.
+                    Ваш текст или расшифровку ролика оставили как есть. Если поле было пустым — написали подпись по хуку.
                   </p>
                 )}
                 <textarea
@@ -1001,6 +1056,7 @@ export function CreateFlow() {
 
               <div className="field">
                 <label>Хештеги</label>
+                <p className="field-hint">Лишние удаляйте крестиком, добавить свои пока нельзя. Копируются и скачиваются вместе с подписью.</p>
                 <div className="hashtag-list">
                   {work.hashtags.map((h, i) => (
                     <span key={i} className="hashtag-chip">
@@ -1016,11 +1072,19 @@ export function CreateFlow() {
 
               <div className="editor-separator" />
 
-              <label className="template-check">
-                <input type="checkbox" checked={saveAsTemplate} onChange={(e) => setSaveAsTemplate(e.target.checked)} />
-                <span><Check size={12} /></span>
-                Сохранить как шаблон для рубрики
-              </label>
+              {/* handleSave вызывается только изнутри handleExport: ни автосохранения,
+                  ни предупреждения при уходе со страницы нет. До этой строки человек
+                  мог потратить генерацию, ждать три минуты, поправить текст — и уйти
+                  с пустыми руками, ничего об этом не подозревая. */}
+              <p className="editor-note">
+                Работа сохранится, только когда вы её скачаете. Уйдёте со страницы раньше —
+                всё пропадёт.
+              </p>
+
+              {/* Здесь была галочка «Сохранить как шаблон для рубрики». Убрана
+                  (2026-09-11): рубрика и есть шаблон — стиль серии держат её цвета и
+                  carouselRecipe с референсов, а вторая запись того же самого при
+                  генерации не читалась вовсе. */}
             </div>
           </aside>
 
@@ -1042,16 +1106,18 @@ export function CreateFlow() {
                       className="export-icon-btn"
                       onClick={() => void handleExport("zip")}
                       disabled={Boolean(exporting)}
-                      title="Скачать архив"
+                      title="Один ZIP-файл: семь картинок и caption.txt с подписью и хештегами"
                     >
                       <Archive size={16} />
-                      <small>{exporting === "zip" ? "…" : "Архив"}</small>
+                      {/* «Архив» в продукте уже занят разделом меню: кнопка рядом с
+                          «Телефон» читалась как «отправить в мой архив». */}
+                      <small>{exporting === "zip" ? "…" : "ZIP"}</small>
                     </button>
                     <button
                       className="export-icon-btn primary"
                       onClick={() => void handleExport("phone")}
                       disabled={Boolean(exporting)}
-                      title="Скачать на телефон"
+                      title="Семь картинок и подпись по одному файлу — браузер спросит разрешение на несколько загрузок"
                     >
                       <Smartphone size={16} />
                       <small>{exporting === "phone" ? "…" : "Телефон"}</small>
@@ -1059,7 +1125,7 @@ export function CreateFlow() {
                   </div>
                 ) : (
                   <button className="btn-primary btn-sm" onClick={() => void handleExport("zip")} disabled={Boolean(exporting)}>
-                    <Download size={14} /> {exporting ? "Сохраняю…" : "Скачать пакет"}
+                    <Download size={14} /> {exporting ? "Сохраняю…" : "Скачать ZIP"}
                   </button>
                 )}
               </div>

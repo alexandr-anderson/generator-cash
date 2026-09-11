@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { SUPPORT_EMAIL } from "@/lib/legal";
 import { NICHES } from "@/lib/types";
 import Link from "next/link";
 
@@ -22,6 +23,39 @@ function AuthForm() {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [checkEmail, setCheckEmail] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resendNote, setResendNote] = useState("");
+  const [resendError, setResendError] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
+
+  /**
+   * Повторная отправка письма подтверждения. Бэкенд это умел с самого начала
+   * (`mode: "verify"` в /api/auth/forgot), но из интерфейса не вызывался ни разу:
+   * человек без письма упирался в тупик — вторая регистрация на ту же почту
+   * отвечает «Такая почта уже зарегистрирована».
+   */
+  async function resendVerification(to: string) {
+    setResending(true);
+    setResendNote("");
+    setResendError("");
+    try {
+      const response = await fetch("/api/auth/forgot", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: to, mode: "verify" }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({} as { error?: string }));
+        setResendError(data.error || "Письмо не ушло. Попробуйте ещё раз через несколько минут.");
+        return;
+      }
+      setResendNote("Отправили ещё одно письмо. Если и его нет — проверьте «Спам».");
+    } catch {
+      setResendError("Не получилось связаться с сервером. Проверьте интернет и попробуйте ещё раз.");
+    } finally {
+      setResending(false);
+    }
+  }
 
   if (store.user && mode === "login") {
     router.push("/dashboard");
@@ -38,10 +72,25 @@ function AuthForm() {
           </Link>
           <h1>Проверьте почту</h1>
           <p className="auth-subtitle">
-            Мы отправили ссылку на <b>{checkEmail}</b>. Откройте письмо и подтвердите адрес — после этого можно войти.
+            Мы отправили ссылку на <b>{checkEmail}</b>. Нажмите её — она сразу откроет студию,
+            входить отдельно не нужно. Ссылка живёт 48 часов.
           </p>
+          <p className="auth-subtitle">
+            Письма нет через пять минут? Загляните в папку «Спам» и отправьте ссылку ещё раз.
+            Если и это не помогло — напишите на{" "}
+            <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>, откроем доступ вручную.
+          </p>
+          {resendNote && <div className="auth-note">{resendNote}</div>}
+          {resendError && <div className="auth-error">{resendError}</div>}
+          <button
+            className="btn-primary btn-full"
+            disabled={resending}
+            onClick={() => void resendVerification(checkEmail)}
+          >
+            {resending ? "Отправляем…" : "Отправить письмо ещё раз"}
+          </button>
           <button className="btn-secondary btn-full" onClick={() => { setCheckEmail(""); setMode("login"); }}>
-            К входу
+            Ко входу
           </button>
         </div>
       </div>
@@ -51,12 +100,15 @@ function AuthForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setNeedsVerification(false);
     setPending(true);
     try {
       if (mode === "register") {
-        if (!email || !password) return setError("Заполните все поля");
+        if (!email || !password) return setError("Укажите почту и пароль");
         const selectedNiche = niche === "custom" ? customNiche : NICHES.find((n) => n.id === niche)?.label;
-        if (!selectedNiche) return setError("Выберите нишу");
+        // Чип «Своя ниша» уже нажат, поле под ним пустое: «Выберите нишу» спорило бы
+        // с тем, что человек видит на экране.
+        if (!selectedNiche) return setError(niche === "custom" ? "Впишите свою нишу" : "Выберите нишу");
         if (!consent) return setError("Нужно согласие с офертой и политикой");
         if (store.user) await store.logout();
         const result = await store.register(email, password, selectedNiche, true);
@@ -64,9 +116,16 @@ function AuthForm() {
         setCheckEmail(email);
         return;
       }
+      // Без этой проверки пустая форма уходила на сервер и возвращалась с
+      // «Неверная почта или пароль» — обвинением человеку, который ничего не
+      // вводил, плюс потраченная попытка в лимите входа.
+      if (!email || !password) return setError("Введите почту и пароль");
       const result = await store.login(email, password);
       if (!result.ok) {
         setError(result.error || "Неверная почта или пароль");
+        // store.login прокидывает этот флаг с сервера, но до сих пор его никто не читал:
+        // человек с неподтверждённой почтой видел только текст и шёл в поддержку.
+        setNeedsVerification(Boolean(result.needsVerification));
         return;
       }
       router.push("/dashboard");
@@ -85,7 +144,7 @@ function AuthForm() {
 
         <h1>{mode === "register" ? "Создать аккаунт" : "Войти"}</h1>
         <p className="auth-subtitle">
-          {mode === "register" ? "Начните с 5 бесплатных генераций" : "Введите email и пароль"}
+          {mode === "register" ? "Пять генераций бесплатно — карта не нужна" : "Введите email и пароль"}
         </p>
 
         <form onSubmit={handleSubmit} className="auth-form">
@@ -101,6 +160,7 @@ function AuthForm() {
           {mode === "register" && (
             <div className="field">
               <label>Ваша ниша</label>
+              <p className="field-hint">Под неё модель пишет тексты. Поменять можно потом в профиле.</p>
               <div className="niche-grid">
                 {NICHES.map((n) => (
                   <button
@@ -139,13 +199,28 @@ function AuthForm() {
                 onChange={(e) => setConsent(e.target.checked)}
               />
               <span>
-                Соглашаюсь с <Link href="/offer" target="_blank">офертой</Link> и{" "}
-                <Link href="/privacy" target="_blank">политикой конфиденциальности</Link>
+                Соглашаюсь с <Link href="/offer" target="_blank">офертой</Link> и даю согласие на
+                обработку персональных данных по{" "}
+                <Link href="/privacy" target="_blank">политике конфиденциальности</Link>
               </span>
             </label>
           )}
 
           {error && <div className="auth-error">{error}</div>}
+          {needsVerification && (
+            <>
+              {resendNote && <div className="auth-note">{resendNote}</div>}
+              {resendError && <div className="auth-error">{resendError}</div>}
+              <button
+                type="button"
+                className="btn-secondary btn-full"
+                disabled={resending}
+                onClick={() => void resendVerification(email)}
+              >
+                {resending ? "Отправляем…" : "Отправить письмо подтверждения ещё раз"}
+              </button>
+            </>
+          )}
 
           <button type="submit" className="btn-primary btn-full" disabled={pending}>
             {pending ? "Секунду…" : mode === "register" ? "Создать аккаунт" : "Войти"} <ArrowRight size={16} />

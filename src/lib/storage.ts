@@ -25,7 +25,7 @@ export async function saveUserBuffer(input: {
     throw new Error("Можно загрузить только PNG, JPEG или WEBP");
   }
   if (input.buffer.length > MAX_BYTES) {
-    throw new Error("Файл больше 8 МБ");
+    throw new Error("Файл больше 8 МБ. Сожмите картинку и попробуйте снова.");
   }
   return persistBuffer({
     userId: input.userId,

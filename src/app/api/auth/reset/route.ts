@@ -7,11 +7,11 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const token = String(body?.token || "");
   const password = String(body?.password || "");
-  if (password.length < 6) return json({ error: "Пароль минимум 6 символов" }, 400);
+  if (password.length < 6) return json({ error: "Пароль — минимум 6 символов" }, 400);
 
   const row = await prisma.passwordReset.findUnique({ where: { tokenHash: hashToken(token) } });
   if (!row || row.usedAt || row.expiresAt < new Date()) {
-    return json({ error: "Ссылка недействительна или устарела" }, 400);
+    return json({ error: "Ссылка уже использована или устарела — она действует час. Запросите новую: «Забыли пароль?» на странице входа." }, 400);
   }
 
   await prisma.$transaction([
