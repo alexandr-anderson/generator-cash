@@ -606,6 +606,7 @@ input:disabled { background: var(--surface-muted); color: var(--muted); }
 .gen-card-label { color: var(--accent-text); font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
 .gen-card strong { font-size: 20px; display: block; margin-top: 8px; color: var(--ink); }
 .gen-card > span { color: var(--muted); font-size: 10px; }
+.gen-card-note { display: block; margin-top: 8px; color: var(--muted); font-size: 10px; line-height: 1.4; }
 .gen-bar { background: var(--surface-muted); border-radius: 8px; height: 4px; overflow: hidden; margin-top: 8px; }
 .gen-bar > div { background: linear-gradient(90deg, var(--accent), var(--spark)); height: 100%; border-radius: 8px; transition: width 0.3s; }
 

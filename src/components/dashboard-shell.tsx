@@ -43,6 +43,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const remaining = store.getGenerationsRemaining();
   const total = store.total;
   const used = total - remaining;
+  const starter = store.subscription.initialFreeRemaining > 0;
 
   return (
     <RubricManageProvider>
@@ -73,8 +74,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <div className="gen-card">
             <div className="gen-card-label"><Sparkles size={12} /> Генерации</div>
             <strong>{remaining}</strong>
-            <span>из {total} осталось</span>
+            <span>из {total}</span>
             <div className="gen-bar"><div style={{ width: `${total > 0 ? ((total - used) / total) * 100 : 0}%` }} /></div>
+            {/* Знаменатель молча падает с 5 до 1, когда кончаются стартовые
+                (quota.ts: starterBonusTotal). Без этой подписи человек видит «1 из 5»,
+                делает работу и обнаруживает «0 из 1», не понимая, что произошло. */}
+            <small className="gen-card-note">
+              {starter
+                ? "Стартовые. Когда закончатся, начнётся недельный лимит тарифа"
+                : "Недельный лимит тарифа, обновляется через неделю после первой работы"}
+            </small>
           </div>
           <ThemeToggle />
           <button className="dash-nav-item" onClick={async () => { await store.logout(); router.push("/"); }}>

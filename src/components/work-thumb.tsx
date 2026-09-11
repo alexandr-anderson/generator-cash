@@ -1,5 +1,14 @@
 import type { SlideContent } from "@/lib/types";
 
+/**
+ * Текст резался ровно по 50-му символу, посреди слова и без многоточия: в ленте
+ * работ обрывок вроде «Как перестать бояться холодных звонк» читался как битая работа.
+ */
+function clamp(text: string, limit: number) {
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit).trimEnd()}…`;
+}
+
 export function WorkThumb({
   slide,
   topic,
@@ -22,7 +31,7 @@ export function WorkThumb({
   return (
     <div className={`work-thumb ${className || ""}`} style={{ background }}>
       <span style={{ color: slide?.textColor || "#fff" }}>
-        {slide?.text?.slice(0, 50) || topic}
+        {slide?.text ? clamp(slide.text, 50) : topic}
       </span>
     </div>
   );

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Pencil, Trash2, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Check, LogOut, Pencil, Trash2, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { SUPPORT_EMAIL } from "@/lib/legal";
 import { NICHES, TONES, SUBSCRIPTION_TIERS, FORMAT_LABELS } from "@/lib/types";
@@ -9,6 +10,7 @@ import { useRubricManage } from "@/components/rubric-manage";
 
 export function ProfilePage() {
   const store = useStore();
+  const router = useRouter();
   const { openDelete } = useRubricManage();
   const [editingRubric, setEditingRubric] = useState<string | null>(null);
   const [rubricName, setRubricName] = useState("");
@@ -158,6 +160,22 @@ export function ProfilePage() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* На телефоне боковая панель скрыта (globals.css, max-width: 768px), а в
+          таббаре выхода нет — до этой кнопки выйти из аккаунта с телефона было нечем. */}
+      <section className="profile-section">
+        <h2>Аккаунт</h2>
+        <p className="muted">
+          Удалить аккаунт вместе с работами и файлами можно по письму в поддержку:{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+        </p>
+        <button
+          className="btn-secondary"
+          onClick={async () => { await store.logout(); router.push("/"); }}
+        >
+          <LogOut size={14} /> Выйти из аккаунта
+        </button>
       </section>
     </div>
   );

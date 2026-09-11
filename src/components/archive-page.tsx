@@ -27,7 +27,7 @@ export function ArchivePage() {
           <div className="empty-state-sky" aria-hidden />
           <div className="empty-state-content glass">
             <p>Пока ничего нет</p>
-            <Link href="/dashboard/create" className="btn-primary">Создать первый контент</Link>
+            <Link href="/dashboard/create" className="btn-primary">Создать первую работу</Link>
           </div>
         </div>
       ) : (
