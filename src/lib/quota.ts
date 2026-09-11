@@ -1,5 +1,6 @@
 import type { UsageState } from "@prisma/client";
 import { prisma } from "./db";
+import { SUPPORT_EMAIL } from "./legal";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -35,15 +36,15 @@ export function totalFromUsage(usage: UsageState | null | undefined) {
 
 export function quotaAvailable(usage: UsageState | null | undefined) {
   const remaining = remainingFromUsage(usage);
-  if (!usage) return { ok: false as const, remaining: 0, error: "Не нашли ваш счётчик генераций. Перезайдите в аккаунт, а если не поможет — напишите в поддержку." };
-  if (remaining <= 0) return { ok: false as const, remaining: 0, error: "Генерации закончились. Оплата пока не подключена — тариф меняет поддержка." };
+  if (!usage) return { ok: false as const, remaining: 0, error: `Не нашли ваш счётчик генераций. Перезайдите в аккаунт, а если не поможет — напишите на ${SUPPORT_EMAIL}.` };
+  if (remaining <= 0) return { ok: false as const, remaining: 0, error: `Генерации закончились. Оплата пока не подключена — тариф меняет поддержка: ${SUPPORT_EMAIL}` };
   return { ok: true as const, remaining };
 }
 
 export async function consumeGeneration(userId: string) {
   return prisma.$transaction(async (tx) => {
     const usage = await tx.usageState.findUnique({ where: { userId } });
-    if (!usage) return { ok: false as const, remaining: 0, error: "Не нашли ваш счётчик генераций. Перезайдите в аккаунт, а если не поможет — напишите в поддержку." };
+    if (!usage) return { ok: false as const, remaining: 0, error: `Не нашли ваш счётчик генераций. Перезайдите в аккаунт, а если не поможет — напишите на ${SUPPORT_EMAIL}.` };
 
     if (usage.initialFreeRemaining > 0) {
       const next = await tx.usageState.update({
@@ -63,7 +64,7 @@ export async function consumeGeneration(userId: string) {
     }
 
     if (usage.generationsUsed >= usage.generationsPerWeek) {
-      return { ok: false as const, remaining: 0, error: "Генерации закончились. Оплата пока не подключена — тариф меняет поддержка." };
+      return { ok: false as const, remaining: 0, error: `Генерации закончились. Оплата пока не подключена — тариф меняет поддержка: ${SUPPORT_EMAIL}` };
     }
 
     const next = await tx.usageState.update({

@@ -23,7 +23,9 @@ export async function POST(request: Request) {
   const rubricIdHeader = request.headers.get("x-rubric-id");
   const rubricId = rubricIdHeader?.trim() || null;
   const mimeType = request.headers.get("content-type") || "";
-  if (!KINDS.has(kind)) return json({ error: "Можно загрузить только PNG, JPEG или WEBP" }, 400);
+  // Это про x-file-kind (reference/logo/…), а не про формат картинки: формат
+  // проверяет saveUserBuffer, и его сообщение про PNG/JPEG/WEBP уходит ниже.
+  if (!KINDS.has(kind)) return json({ error: "Не удалось определить, что это за файл. Попробуйте ещё раз." }, 400);
 
   // Checked before reading the body: arrayBuffer() would otherwise pull the
   // whole payload into memory before saveUserBuffer gets to reject its size.

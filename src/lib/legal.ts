@@ -9,12 +9,14 @@ export type LegalSection = { title: string; paragraphs: string[] };
  * читателю договора показываем дату, а не то, что выглядит как номер сборки.
  */
 export function legalVersionLabel(version = LEGAL_VERSION) {
-  return new Intl.DateTimeFormat("ru-RU", {
+  const label = new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
     month: "long",
     year: "numeric",
     timeZone: "UTC",
   }).format(new Date(version));
+  // Кикер набран капсом, и хвост «Г.» в нём выглядит как обрубок.
+  return label.replace(/\s*г\.$/, "");
 }
 
 export function parseRegisterConsent(body: unknown) {
