@@ -4,6 +4,7 @@ import { ArrowRight, ImagePlus, Palette, Tag } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { SUBSCRIPTION_TIERS } from "@/lib/types";
+import { SUPPORT_EMAIL } from "@/lib/legal";
 import { PublicFooter } from "@/components/public-shell";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -67,11 +68,10 @@ type RubricStep = { icon: typeof Tag; title: string; example: string; note: stri
  * (uploadReference, снимает композицию через carouselRecipe). Пример — сквозной,
  * одна ниша (нутрициолог).
  *
- * Четвёртого шага, «Шаблон», здесь намеренно нет. Галочка «Сохранить как шаблон
- * для рубрики» пишет запись в базу (saveTemplate), но при сборке её никто не
- * читает: раскладку даёт carouselRecipe из референса, цвета — рубрика и профиль.
- * Обещать на лендинге, что рубрика «стартует с него», значило бы продавать то,
- * чего продукт не делает. Вернуть шаг, когда шаблон начнёт влиять на генерацию.
+ * Четвёртого шага, «Шаблон», здесь нет и не будет: рубрика и есть шаблон. Стиль
+ * серии держат её цвета и carouselRecipe, снятый с референсов; отдельная запись
+ * «шаблон рубрики» была второй копией того же самого и при сборке не читалась —
+ * убрана вместе с моделью RubricTemplate (2026-09-11).
  */
 const RUBRIC_STEPS: RubricStep[] = [
   {
@@ -298,6 +298,15 @@ export function LandingPage() {
               </div>
             ))}
           </div>
+          {/* Три карточки «Откроется позже» без срока и без следующего шага
+              отвечали «приходите потом». Путь есть и он уже работает: тариф
+              поддержка меняет руками — просто об этом знали только те, кто уже
+              зарегистрировался и дошёл до профиля. */}
+          <p className="pricing-note">
+            Нужно больше прямо сейчас? Напишите на{" "}
+            <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> — поднимем лимит вручную,
+            пока касса не открылась.
+          </p>
         </div>
       </section>
 

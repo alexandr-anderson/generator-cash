@@ -23,6 +23,39 @@ function AuthForm() {
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [checkEmail, setCheckEmail] = useState("");
+  const [resending, setResending] = useState(false);
+  const [resendNote, setResendNote] = useState("");
+  const [resendError, setResendError] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false);
+
+  /**
+   * Повторная отправка письма подтверждения. Бэкенд это умел с самого начала
+   * (`mode: "verify"` в /api/auth/forgot), но из интерфейса не вызывался ни разу:
+   * человек без письма упирался в тупик — вторая регистрация на ту же почту
+   * отвечает «Такая почта уже зарегистрирована».
+   */
+  async function resendVerification(to: string) {
+    setResending(true);
+    setResendNote("");
+    setResendError("");
+    try {
+      const response = await fetch("/api/auth/forgot", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: to, mode: "verify" }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({} as { error?: string }));
+        setResendError(data.error || "Письмо не ушло. Попробуйте ещё раз через несколько минут.");
+        return;
+      }
+      setResendNote("Отправили ещё одно письмо. Если и его нет — проверьте «Спам».");
+    } catch {
+      setResendError("Не получилось связаться с сервером. Проверьте интернет и попробуйте ещё раз.");
+    } finally {
+      setResending(false);
+    }
+  }
 
   if (store.user && mode === "login") {
     router.push("/dashboard");
@@ -43,9 +76,19 @@ function AuthForm() {
             входить отдельно не нужно. Ссылка живёт 48 часов.
           </p>
           <p className="auth-subtitle">
-            Письма нет через пять минут? Загляните в папку «Спам», а если и там пусто — напишите
-            на <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>, откроем доступ вручную.
+            Письма нет через пять минут? Загляните в папку «Спам» и отправьте ссылку ещё раз.
+            Если и это не помогло — напишите на{" "}
+            <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>, откроем доступ вручную.
           </p>
+          {resendNote && <div className="auth-note">{resendNote}</div>}
+          {resendError && <div className="auth-error">{resendError}</div>}
+          <button
+            className="btn-primary btn-full"
+            disabled={resending}
+            onClick={() => void resendVerification(checkEmail)}
+          >
+            {resending ? "Отправляем…" : "Отправить письмо ещё раз"}
+          </button>
           <button className="btn-secondary btn-full" onClick={() => { setCheckEmail(""); setMode("login"); }}>
             Ко входу
           </button>
@@ -57,6 +100,7 @@ function AuthForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setNeedsVerification(false);
     setPending(true);
     try {
       if (mode === "register") {
@@ -79,6 +123,9 @@ function AuthForm() {
       const result = await store.login(email, password);
       if (!result.ok) {
         setError(result.error || "Неверная почта или пароль");
+        // store.login прокидывает этот флаг с сервера, но до сих пор его никто не читал:
+        // человек с неподтверждённой почтой видел только текст и шёл в поддержку.
+        setNeedsVerification(Boolean(result.needsVerification));
         return;
       }
       router.push("/dashboard");
@@ -160,6 +207,20 @@ function AuthForm() {
           )}
 
           {error && <div className="auth-error">{error}</div>}
+          {needsVerification && (
+            <>
+              {resendNote && <div className="auth-note">{resendNote}</div>}
+              {resendError && <div className="auth-error">{resendError}</div>}
+              <button
+                type="button"
+                className="btn-secondary btn-full"
+                disabled={resending}
+                onClick={() => void resendVerification(email)}
+              >
+                {resending ? "Отправляем…" : "Отправить письмо подтверждения ещё раз"}
+              </button>
+            </>
+          )}
 
           <button type="submit" className="btn-primary btn-full" disabled={pending}>
             {pending ? "Секунду…" : mode === "register" ? "Создать аккаунт" : "Войти"} <ArrowRight size={16} />

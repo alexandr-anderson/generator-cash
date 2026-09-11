@@ -13,7 +13,8 @@ export default function Support() {
         <p className="legal-kicker">Контакты</p>
         <h1>Поддержка</h1>
         <p className="legal-intro">
-          Пишите на почту — это единственный канал связи. Отвечаем по рабочим дням.
+          Пишите на почту — это единственный канал связи. Обычно отвечаем в течение рабочего дня,
+          в выходные — позже.
         </p>
         <p>
           Почта: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>

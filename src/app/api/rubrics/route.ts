@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
   const rubric = await prisma.rubric.create({
     data: { userId: user.id, name, colors: profileColors },
-    include: { templates: true, files: true },
+    include: { files: true },
   });
   return json({ rubric: toRubric(rubric) });
 }

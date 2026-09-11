@@ -28,7 +28,6 @@ import {
   type CreativeWork,
   type Rubric,
   type SlideContent,
-  type Template,
 } from "@/lib/types";
 import { applySlideTexts, generateVariants } from "@/lib/generate";
 import { captionTxt, textFileBlob } from "@/lib/export-package";
@@ -111,7 +110,6 @@ export function CreateFlow() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [work, setWork] = useState<CreativeWork | null>(null);
   const [activeSlide, setActiveSlide] = useState(0);
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [expanding, setExpanding] = useState(false);
   const [drafting, setDrafting] = useState(false);
@@ -372,17 +370,6 @@ export function CreateFlow() {
 
   async function handleSave() {
     if (!work || !rubricId) return;
-    if (saveAsTemplate && format) {
-      const template: Template = {
-        layout: work.layout,
-        scenario: work.eyebrow,
-        decorStyle: "geometric",
-        font: "Arial",
-        colors: [work.background, work.foreground, work.accent],
-        slideCount: work.slides.length,
-      };
-      await store.saveTemplate(rubricId, format, template);
-    }
     if (rubricId && colors.length) {
       await store.updateRubric(rubricId, { colors });
     }
@@ -1094,13 +1081,10 @@ export function CreateFlow() {
                 всё пропадёт.
               </p>
 
-              <label className="template-check">
-                <input type="checkbox" checked={saveAsTemplate} onChange={(e) => setSaveAsTemplate(e.target.checked)} />
-                <span><Check size={12} /></span>
-                {/* Не «Сохранить»: единственное такое слово на экране стояло у галочки,
-                    которая работу не сохраняет — только оформление рубрики. */}
-                Запомнить оформление как шаблон рубрики
-              </label>
+              {/* Здесь была галочка «Сохранить как шаблон для рубрики». Убрана
+                  (2026-09-11): рубрика и есть шаблон — стиль серии держат её цвета и
+                  carouselRecipe с референсов, а вторая запись того же самого при
+                  генерации не читалась вовсе. */}
             </div>
           </aside>
 

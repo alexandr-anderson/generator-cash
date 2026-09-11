@@ -6,7 +6,7 @@ import { Check, LogOut, Pencil, Trash2, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { generationsGenitive } from "@/lib/plural";
 import { SUPPORT_EMAIL } from "@/lib/legal";
-import { NICHES, TONES, SUBSCRIPTION_TIERS, FORMAT_LABELS } from "@/lib/types";
+import { NICHES, TONES, SUBSCRIPTION_TIERS } from "@/lib/types";
 import { useRubricManage } from "@/components/rubric-manage";
 
 export function ProfilePage() {
@@ -169,9 +169,6 @@ export function ProfilePage() {
                   <>
                     <div>
                       <b>{r.name}</b>
-                      {r.templates && (
-                        <small>Шаблоны: {Object.keys(r.templates).map((f) => FORMAT_LABELS[f as keyof typeof FORMAT_LABELS]).join(", ")}</small>
-                      )}
                     </div>
                     <div className="rubric-manage-actions">
                       <button type="button" onClick={() => startEditRubric(r.id)}><Pencil size={14} /></button>

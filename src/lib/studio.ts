@@ -6,7 +6,7 @@ export async function loadStudio(userId: string) {
     where: { id: userId },
     include: {
       usage: true,
-      rubrics: { include: { templates: true, files: true }, orderBy: { createdAt: "desc" } },
+      rubrics: { include: { files: true }, orderBy: { createdAt: "desc" } },
       works: { include: { rubric: { select: { name: true } } }, orderBy: { createdAt: "desc" } },
     },
   });

@@ -35,16 +35,6 @@ export const DEMO_RUBRICS: Rubric[] = [
     id: RUBRIC_ERRORS,
     name: "Ошибки",
     colors: ["#ff5c35", "#ffc857", "#f6f1e9", "#191817"],
-    templates: {
-      carousel: {
-        layout: "poster",
-        scenario: "Ошибка → Решение → CTA",
-        decorStyle: "geometric",
-        font: "Arial",
-        colors: ["#f6f1e9", "#191817", "#ff5c35"],
-        slideCount: 7,
-      },
-    },
     createdAt: now - 12 * day,
   },
   {

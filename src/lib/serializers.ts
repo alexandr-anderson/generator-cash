@@ -1,7 +1,6 @@
 import type {
   FileAsset,
   Rubric,
-  RubricTemplate,
   UsageState,
   User,
   Work,
@@ -13,7 +12,6 @@ import type {
   Rubric as ClientRubric,
   SlideContent,
   Subscription,
-  Template,
   UserProfile,
 } from "./types";
 import { normalizeCarouselRecipe } from "./carousel-recipe";
@@ -21,7 +19,7 @@ import { remainingFromUsage, totalFromUsage } from "./quota";
 import { DETACHED_RUBRIC_LABEL } from "./rubric-copy";
 import { filePublicPath } from "./storage";
 
-type RubricWith = Rubric & { templates: RubricTemplate[]; files: FileAsset[] };
+type RubricWith = Rubric & { files: FileAsset[] };
 
 export function toUserProfile(user: User, logoId?: string | null): UserProfile {
   const colors = Array.isArray(user.colors) ? (user.colors as string[]) : undefined;
@@ -61,17 +59,6 @@ export function toSubscription(usage: UsageState | null | undefined): Subscripti
 }
 
 export function toRubric(rubric: RubricWith): ClientRubric {
-  const templates: ClientRubric["templates"] = {};
-  for (const item of rubric.templates) {
-    templates[item.format] = {
-      layout: item.layout as Template["layout"],
-      scenario: item.scenario,
-      decorStyle: item.decorStyle,
-      font: item.font,
-      colors: Array.isArray(item.colors) ? (item.colors as string[]) : [],
-      slideCount: item.slideCount,
-    };
-  }
   return {
     id: rubric.id,
     name: rubric.name,
@@ -81,7 +68,6 @@ export function toRubric(rubric: RubricWith): ClientRubric {
       .map((file) => filePublicPath(file.id)),
     inspirationUrl: rubric.inspirationUrl || undefined,
     carouselRecipe: readCarouselRecipe(rubric.carouselRecipe),
-    templates: Object.keys(templates).length ? templates : undefined,
     createdAt: rubric.createdAt.getTime(),
   };
 }

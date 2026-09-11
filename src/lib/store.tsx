@@ -8,7 +8,6 @@ import type {
   CreativeWork,
   Rubric,
   Subscription,
-  Template,
   UserProfile,
 } from "./types";
 import type { ComposedCopy } from "./ai-types";
@@ -35,7 +34,6 @@ type AppActions = {
   addRubric: (name: string) => Promise<Rubric | null>;
   updateRubric: (id: string, updates: Partial<Rubric>) => Promise<void>;
   deleteRubric: (id: string) => Promise<void>;
-  saveTemplate: (rubricId: string, format: CreativeFormat, template: Template) => Promise<void>;
   addWork: (work: CreativeWork) => Promise<ArchiveItem | null>;
   deleteWork: (id: string) => Promise<void>;
   useGeneration: () => Promise<boolean>;
@@ -305,19 +303,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState(applyStudio(payload));
   }, []);
 
-  const saveTemplate = useCallback(async (rubricId: string, format: CreativeFormat, template: Template) => {
-    await api(`/api/rubrics/${rubricId}/template`, {
-      method: "POST",
-      body: JSON.stringify({ format, ...template }),
-    });
-    setState((current) => ({
-      ...current,
-      rubrics: current.rubrics.map((item) =>
-        item.id === rubricId ? { ...item, templates: { ...item.templates, [format]: template } } : item,
-      ),
-    }));
-  }, []);
-
   const addWork = useCallback(async (work: CreativeWork) => {
     const result = await api<{ work: CreativeWork }>("/api/works", {
       method: "POST",
@@ -478,7 +463,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addRubric,
         updateRubric,
         deleteRubric,
-        saveTemplate,
         addWork,
         deleteWork,
         useGeneration,
