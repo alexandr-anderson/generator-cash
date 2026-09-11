@@ -35,15 +35,15 @@ export function totalFromUsage(usage: UsageState | null | undefined) {
 
 export function quotaAvailable(usage: UsageState | null | undefined) {
   const remaining = remainingFromUsage(usage);
-  if (!usage) return { ok: false as const, remaining: 0, error: "Нет данных о лимите" };
-  if (remaining <= 0) return { ok: false as const, remaining: 0, error: "Генерации закончились" };
+  if (!usage) return { ok: false as const, remaining: 0, error: "Не нашли ваш счётчик генераций. Перезайдите в аккаунт, а если не поможет — напишите в поддержку." };
+  if (remaining <= 0) return { ok: false as const, remaining: 0, error: "Генерации закончились. Оплата пока не подключена — тариф меняет поддержка." };
   return { ok: true as const, remaining };
 }
 
 export async function consumeGeneration(userId: string) {
   return prisma.$transaction(async (tx) => {
     const usage = await tx.usageState.findUnique({ where: { userId } });
-    if (!usage) return { ok: false as const, remaining: 0, error: "Нет данных о лимите" };
+    if (!usage) return { ok: false as const, remaining: 0, error: "Не нашли ваш счётчик генераций. Перезайдите в аккаунт, а если не поможет — напишите в поддержку." };
 
     if (usage.initialFreeRemaining > 0) {
       const next = await tx.usageState.update({
@@ -63,7 +63,7 @@ export async function consumeGeneration(userId: string) {
     }
 
     if (usage.generationsUsed >= usage.generationsPerWeek) {
-      return { ok: false as const, remaining: 0, error: "Генерации закончились" };
+      return { ok: false as const, remaining: 0, error: "Генерации закончились. Оплата пока не подключена — тариф меняет поддержка." };
     }
 
     const next = await tx.usageState.update({

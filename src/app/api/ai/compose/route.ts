@@ -2,6 +2,7 @@ import { composePostCopy, composeReelCopy, composeVariantPreviews } from "@/lib/
 import { attachPostImages, attachReelImages } from "@/lib/ai-image";
 import { ensureCarouselRecipe } from "@/lib/ensure-carousel-recipe";
 import { authed, json } from "@/lib/http";
+import { SUPPORT_EMAIL } from "@/lib/legal";
 import { AiError } from "@/lib/openai";
 import { notifyGenerationFailure } from "@/lib/alerts";
 import { consumeGeneration, quotaAvailable } from "@/lib/quota";
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
   const { user, error } = await authed();
   if (error) return error;
   if (!user.emailVerifiedAt) {
-    return json({ error: "Подтвердите почту, чтобы создавать работы" }, 403);
+    return json({ error: `Почта ещё не подтверждена: откройте ссылку из письма, которое пришло при регистрации. Если письма нет, напишите на ${SUPPORT_EMAIL}.` }, 403);
   }
 
   const limited = rateLimit("ai", user.id, RATE_RULES.ai);
@@ -40,9 +41,9 @@ export async function POST(request: Request) {
     : [];
   if (!FORMATS.has(format)) return json({ error: "Выберите формат" }, 400);
   if (!topic) return json({ error: "Введите тему" }, 400);
-  if (topic.length > 240) return json({ error: "Тема слишком длинная" }, 400);
-  if (text.length > 5000) return json({ error: "Текст слишком длинный" }, 400);
-  if (captionSource.length > 8000) return json({ error: "Текст подписи слишком длинный" }, 400);
+  if (topic.length > 240) return json({ error: "Тема длиннее 240 символов. Сократите её до одной фразы." }, 400);
+  if (text.length > 5000) return json({ error: "Текст длиннее 5000 символов. Укоротите его." }, 400);
+  if (captionSource.length > 8000) return json({ error: "Подпись длиннее 8000 символов. Укоротите её." }, 400);
 
   // Taken last, so no validation branch can return while holding it.
   if (!acquireSlot(user.id)) return busyResponse();

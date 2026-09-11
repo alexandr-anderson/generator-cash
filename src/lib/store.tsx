@@ -103,15 +103,15 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
       throw Object.assign(
         new Error(
           response.status >= 500
-            ? "Модель думала слишком долго. Нажмите «Создать» ещё раз."
-            : "Ошибка запроса",
+            ? "Модель думала слишком долго и не ответила. Попробуйте ещё раз."
+            : "Что-то пошло не так. Попробуйте ещё раз.",
         ),
         { status: response.status },
       );
     }
   }
   if (!response.ok) {
-    throw Object.assign(new Error(data.error || "Ошибка запроса"), { status: response.status, data });
+    throw Object.assign(new Error(data.error || "Что-то пошло не так. Попробуйте ещё раз."), { status: response.status, data });
   }
   return data;
 }
@@ -145,11 +145,11 @@ async function apiStream<T>(
 
   if (!response.ok || !response.body) {
     const raw = await response.text();
-    let message = "Ошибка запроса";
+    let message = "Что-то пошло не так. Попробуйте ещё раз.";
     try {
       message = (JSON.parse(raw) as { error?: string }).error || message;
     } catch {
-      if (response.status >= 500) message = "Модель думала слишком долго. Нажмите «Создать» ещё раз.";
+      if (response.status >= 500) message = "Модель думала слишком долго и не ответила. Попробуйте ещё раз.";
     }
     throw Object.assign(new Error(message), { status: response.status });
   }
@@ -170,7 +170,7 @@ async function apiStream<T>(
       return; // одна битая строка не повод терять весь ответ
     }
     if (parsed.type === "delta" && parsed.text) onDelta?.(parsed.text);
-    else if (parsed.type === "error") failure = parsed.error || "Ошибка запроса";
+    else if (parsed.type === "error") failure = parsed.error || "Что-то пошло не так. Попробуйте ещё раз.";
     else if (parsed.type === "result") result = parsed as unknown as T;
   };
 

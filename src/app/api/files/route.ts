@@ -23,12 +23,12 @@ export async function POST(request: Request) {
   const rubricIdHeader = request.headers.get("x-rubric-id");
   const rubricId = rubricIdHeader?.trim() || null;
   const mimeType = request.headers.get("content-type") || "";
-  if (!KINDS.has(kind)) return json({ error: "Неизвестный тип файла" }, 400);
+  if (!KINDS.has(kind)) return json({ error: "Можно загрузить только PNG, JPEG или WEBP" }, 400);
 
   // Checked before reading the body: arrayBuffer() would otherwise pull the
   // whole payload into memory before saveUserBuffer gets to reject its size.
   const declaredSize = Number(request.headers.get("content-length") || 0);
-  if (declaredSize > MAX_UPLOAD_BYTES) return json({ error: "Файл больше 8 МБ" }, 413);
+  if (declaredSize > MAX_UPLOAD_BYTES) return json({ error: "Файл больше 8 МБ. Сожмите картинку и попробуйте снова." }, 413);
 
   if (rubricId) {
     const owned = await prisma.rubric.findFirst({
@@ -42,9 +42,9 @@ export async function POST(request: Request) {
   try {
     buffer = Buffer.from(await request.arrayBuffer());
   } catch {
-    return json({ error: "Не удалось прочитать файл" }, 400);
+    return json({ error: "Не удалось прочитать файл. Попробуйте ещё раз или выберите другую картинку." }, 400);
   }
-  if (!buffer.length) return json({ error: "Нет файла" }, 400);
+  if (!buffer.length) return json({ error: "Файл пришёл пустым. Попробуйте загрузить его ещё раз." }, 400);
 
   try {
     const saved = await saveUserBuffer({ userId: user.id, rubricId, kind, buffer, mimeType });

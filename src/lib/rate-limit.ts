@@ -3,6 +3,8 @@
 // and no external store is needed. Counters reset on restart — acceptable for
 // slowing down brute force and metered-API abuse.
 
+import { pluralRu } from "./plural";
+
 export type RateLimitRule = { limit: number; windowMs: number };
 export type RateLimitStore = Map<string, number[]>;
 
@@ -53,6 +55,16 @@ const STORE: RateLimitStore = new Map();
 const MAX_WINDOW_MS = 60 * 60 * 1000;
 let lastPrunedAt = 0;
 
+/** Секунды до снятия лимита — словами, чтобы человек понял, сколько ждать. */
+export function retryAfterLabel(seconds: number) {
+  if (seconds <= 90) return "минуту";
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) return `${minutes} ${pluralRu(minutes, "минуту", "минуты", "минут")}`;
+  const hours = Math.ceil(minutes / 60);
+  if (hours === 1) return "час";
+  return `${hours} ${pluralRu(hours, "час", "часа", "часов")}`;
+}
+
 export function clientIp(request: Request) {
   // Set by public_html/index.php from REMOTE_ADDR; any client-sent value is
   // stripped there, so this cannot be spoofed by the caller.
@@ -72,8 +84,10 @@ export function rateLimit(scope: string, id: string, rule: RateLimitRule) {
   if (verdict.ok) return null;
 
   const retryAfter = Math.ceil(verdict.retryAfterMs / 1000);
+  // Точное время сервер и так считает — раньше оно уходило только в заголовок,
+  // а человек читал «позже» и не понимал, минуту ждать или час.
   return Response.json(
-    { error: "Слишком много запросов. Попробуйте позже." },
+    { error: `Слишком много попыток подряд. Попробуйте ещё раз через ${retryAfterLabel(retryAfter)}.` },
     { status: 429, headers: { "retry-after": String(retryAfter) } },
   );
 }
@@ -95,7 +109,7 @@ export function releaseSlot(userId: string) {
 
 export function busyResponse() {
   return Response.json(
-    { error: "Предыдущая генерация ещё идёт. Дождитесь её окончания." },
+    { error: "Предыдущая генерация ещё идёт — обычно это 2–3 минуты. Дождитесь её окончания и попробуйте снова." },
     { status: 429, headers: { "retry-after": "30" } },
   );
 }
