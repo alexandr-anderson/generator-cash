@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { SUPPORT_EMAIL } from "@/lib/legal";
 import { NICHES } from "@/lib/types";
 import Link from "next/link";
 
@@ -38,10 +39,15 @@ function AuthForm() {
           </Link>
           <h1>Проверьте почту</h1>
           <p className="auth-subtitle">
-            Мы отправили ссылку на <b>{checkEmail}</b>. Откройте письмо и подтвердите адрес — после этого можно войти.
+            Мы отправили ссылку на <b>{checkEmail}</b>. Нажмите её — она сразу откроет студию,
+            входить отдельно не нужно. Ссылка живёт 48 часов.
+          </p>
+          <p className="auth-subtitle">
+            Письма нет через пять минут? Загляните в папку «Спам», а если и там пусто — напишите
+            на <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>, откроем доступ вручную.
           </p>
           <button className="btn-secondary btn-full" onClick={() => { setCheckEmail(""); setMode("login"); }}>
-            К входу
+            Ко входу
           </button>
         </div>
       </div>
@@ -54,9 +60,11 @@ function AuthForm() {
     setPending(true);
     try {
       if (mode === "register") {
-        if (!email || !password) return setError("Заполните все поля");
+        if (!email || !password) return setError("Укажите почту и пароль");
         const selectedNiche = niche === "custom" ? customNiche : NICHES.find((n) => n.id === niche)?.label;
-        if (!selectedNiche) return setError("Выберите нишу");
+        // Чип «Своя ниша» уже нажат, поле под ним пустое: «Выберите нишу» спорило бы
+        // с тем, что человек видит на экране.
+        if (!selectedNiche) return setError(niche === "custom" ? "Впишите свою нишу" : "Выберите нишу");
         if (!consent) return setError("Нужно согласие с офертой и политикой");
         if (store.user) await store.logout();
         const result = await store.register(email, password, selectedNiche, true);
@@ -64,6 +72,10 @@ function AuthForm() {
         setCheckEmail(email);
         return;
       }
+      // Без этой проверки пустая форма уходила на сервер и возвращалась с
+      // «Неверная почта или пароль» — обвинением человеку, который ничего не
+      // вводил, плюс потраченная попытка в лимите входа.
+      if (!email || !password) return setError("Введите почту и пароль");
       const result = await store.login(email, password);
       if (!result.ok) {
         setError(result.error || "Неверная почта или пароль");
@@ -85,7 +97,7 @@ function AuthForm() {
 
         <h1>{mode === "register" ? "Создать аккаунт" : "Войти"}</h1>
         <p className="auth-subtitle">
-          {mode === "register" ? "Начните с 5 бесплатных генераций" : "Введите email и пароль"}
+          {mode === "register" ? "Пять генераций бесплатно — карта не нужна" : "Введите email и пароль"}
         </p>
 
         <form onSubmit={handleSubmit} className="auth-form">
@@ -101,6 +113,7 @@ function AuthForm() {
           {mode === "register" && (
             <div className="field">
               <label>Ваша ниша</label>
+              <p className="field-hint">Под неё модель пишет тексты. Поменять можно потом в профиле.</p>
               <div className="niche-grid">
                 {NICHES.map((n) => (
                   <button
@@ -139,8 +152,9 @@ function AuthForm() {
                 onChange={(e) => setConsent(e.target.checked)}
               />
               <span>
-                Соглашаюсь с <Link href="/offer" target="_blank">офертой</Link> и{" "}
-                <Link href="/privacy" target="_blank">политикой конфиденциальности</Link>
+                Соглашаюсь с <Link href="/offer" target="_blank">офертой</Link> и даю согласие на
+                обработку персональных данных по{" "}
+                <Link href="/privacy" target="_blank">политике конфиденциальности</Link>
               </span>
             </label>
           )}
