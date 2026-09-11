@@ -1,6 +1,6 @@
 import { PublicShell } from "@/components/public-shell";
 import type { LegalSection } from "@/lib/legal";
-import { LEGAL_VERSION } from "@/lib/legal";
+import { SUPPORT_EMAIL, legalVersionLabel } from "@/lib/legal";
 
 export function LegalPage({
   title,
@@ -14,7 +14,7 @@ export function LegalPage({
   return (
     <PublicShell>
       <article className="legal-doc">
-        <p className="legal-kicker">Версия {LEGAL_VERSION}</p>
+        <p className="legal-kicker">Редакция от {legalVersionLabel()}</p>
         <h1>{title}</h1>
         <p className="legal-intro">{intro}</p>
         {sections.map((section) => (
@@ -25,6 +25,9 @@ export function LegalPage({
             ))}
           </section>
         ))}
+        <p>
+          Вопросы по документу: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+        </p>
       </article>
     </PublicShell>
   );
