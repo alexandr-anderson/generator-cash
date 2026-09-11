@@ -70,7 +70,7 @@ export function RubricManageProvider({ children }: { children: ReactNode }) {
       await store.updateRubric(rename.id, { name: next });
       setRename(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось сохранить");
+      setError(err instanceof Error ? err.message : "Не удалось сохранить. Попробуйте ещё раз.");
     } finally {
       setBusy(false);
     }
@@ -84,7 +84,7 @@ export function RubricManageProvider({ children }: { children: ReactNode }) {
       await store.deleteRubric(remove.id);
       setRemove(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось удалить");
+      setError(err instanceof Error ? err.message : "Не удалось удалить. Попробуйте ещё раз.");
     } finally {
       setBusy(false);
     }
