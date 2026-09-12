@@ -2,6 +2,15 @@ export class AiError extends Error {
   constructor(
     message: string,
     readonly status = 502,
+    /**
+     * Есть ли смысл пробовать следующую модель из списка.
+     *
+     * `false` — причина общая для всех моделей сразу (отклонённый ключ), перебор
+     * только потратит время и замаскирует настоящую проблему. Отдельный признак,
+     * а не проверка `status`: наружу клиенту в этом случае всё равно уходит `502`,
+     * поэтому по коду ответа эти случаи не различить.
+     */
+    readonly retryOnNextModel = true,
   ) {
     super(message);
     this.name = "AiError";
@@ -30,11 +39,33 @@ export function openaiBaseUrl() {
  * Молчаливый дефолт скрывает отсутствие настройки — поэтому его больше нет.
  */
 export function openaiModel() {
-  const model = process.env.OPENAI_MODEL?.trim();
-  if (!model) {
+  return openaiModels()[0];
+}
+
+/**
+ * Модели текста по порядку: первая основная, остальные запасные.
+ * `OPENAI_MODEL` принимает список через запятую, например
+ * `gpt-4.1-mini-free,gpt-4o-free,gpt-4.1-free`.
+ *
+ * Зачем список: модель может исчезнуть у шлюза, оставаясь в его каталоге. У
+ * AiHubMix это `400 no_available_channel`, и 2026-09-13 так отвалились сразу
+ * четыре модели из проверенных (см. п. 34 в docs/work-plan.md). Одна модель в
+ * настройке означает, что такой отказ кладёт генерацию целиком при живом шлюзе
+ * и рабочем ключе.
+ *
+ * Перебираются **только** перечисленные здесь модели — ничего не подбирается из
+ * каталога шлюза само. Это и есть защита от случайной траты денег: на том же
+ * ключе лежат платные модели, но попасть на них можно, только вписав имя руками.
+ */
+export function openaiModels(): string[] {
+  const models = (process.env.OPENAI_MODEL || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (!models.length) {
     throw new AiError("Модель текста не настроена. Задайте OPENAI_MODEL.", 503);
   }
-  return model;
+  return models;
 }
 
 /** Для диагностики: имя модели или пустая строка, без исключения. */
@@ -113,12 +144,68 @@ type ChatJsonArgs = {
   onDelta?: (chunk: string) => void;
 };
 
+/**
+ * Просит текст у всех настроенных моделей по очереди, пока одна не ответит.
+ *
+ * Что НЕ перебирается: `401`/`403`. Ключ один на все модели, и если шлюз его
+ * отклонил, следующая модель ответит тем же. Хуже того, перебор бы это замаскировал:
+ * 2026-09-13 битый ключ в секретах искали час, и «тихий» фейловер сделал бы
+ * диагностику ещё дольше. Поэтому такая ошибка летит наружу сразу.
+ *
+ * Общий бюджет времени (`timeoutMs`) делится на все попытки, а не даётся каждой
+ * заново: у роутов стоит `maxDuration = 300`, и три попытки по 180 с вышли бы
+ * за него — роут умер бы раньше, чем успел ответить.
+ */
 export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
   const key = process.env.OPENAI_API_KEY?.trim();
   if (!key) {
     throw new AiError("Генерация текста ещё не настроена. Задайте OPENAI_API_KEY.", 503);
   }
 
+  const models = openaiModels();
+  const deadline = Date.now() + (args.timeoutMs ?? 180_000);
+  let lastError: AiError | null = null;
+
+  for (let index = 0; index < models.length; index += 1) {
+    const left = deadline - Date.now();
+    if (left <= 0) break;
+
+    try {
+      return await askModelJson<T>(models[index], key, {
+        ...args,
+        timeoutMs: left,
+        // Дельты отдаёт только первая попытка. Клиент копит их через
+        // `progressRaw.current += chunk` (create-flow.tsx), поэтому текст
+        // упавшей модели склеился бы с текстом следующей в кашу.
+        onDelta: index === 0 ? args.onDelta : undefined,
+      });
+    } catch (error) {
+      const failure = error instanceof AiError
+        ? error
+        : new AiError("Не удалось сгенерировать текст. Попробуйте ещё раз.", 502);
+      if (!failure.retryOnNextModel) throw failure;
+
+      lastError = failure;
+      const next = models[index + 1];
+      if (next) {
+        console.error(
+          "[ai] модель не ответила, пробуем следующую",
+          openaiHost(),
+          `${models[index]} → ${next}`,
+          failure.message,
+        );
+      }
+    }
+  }
+
+  throw lastError ?? new AiError("Не удалось сгенерировать текст. Попробуйте ещё раз.", 502);
+}
+
+async function askModelJson<T>(
+  model: string,
+  key: string,
+  args: ChatJsonArgs,
+): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 180_000);
   const jsonMode = args.jsonMode !== false;
@@ -129,7 +216,7 @@ export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
 
   try {
     const response = await postChatTryingVariants(
-      chatBodiesForRequest(messages, jsonMode, args.maxTokens),
+      chatBodies(model, messages, jsonMode, args.maxTokens),
       key,
       controller.signal,
     );
@@ -138,7 +225,7 @@ export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
       const body = await response.text();
       console.error("[ai] error", openaiHost(), response.status, body.slice(0, 400));
       if (response.status === 401 || response.status === 403) {
-        throw new AiError("Ключ модели отклонён. Проверьте OPENAI_API_KEY.", 502);
+        throw new AiError("Ключ модели отклонён. Проверьте OPENAI_API_KEY.", 502, false);
       }
       if (response.status === 429) {
         throw new AiError("Модель временно недоступна. Попробуйте ещё раз через минуту.", 429);
