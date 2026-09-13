@@ -4,6 +4,23 @@ export function telegramConfigured() {
   return Boolean(process.env.TELEGRAM_BOT_TOKEN?.trim());
 }
 
+/**
+ * Что сломано в настройке алертов, или `null`, если всё задано.
+ *
+ * Без `TELEGRAM_CHAT_ID` чат ищется через `getUpdates`, а Telegram хранит их не
+ * дольше суток: через день после Start отправка молча падает. Так алерты не
+ * работали до 2026-09-14 (п. 49 в docs/work-plan.md).
+ */
+export function telegramBootWarning(env: Record<string, string | undefined> = process.env) {
+  if (!env.TELEGRAM_BOT_TOKEN?.trim()) {
+    return "TELEGRAM_BOT_TOKEN не задан — алерты о сбоях генерации отправляться не будут";
+  }
+  if (!env.TELEGRAM_CHAT_ID?.trim()) {
+    return "TELEGRAM_CHAT_ID не задан — алерты перестанут доходить через сутки после Start у бота (getUpdates хранится 24 ч)";
+  }
+  return null;
+}
+
 export function parseTelegramUsername(raw = process.env.TELEGRAM_CHAT) {
   const value = (raw || "").trim().replace(/^@/, "");
   return value || TELEGRAM_ALERTS_USERNAME;

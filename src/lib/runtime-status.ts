@@ -7,6 +7,7 @@ import {
   openaiImageModelOrEmpty,
   openaiModelOrEmpty,
 } from "./openai";
+import { telegramBootWarning } from "./telegram";
 
 export type RuntimeStatus = {
   mailConfigured: boolean;
@@ -47,4 +48,8 @@ export function logBootStatus() {
       status.openaiImageConfigured ? "ok" : "MISSING_OPENAI_IMAGE_API"
     } imageHost=${status.openaiImageHost || "unset"} imageModel=${status.openaiImageModel || "MISSING_OPENAI_IMAGE_MODEL"}`,
   );
+  const telegramWarning = telegramBootWarning();
+  if (telegramWarning) {
+    console.warn(`[boot] !!! АЛЕРТЫ НЕ РАБОТАЮТ: ${telegramWarning}`);
+  }
 }

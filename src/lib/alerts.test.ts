@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { errorText, formatAlertMessage, shouldSendAlert } from "./alerts";
 import { nextUptimeSnapshot, parseHealthPayload } from "./uptime-state";
+import { telegramBootWarning } from "./telegram";
 
 describe("alert cooldown", () => {
   it("allows the first alert and blocks inside the window", () => {
@@ -44,5 +45,14 @@ describe("health payload", () => {
     expect(parseHealthPayload({ ok: false, database: "error", mail: "ok" })).toMatchObject({
       healthy: false,
     });
+  });
+});
+
+describe("telegram boot warning", () => {
+  it("warns when a setting is missing and stays quiet when both are set", () => {
+    expect(telegramBootWarning({})).toContain("TELEGRAM_BOT_TOKEN");
+    expect(telegramBootWarning({ TELEGRAM_BOT_TOKEN: "t" })).toContain("TELEGRAM_CHAT_ID");
+    expect(telegramBootWarning({ TELEGRAM_BOT_TOKEN: "t", TELEGRAM_CHAT_ID: " " })).toContain("TELEGRAM_CHAT_ID");
+    expect(telegramBootWarning({ TELEGRAM_BOT_TOKEN: "t", TELEGRAM_CHAT_ID: "123" })).toBeNull();
   });
 });
