@@ -68,3 +68,6 @@ next-env.d.ts
 # python bytecode cache (скрипты в .cursor/skills)
 __pycache__/
 *.py[cod]
+
+# Playwright MCP output (скриншоты, снапшоты страниц)
+.playwright-mcp/

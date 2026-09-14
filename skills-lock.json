@@ -37,6 +37,12 @@
       "skillPath": "plugins/cartograph/skills/dependency-graph/SKILL.md",
       "computedHash": "743ca276e05d200b370937c1741cf943827f607979c26eefec95a6498dfd02e4"
     },
+    "humanizer": {
+      "source": "Aboudjem/humanizer-skill",
+      "sourceType": "github",
+      "skillPath": "skills/humanizer/SKILL.md",
+      "computedHash": "2597ab5a78b9413db36c569d0b0364ea1ff78be3dd565f033773c067ff8b72de"
+    },
     "workflow-diagram": {
       "source": "athola/claude-night-market",
       "sourceType": "github",
