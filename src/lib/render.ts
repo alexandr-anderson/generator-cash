@@ -218,6 +218,24 @@ function roundRect(
   ctx.closePath();
 }
 
+/**
+ * Картинка поста уходит в ZIP как `post.png`, а запасной шлюз отдаёт JPEG
+ * (п. 50 в docs/work-plan.md). PNG пропускаем как есть, остальное перекодируем.
+ */
+export async function imageBlobToPng(blob: Blob): Promise<Blob> {
+  if (blob.type === "image/png") return blob;
+  const bitmap = await createImageBitmap(blob);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No canvas");
+  ctx.drawImage(bitmap, 0, 0);
+  const png = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!png) throw new Error("PNG export failed");
+  return png;
+}
+
 export async function svgToPngBlob(svg: string): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const image = new Image();

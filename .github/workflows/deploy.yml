@@ -75,6 +75,9 @@ jobs:
           OPENAI_IMAGE_API_KEY: ${{ secrets.OPENAI_IMAGE_API_KEY }}
           OPENAI_IMAGE_BASE_URL: ${{ secrets.OPENAI_IMAGE_BASE_URL }}
           OPENAI_IMAGE_MODEL: ${{ secrets.OPENAI_IMAGE_MODEL }}
+          IMAGE_FALLBACK_API_KEY: ${{ secrets.IMAGE_FALLBACK_API_KEY }}
+          IMAGE_FALLBACK_BASE_URL: ${{ secrets.IMAGE_FALLBACK_BASE_URL }}
+          IMAGE_FALLBACK_MODEL: ${{ secrets.IMAGE_FALLBACK_MODEL }}
         run: |
           SSH_PORT="${SSH_PORT:-22}"
           if [ -z "${OPENAI_API_KEY}" ] && [ -z "${OPENAI_IMAGE_API_KEY}" ]; then
@@ -112,6 +115,17 @@ jobs:
             else
               echo "::warning::OPENAI_IMAGE_MODEL secret is empty - leaving the server value as is"
             fi
+          fi
+          # Запасной шлюз картинок (п. 50). Пишем только полный набор: без ключа,
+          # адреса или модели запасная всё равно не включится.
+          if [ -n "${IMAGE_FALLBACK_API_KEY}" ] && [ -n "${IMAGE_FALLBACK_BASE_URL}" ] && [ -n "${IMAGE_FALLBACK_MODEL}" ]; then
+            {
+              printf 'IMAGE_FALLBACK_BASE_URL=%s\n' "${IMAGE_FALLBACK_BASE_URL}"
+              printf 'IMAGE_FALLBACK_API_KEY=%s\n' "${IMAGE_FALLBACK_API_KEY}"
+              printf 'IMAGE_FALLBACK_MODEL=%s\n' "${IMAGE_FALLBACK_MODEL}"
+            } >> openai-incoming
+          else
+            echo "::warning::IMAGE_FALLBACK_* secrets are incomplete - image fallback stays as on the server"
           fi
           scp -i ~/.ssh/deploy_key -P "${SSH_PORT}" -o BatchMode=yes -o ConnectTimeout=20 \
             openai-incoming "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/.openai-incoming"
