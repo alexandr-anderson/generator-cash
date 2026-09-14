@@ -8,6 +8,7 @@ import {
   openaiImageModelOrEmpty,
   openaiModelOrEmpty,
 } from "./openai";
+import { textProvidersLabel } from "./text-providers";
 import { telegramBootWarning } from "./telegram";
 
 export type RuntimeStatus = {
@@ -49,7 +50,7 @@ export function logBootStatus() {
       status.openaiImageConfigured ? "ok" : "MISSING_OPENAI_IMAGE_API"
     } imageHost=${status.openaiImageHost || "unset"} imageModel=${status.openaiImageModel || "MISSING_OPENAI_IMAGE_MODEL"} imageFallback=${
       imageFallbackLabel() || "off"
-    }`,
+    } textProviders=${textProvidersLabel() || "none"}`,
   );
   const telegramWarning = telegramBootWarning();
   if (telegramWarning) {

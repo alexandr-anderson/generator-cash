@@ -1,3 +1,6 @@
+import { notifyAlert } from "./alerts";
+import { attemptOrder, markUnavailable, textProviders, type TextProvider } from "./text-providers";
+
 export class AiError extends Error {
   constructor(
     message: string,
@@ -196,56 +199,83 @@ type ChatJsonArgs = {
 };
 
 /**
- * Просит текст у всех настроенных моделей по очереди, пока одна не ответит.
+ * Просит текст по цепочке провайдеров (`textProviders` в text-providers.ts): по
+ * моделям внутри провайдера, потом к следующему провайдеру — пока кто-то не ответит.
  *
- * Что НЕ перебирается: `401`/`403`. Ключ один на все модели, и если шлюз его
- * отклонил, следующая модель ответит тем же. Хуже того, перебор бы это замаскировал:
- * 2026-09-13 битый ключ в секретах искали час, и «тихий» фейловер сделал бы
- * диагностику ещё дольше. Поэтому такая ошибка летит наружу сразу.
+ * Отклонённый ключ (`401`/`403`) пропускает оставшиеся модели этого провайдера —
+ * ключ у них общий, — но не всю цепочку: у следующего провайдера свой ключ. Ответ
+ * не от основного провайдера шлёт алерт, чтобы деградация не проходила молча.
  *
- * Общий бюджет времени (`timeoutMs`) делится на все попытки, а не даётся каждой
- * заново: у роутов стоит `maxDuration = 300`, и три попытки по 180 с вышли бы
- * за него — роут умер бы раньше, чем успел ответить.
+ * Упавшая модель уходит в паузу (`markUnavailable`): квота — на 10 минут, сетевой
+ * сбой, таймаут или ошибка шлюза — на минуту. Иначе каждый запрос сначала
+ * упирался бы во все мёртвые модели по очереди.
+ *
+ * Общий бюджет времени (`timeoutMs`) делится на все попытки, а каждой попытке —
+ * не больше `ATTEMPT_TIMEOUT_MS`: одна зависшая модель (glm-4.7-flash думала 64 с)
+ * не должна съедать время, которого хватило бы следующим.
  */
+const ATTEMPT_TIMEOUT_MS = 90_000;
+const QUOTA_PAUSE_MS = 10 * 60_000;
+const FAILURE_PAUSE_MS = 60_000;
+
 export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
-  const key = process.env.OPENAI_API_KEY?.trim();
-  if (!key) {
-    throw new AiError("Генерация текста ещё не настроена. Задайте OPENAI_API_KEY.", 503);
+  const providers = textProviders();
+  if (!providers.length) {
+    throw new AiError("Генерация текста ещё не настроена. Задайте OPENAI_API_KEY и OPENAI_MODEL.", 503);
   }
 
-  const models = openaiModels();
   const deadline = Date.now() + (args.timeoutMs ?? 180_000);
+  const failures: string[] = [];
+  const rejectedProviders = new Set<string>();
   let lastError: AiError | null = null;
+  // Живой текст отдаёт первая попытка, которая начала печатать. Клиент копит
+  // дельты через `progressRaw.current += chunk` (create-flow.tsx): если бы
+  // печатали две попытки, текст упавшей склеился бы со следующей в кашу.
+  let streamed = false;
+  const onDelta = args.onDelta
+    ? (chunk: string) => {
+        streamed = true;
+        args.onDelta?.(chunk);
+      }
+    : undefined;
 
-  for (let index = 0; index < models.length; index += 1) {
+  for (const { provider, model } of attemptOrder(providers)) {
+    if (rejectedProviders.has(provider.id)) continue;
     const left = deadline - Date.now();
     if (left <= 0) break;
 
     try {
-      return await askModelJson<T>(models[index], key, {
+      const result = await askModelJson<T>(provider, model, {
         ...args,
-        timeoutMs: left,
-        // Дельты отдаёт только первая попытка. Клиент копит их через
-        // `progressRaw.current += chunk` (create-flow.tsx), поэтому текст
-        // упавшей модели склеился бы с текстом следующей в кашу.
-        onDelta: index === 0 ? args.onDelta : undefined,
+        timeoutMs: Math.min(left, ATTEMPT_TIMEOUT_MS),
+        onDelta: streamed ? undefined : onDelta,
       });
+      if (failures.length) {
+        console.error("[ai] ответила запасная модель", `${provider.id}/${model}`, failures.join(" | "));
+      }
+      if (provider.id !== providers[0].id) {
+        void notifyAlert("generation", [
+          `текст: основной провайдер не ответил, ответил ${provider.id}/${model}`,
+          ...failures.slice(0, 6),
+        ].join("\n"));
+      }
+      return result;
     } catch (error) {
       const failure = error instanceof AiError
         ? error
         : new AiError("Не удалось сгенерировать текст. Попробуйте ещё раз.", 502);
-      if (!failure.retryOnNextModel) throw failure;
-
       lastError = failure;
-      const next = models[index + 1];
-      if (next) {
-        console.error(
-          "[ai] модель не ответила, пробуем следующую",
-          openaiHost(),
-          `${models[index]} → ${next}`,
-          failure.message,
-        );
+      failures.push(`${provider.id}/${model} — ${failure.message}${failure.detail ? ` [${failure.detail}]` : ""}`);
+
+      if (!failure.retryOnNextModel) {
+        rejectedProviders.add(provider.id);
+        markUnavailable(provider.id, undefined, QUOTA_PAUSE_MS);
+      } else if (failure.status === 429) {
+        markUnavailable(provider.id, model, QUOTA_PAUSE_MS);
+      } else if (failure.detail || failure.status === 504) {
+        markUnavailable(provider.id, model, FAILURE_PAUSE_MS);
       }
+      console.error("[ai] модель не ответила, пробуем дальше", `${provider.id}/${model}`, failure.message);
     }
   }
 
@@ -253,13 +283,14 @@ export async function openaiJson<T>(args: ChatJsonArgs): Promise<T> {
 }
 
 async function askModelJson<T>(
+  provider: TextProvider,
   model: string,
-  key: string,
   args: ChatJsonArgs,
 ): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), args.timeoutMs ?? 180_000);
   const jsonMode = args.jsonMode !== false;
+  const host = hostOf(provider.baseUrl);
   const messages = [
     { role: "system" as const, content: args.system },
     { role: "user" as const, content: args.user },
@@ -267,21 +298,23 @@ async function askModelJson<T>(
 
   try {
     const response = await postChatTryingVariants(
-      chatBodies(model, messages, jsonMode, args.maxTokens),
-      key,
+      chatBodies(model, messages, jsonMode, args.maxTokens).map((body) => ({ ...body, ...provider.extraBody })),
+      provider.key,
       controller.signal,
+      provider.baseUrl,
     );
 
     if (!response.ok) {
       const body = await response.text();
-      console.error("[ai] error", openaiHost(), response.status, body.slice(0, 400));
+      console.error("[ai] error", host, model, response.status, body.slice(0, 400));
+      const detail = `${host} HTTP ${response.status}: ${body.slice(0, 200)}`;
       if (response.status === 401 || response.status === 403) {
-        throw new AiError("Ключ модели отклонён. Проверьте OPENAI_API_KEY.", 502, false);
+        throw withDetail(new AiError(`Ключ модели отклонён. Проверьте ${provider.keyEnv}.`, 502, false), detail);
       }
       if (response.status === 429) {
-        throw new AiError("Модель временно недоступна. Попробуйте ещё раз через минуту.", 429);
+        throw withDetail(new AiError("Модель временно недоступна. Попробуйте ещё раз через минуту.", 429), detail);
       }
-      throw new AiError("Не удалось сгенерировать текст. Попробуйте ещё раз.", 502);
+      throw withDetail(new AiError("Не удалось сгенерировать текст. Попробуйте ещё раз.", 502), detail);
     }
 
     const content = await readStreamedContent(response, args.onDelta);
@@ -296,14 +329,14 @@ async function askModelJson<T>(
     }
   } catch (error) {
     if (error instanceof AiError) throw error;
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw new AiError("Модель не ответила вовремя. Попробуйте ещё раз.", 504);
-    }
     if (error instanceof Error && error.name === "AbortError") {
       throw new AiError("Модель не ответила вовремя. Попробуйте ещё раз.", 504);
     }
-    console.error("[ai] request failed", openaiHost(), error);
-    throw new AiError("Не удалось сгенерировать текст. Попробуйте ещё раз.", 502);
+    console.error("[ai] request failed", host, model, error);
+    throw withDetail(
+      new AiError("Не удалось сгенерировать текст. Попробуйте ещё раз.", 502),
+      `${host}: ${networkDetail(error)}`,
+    );
   } finally {
     clearTimeout(timer);
   }
@@ -384,18 +417,19 @@ async function postChatTryingVariants(
   variants: Record<string, unknown>[],
   key: string,
   signal: AbortSignal,
+  baseUrl = openaiBaseUrl(),
 ): Promise<Response> {
-  let response = await postChat(variants[0], key, signal);
+  let response = await postChat(variants[0], key, signal, baseUrl);
 
   for (let next = 1; next < variants.length && response.status === 400; next += 1) {
     const rejected = await response.text();
     console.error(
       "[ai] 400, пробуем другую форму запроса",
-      openaiHost(),
+      hostOf(baseUrl),
       `вариант ${next + 1} из ${variants.length}`,
       rejected.slice(0, 300),
     );
-    response = await postChat(variants[next], key, signal);
+    response = await postChat(variants[next], key, signal, baseUrl);
   }
 
   return response;
@@ -489,8 +523,8 @@ export async function readStreamedContent(
   return content.trim();
 }
 
-async function postChat(body: unknown, key: string, signal: AbortSignal) {
-  return fetch(`${openaiBaseUrl()}/chat/completions`, {
+async function postChat(body: unknown, key: string, signal: AbortSignal, baseUrl: string) {
+  return fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,

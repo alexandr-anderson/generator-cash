@@ -128,6 +128,8 @@ Workflow: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — 
 - стрим не обязателен: если шлюз ответит обычным JSON, прочитаем и так (`readStreamedContent` смотрит на `content-type`);
 - `OPENAI_IMAGE_BASE_URL` можно давать в любом виде — путь до `/v1`, до `/images` или полный, `resolveImageGenerationsUrl` приведёт к нужному.
 
+**Запасные текстовые провайдеры** — после моделей из `OPENAI_*` текст перебирается по провайдерам из [`src/lib/text-providers.ts`](../src/lib/text-providers.ts) (адреса и проверенные модели там, в коде). Секреты — только их ключи: `ZAI_API_KEY`, `POLLINATIONS_API_KEY`. Провайдер без ключа пропускается; в стартовом логе `textProviders=primary:4,zai:2,pollinations:3`. Новый провайдер = запись в `text-providers.ts` + секрет + строка в `ecosystem.config.cjs` (PM2 передаёт приложению только перечисленные там переменные — это ловит `pm2-env.test.ts`) + имя в цикле шага деплоя.
+
 **Запасной шлюз картинок** — ещё три секрета, `IMAGE_FALLBACK_BASE_URL`, `IMAGE_FALLBACK_API_KEY`, `IMAGE_FALLBACK_MODEL` (сейчас `https://gen.pollinations.ai/v1` и `tongyi-mai/z-image-turbo`). Включается, только когда заданы все три; иначе в стартовом логе `imageFallback=off`. Подробности и почему он рисует по отдельному промпту — п. 50 в [work-plan.md](work-plan.md).
 
 Что проверить у нового провайдера перед переездом: модель существует под тем именем, что кладёте в секрет (`GET /v1/models` по ключу), и эндпоинт картинок принимает её (у одного провайдера каталог и эндпоинт могут расходиться — так было с `gpt-image-2-codex`).
@@ -136,7 +138,7 @@ Workflow: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — 
 
 **Правьте GitHub Secrets, а не `.env` на сервере.** Шаги «Sync OpenAI env on server» и «Sync Telegram env on server» на каждом деплое переписывают в `~/postvmeste/.env` эти ключи значениями из секретов, через `scripts/upsert-env-keys.php` (он именно **заменяет** существующий ключ):
 
-`OPENAI_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_IMAGE_BASE_URL`, `OPENAI_IMAGE_API_KEY`, `OPENAI_IMAGE_MODEL`, `IMAGE_FALLBACK_BASE_URL`, `IMAGE_FALLBACK_API_KEY`, `IMAGE_FALLBACK_MODEL` (эти три — только полным набором), `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT`, `TELEGRAM_CHAT_ID`.
+`OPENAI_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_IMAGE_BASE_URL`, `OPENAI_IMAGE_API_KEY`, `OPENAI_IMAGE_MODEL`, `IMAGE_FALLBACK_BASE_URL`, `IMAGE_FALLBACK_API_KEY`, `IMAGE_FALLBACK_MODEL` (эти три — только полным набором), `ZAI_API_KEY`, `POLLINATIONS_API_KEY` (пустые не пишутся), `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT`, `TELEGRAM_CHAT_ID`.
 
 Поэтому правка любого из них руками в серверном `.env` живёт **до первого следующего деплоя**, а потом молча откатывается. Хуже того: если секрет `OPENAI_MODEL` пуст, а `OPENAI_API_KEY` задан, деплой впишет дефолт `gpt-5.5` — то есть тихо вернёт модель, которую вы меняли.
 
