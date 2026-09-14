@@ -1,5 +1,6 @@
 import { POST_SCENARIO_SPECS, REEL_SCENARIO_SPECS } from "./ai-types";
 import { buildPostImagePrompt, buildReelImagePrompt } from "./ai-image-prompt";
+import { createImageWithFallback, detectImageMime } from "./image-fallback";
 import { AiError, openaiImagePng, openaiVisualBrief } from "./openai";
 import { filePublicPath, readUserFile, saveUserBuffer } from "./storage";
 import { prisma } from "./db";
@@ -24,12 +25,14 @@ export async function attachPostImages(input: {
   });
 
   const pngs = [];
+  const fallback = { active: false };
   for (const spec of POST_SCENARIO_SPECS) {
     if (pngs.length) {
       await new Promise((resolve) => setTimeout(resolve, 800));
     }
-    pngs.push(await openaiImagePng({
-      prompt: buildPostImagePrompt({
+    pngs.push(await createImageWithFallback({
+      state: fallback,
+      scene: {
         topic: input.topic,
         niche: input.niche,
         tone: input.tone,
@@ -37,7 +40,19 @@ export async function attachPostImages(input: {
         hint: spec.hint,
         colors: input.colors,
         visualBrief,
-        textExcerpt: input.text.trim(),
+        format: "square",
+      },
+      primary: () => openaiImagePng({
+        prompt: buildPostImagePrompt({
+          topic: input.topic,
+          niche: input.niche,
+          tone: input.tone,
+          angle: spec.name,
+          hint: spec.hint,
+          colors: input.colors,
+          visualBrief,
+          textExcerpt: input.text.trim(),
+        }),
       }),
     }));
   }
@@ -52,7 +67,7 @@ export async function attachPostImages(input: {
       rubricId: input.rubricId,
       kind: "export",
       buffer: png,
-      mimeType: "image/png",
+      mimeType: detectImageMime(png) || "image/png",
     }));
   }
 
@@ -76,19 +91,33 @@ export async function attachReelImages(input: {
   });
 
   const pngs = [];
+  const fallback = { active: false };
   for (const spec of REEL_SCENARIO_SPECS) {
     if (pngs.length) {
       await new Promise((resolve) => setTimeout(resolve, 800));
     }
-    pngs.push(await generateReelPng(buildReelImagePrompt({
-      topic: input.topic,
-      niche: input.niche,
-      tone: input.tone,
-      angle: spec.name,
-      hint: spec.hint,
-      colors: input.colors,
-      visualBrief,
-    })));
+    pngs.push(await createImageWithFallback({
+      state: fallback,
+      scene: {
+        topic: input.topic,
+        niche: input.niche,
+        tone: input.tone,
+        angle: spec.name,
+        hint: spec.hint,
+        colors: input.colors,
+        visualBrief,
+        format: "vertical",
+      },
+      primary: () => generateReelPng(buildReelImagePrompt({
+        topic: input.topic,
+        niche: input.niche,
+        tone: input.tone,
+        angle: spec.name,
+        hint: spec.hint,
+        colors: input.colors,
+        visualBrief,
+      })),
+    }));
   }
 
   const saved = [];
@@ -101,7 +130,7 @@ export async function attachReelImages(input: {
       rubricId: input.rubricId,
       kind: "export",
       buffer: png,
-      mimeType: "image/png",
+      mimeType: detectImageMime(png) || "image/png",
     }));
   }
 

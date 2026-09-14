@@ -31,7 +31,7 @@ import {
 } from "@/lib/types";
 import { applySlideTexts, generateVariants } from "@/lib/generate";
 import { captionTxt, textFileBlob } from "@/lib/export-package";
-import { reelCoverToPngBlob, slideToSvg, svgToPngBlob } from "@/lib/render";
+import { imageBlobToPng, reelCoverToPngBlob, slideToSvg, svgToPngBlob } from "@/lib/render";
 import { scenarioLabel } from "@/lib/ai-types";
 import { CarouselSlideFace } from "@/components/carousel-slide";
 import { ReelCover } from "@/components/reel-cover";
@@ -424,7 +424,7 @@ export function CreateFlow() {
       if (work.slides[0]?.imageUrl) {
         const response = await fetch(work.slides[0].imageUrl, { credentials: "include" });
         if (!response.ok) throw new Error("export");
-        image = await response.blob();
+        image = await imageBlobToPng(await response.blob());
       }
       zip.file("post.png", image);
       zip.file(captionFile.name, captionFile.blob);

@@ -116,11 +116,44 @@ export function openaiImageGenerationsUrl() {
 }
 
 export function openaiImageHost() {
+  return hostOf(openaiImageGenerationsUrl());
+}
+
+function hostOf(url: string) {
   try {
-    return openaiImageGenerationsUrl() ? new URL(openaiImageGenerationsUrl()).host : "";
+    return url ? new URL(url).host : "";
   } catch {
     return "invalid";
   }
+}
+
+/**
+ * Запасной шлюз картинок — на случай, когда основная модель не ответила
+ * (п. 50 в docs/work-plan.md). Отдельные ключ, адрес и модель, OpenAI-формат
+ * `/images/generations`. Проверен Pollinations `tongyi-mai/z-image-turbo`.
+ *
+ * Такие модели не понимают инструкций и отрицаний, поэтому основной промпт им
+ * не годится — см. `createImageWithFallback` в image-fallback.ts.
+ */
+function imageFallbackGateway() {
+  const endpoint = resolveImageGenerationsUrl(process.env.IMAGE_FALLBACK_BASE_URL || "");
+  return {
+    endpoint,
+    key: process.env.IMAGE_FALLBACK_API_KEY?.trim() || "",
+    model: process.env.IMAGE_FALLBACK_MODEL?.trim() || "",
+    host: hostOf(endpoint),
+  };
+}
+
+export function imageFallbackConfigured() {
+  const gateway = imageFallbackGateway();
+  return Boolean(gateway.endpoint && gateway.key && gateway.model);
+}
+
+/** Для диагностики: `host/model` запасного шлюза или пустая строка. */
+export function imageFallbackLabel() {
+  const gateway = imageFallbackGateway();
+  return imageFallbackConfigured() ? `${gateway.host}/${gateway.model}` : "";
 }
 
 export function openaiHost() {
@@ -454,18 +487,40 @@ function stripFence(content: string) {
   return content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
 }
 
-export async function openaiImagePng(args: {
+type ImageArgs = {
   prompt: string;
   size?: "1024x1024" | "1024x1792" | "1792x1024";
   timeoutMs?: number;
-}): Promise<Buffer> {
+};
+
+type ImageGateway = {
+  endpoint: string;
+  key: string;
+  model: string;
+  host: string;
+  /** Префикс переменных окружения — чтобы ошибка называла ту настройку, которая сломана. */
+  env: "OPENAI_IMAGE" | "IMAGE_FALLBACK";
+};
+
+export async function openaiImagePng(args: ImageArgs): Promise<Buffer> {
   const key = openaiImageKey();
   const endpoint = openaiImageGenerationsUrl();
   if (!key || !endpoint) {
     throw new AiError("Генерация картинок ещё не настроена. Задайте OPENAI_IMAGE_API_KEY и OPENAI_IMAGE_BASE_URL.", 503);
   }
+  return requestImage({ endpoint, key, model: openaiImageModel(), host: openaiImageHost(), env: "OPENAI_IMAGE" }, args);
+}
 
-  const model = openaiImageModel();
+/** Картинка через запасной шлюз (`IMAGE_FALLBACK_*`). Промпт — уже переписанный под такие модели. */
+export async function fallbackImagePng(args: ImageArgs): Promise<Buffer> {
+  if (!imageFallbackConfigured()) {
+    throw new AiError("Запасной шлюз картинок не настроен.", 503);
+  }
+  return requestImage({ ...imageFallbackGateway(), env: "IMAGE_FALLBACK" }, args);
+}
+
+async function requestImage(gateway: ImageGateway, args: ImageArgs): Promise<Buffer> {
+  const { endpoint, key, model, host, env } = gateway;
   const bodies = imageRequestBodies(model, args.prompt, args.size || "1024x1024");
   const attempts = 3;
   let lastError: unknown;
@@ -477,21 +532,21 @@ export async function openaiImagePng(args: {
       let response = await postImage(bodies[0], key, endpoint, controller.signal);
       if (response.status === 400 && bodies[1]) {
         const firstBody = await response.text();
-        console.error("[ai-image] 400, retry alternate body", openaiImageHost(), firstBody.slice(0, 400));
+        console.error("[ai-image] 400, retry alternate body", host, firstBody.slice(0, 400));
         response = await postImage(bodies[1], key, endpoint, controller.signal);
       }
 
       if (!response.ok) {
         const body = await response.text();
-        console.error("[ai-image] error", openaiImageHost(), model, response.status, `attempt=${attempt}`, body.slice(0, 400));
+        console.error("[ai-image] error", host, model, response.status, `attempt=${attempt}`, body.slice(0, 400));
         if (response.status === 401) {
-          throw new AiError("Ключ картинок отклонён. Проверьте OPENAI_IMAGE_API_KEY.", 502);
+          throw new AiError(`Ключ картинок отклонён. Проверьте ${env}_API_KEY.`, 502);
         }
         if (response.status === 403 || /model-not-allowed|not allowed to use the requested model/i.test(body)) {
-          throw new AiError("Этот ключ не умеет выбранную модель картинок. Проверьте OPENAI_IMAGE_MODEL.", 502);
+          throw new AiError(`Этот ключ не умеет выбранную модель картинок. Проверьте ${env}_MODEL.`, 502);
         }
         if (response.status === 404) {
-          throw new AiError("Endpoint картинок не найден. Проверьте OPENAI_IMAGE_BASE_URL.", 502);
+          throw new AiError(`Endpoint картинок не найден. Проверьте ${env}_BASE_URL.`, 502);
         }
         if (response.status === 429) {
           throw new AiError("Модель временно недоступна. Попробуйте ещё раз через минуту.", 429);
@@ -528,14 +583,14 @@ export async function openaiImagePng(args: {
       if (aborted) {
         throw new AiError("Картинка не успела нарисоваться. Попробуйте ещё раз.", 504);
       }
-      console.error("[ai-image] request failed", openaiImageHost(), error);
+      console.error("[ai-image] request failed", host, error);
       throw new AiError("Не удалось нарисовать картинку. Попробуйте ещё раз.", 502);
     } finally {
       clearTimeout(timer);
     }
   }
 
-  console.error("[ai-image] request failed", openaiImageHost(), lastError);
+  console.error("[ai-image] request failed", host, lastError);
   throw new AiError("Не удалось нарисовать картинку. Попробуйте ещё раз.", 502);
 }
 
