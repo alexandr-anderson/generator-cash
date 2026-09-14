@@ -87,6 +87,13 @@ module.exports = {
         OPENAI_IMAGE_BASE_URL: process.env.OPENAI_IMAGE_BASE_URL || "",
         OPENAI_IMAGE_API_KEY: process.env.OPENAI_IMAGE_API_KEY || "",
         OPENAI_IMAGE_MODEL: process.env.OPENAI_IMAGE_MODEL || "",
+        // Запасной шлюз картинок (п. 50). PM2 отдаёт приложению только ключи из
+        // этого списка, а не весь .env: без этих строк деплой писал секреты в .env,
+        // а до процесса они не доходили, и 2026-09-14 запасная на проде ни разу
+        // не включилась. Новую переменную окружения — добавлять и сюда.
+        IMAGE_FALLBACK_BASE_URL: process.env.IMAGE_FALLBACK_BASE_URL || "",
+        IMAGE_FALLBACK_API_KEY: process.env.IMAGE_FALLBACK_API_KEY || "",
+        IMAGE_FALLBACK_MODEL: process.env.IMAGE_FALLBACK_MODEL || "",
         TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
         TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || "",
         TELEGRAM_CHAT: process.env.TELEGRAM_CHAT || "mr_anderson_say",
