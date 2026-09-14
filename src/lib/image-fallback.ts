@@ -1,5 +1,5 @@
 import { buildFallbackImagePrompt, buildImageSceneRequest, type ImageSceneInput } from "./ai-image-prompt";
-import { notifyGenerationFailure } from "./alerts";
+import { errorText, notifyAlert } from "./alerts";
 import { AiError, fallbackImagePng, imageFallbackConfigured, openaiJson } from "./openai";
 
 /**
@@ -15,7 +15,10 @@ export type ImageFallbackState = { active: boolean };
  * Основная модель пробуется как обычно. Если она упала и запасной шлюз настроен:
  * текстовая модель переписывает задачу в сцену по-английски, запасная модель её
  * рисует. Уход на запасную — деградация качества, поэтому он всегда шлёт алерт,
- * а не проходит молча.
+ * а не проходит молча. Алерт один и уходит после попытки запасной, с её исходом:
+ * у алертов генерации общий интервал 20 минут, второе сообщение («запасная тоже
+ * упала») он бы погасил — так 2026-09-14 на проде пришло только «ушли на запасную»,
+ * а почему она не нарисовала, осталось в логе сервера.
  *
  * Если не справилась и запасная, наружу летит ошибка основной модели: причину
  * чинить нужно там, а запасная — только страховка.
@@ -31,12 +34,21 @@ export async function createImageWithFallback(input: {
     } catch (error) {
       if (!imageFallbackConfigured()) throw error;
       console.error("[ai-image] основная модель картинок не ответила, уходим на запасную", error);
-      notifyGenerationFailure("картинки, ушли на запасную модель", error);
       input.state.active = true;
       try {
-        return await fallbackImage(input.scene);
+        const image = await fallbackImage(input.scene);
+        void notifyAlert("generation", [
+          "картинки: основная не ответила, выручила запасная модель",
+          `основная — ${describe(error)}`,
+        ].join("\n"));
+        return image;
       } catch (fallbackError) {
         console.error("[ai-image] запасная модель картинок тоже не ответила", fallbackError);
+        void notifyAlert("generation", [
+          "картинки: основная не ответила, запасная тоже",
+          `основная — ${describe(error)}`,
+          `запасная — ${describe(fallbackError)}`,
+        ].join("\n"));
         throw error;
       }
     }
@@ -45,16 +57,38 @@ export async function createImageWithFallback(input: {
 }
 
 async function fallbackImage(scene: ImageSceneInput) {
-  const { system, user } = buildImageSceneRequest(scene);
-  const answer = await openaiJson<{ scene?: string }>({ system, user, maxTokens: 300 });
-  const text = String(answer.scene || "").trim();
-  if (!text) {
-    throw new AiError("Не удалось подготовить описание картинки. Попробуйте ещё раз.", 502);
+  let text = "";
+  try {
+    const { system, user } = buildImageSceneRequest(scene);
+    const answer = await openaiJson<{ scene?: string }>({ system, user, maxTokens: 300 });
+    text = String(answer.scene || "").trim();
+    if (!text) throw new AiError("Модель текста вернула пустую сцену.", 502);
+  } catch (error) {
+    throw new FallbackStepError("сцена (текстовая модель)", error);
   }
-  return fallbackImagePng({
-    prompt: buildFallbackImagePrompt(text, scene.format),
-    size: scene.format === "vertical" ? "1024x1792" : "1024x1024",
-  });
+  try {
+    return await fallbackImagePng({
+      prompt: buildFallbackImagePrompt(text, scene.format),
+      size: scene.format === "vertical" ? "1024x1792" : "1024x1024",
+    });
+  } catch (error) {
+    throw new FallbackStepError("картинка (запасной шлюз)", error);
+  }
+}
+
+/** На каком шаге запасного пути случился сбой — в алерте это главное. */
+class FallbackStepError extends Error {
+  constructor(readonly step: string, readonly original: unknown) {
+    super(`${step}: ${errorText(original)}`);
+    this.name = "FallbackStepError";
+  }
+}
+
+/** Ошибка для алерта: сообщение, шаг и техническая причина (`AiError.detail`), если есть. */
+function describe(error: unknown): string {
+  if (error instanceof FallbackStepError) return `${error.step}: ${describe(error.original)}`;
+  const detail = error instanceof AiError && error.detail ? ` [${error.detail}]` : "";
+  return `${errorText(error)}${detail}`;
 }
 
 /**
