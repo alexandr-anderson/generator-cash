@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("./alerts", () => ({ notifyGenerationFailure: vi.fn() }));
+vi.mock("./alerts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./alerts")>()),
+  notifyAlert: vi.fn(),
+}));
 
 import { buildFallbackImagePrompt, buildImageSceneRequest, type ImageSceneInput } from "./ai-image-prompt";
-import { notifyGenerationFailure } from "./alerts";
+import { notifyAlert } from "./alerts";
 import { createImageWithFallback, detectImageMime } from "./image-fallback";
 import { AiError } from "./openai";
 
@@ -50,7 +53,7 @@ beforeEach(() => {
     throw new Error(`unexpected fetch ${url}`);
   });
   vi.stubGlobal("fetch", fetchMock);
-  vi.mocked(notifyGenerationFailure).mockClear();
+  vi.mocked(notifyAlert).mockClear();
 });
 
 afterEach(() => {
@@ -69,7 +72,7 @@ describe("createImageWithFallback", () => {
     expect(out).toBe(PNG);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(state.active).toBe(false);
-    expect(notifyGenerationFailure).not.toHaveBeenCalled();
+    expect(notifyAlert).not.toHaveBeenCalled();
   });
 
   it("без настроенной запасной — ошибка основной как раньше", async () => {
@@ -82,7 +85,7 @@ describe("createImageWithFallback", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("основная упала — сцена от текстовой модели уходит в запасную, приходит алерт", async () => {
+  it("основная упала — сцена от текстовой модели уходит в запасную, алерт говорит, что выручила", async () => {
     setFallbackEnv();
     const state = { active: false };
     const out = await createImageWithFallback({
@@ -93,7 +96,11 @@ describe("createImageWithFallback", () => {
 
     expect(out.equals(JPEG)).toBe(true);
     expect(state.active).toBe(true);
-    expect(notifyGenerationFailure).toHaveBeenCalledTimes(1);
+    expect(notifyAlert).toHaveBeenCalledTimes(1);
+    const [kind, text] = vi.mocked(notifyAlert).mock.calls[0];
+    expect(kind).toBe("generation");
+    expect(text).toContain("выручила запасная модель");
+    expect(text).toContain("Модель временно недоступна.");
 
     const [textCall, imageCall] = fetchMock.mock.calls;
     expect(String(textCall[0])).toContain("https://text.test/");
@@ -113,7 +120,7 @@ describe("createImageWithFallback", () => {
     expect(primary).not.toHaveBeenCalled();
   });
 
-  it("запасная тоже упала — наружу ошибка основной, её и чинить", async () => {
+  it("запасная тоже упала — наружу ошибка основной, а в алерте шаг и HTTP-причина запасной", async () => {
     setFallbackEnv();
     fetchMock.mockImplementation(async (url: string) => (
       url.startsWith("https://text.test/")
@@ -126,6 +133,26 @@ describe("createImageWithFallback", () => {
       scene: SCENE,
       state: { active: false },
     })).rejects.toBe(primaryError);
+
+    expect(notifyAlert).toHaveBeenCalledTimes(1);
+    const text = String(vi.mocked(notifyAlert).mock.calls[0][1]);
+    expect(text).toContain("запасная тоже");
+    expect(text).toContain("картинка (запасной шлюз)");
+    expect(text).toContain("fallback.test HTTP 401");
+  });
+
+  it("сцена не получилась — алерт называет шаг текстовой модели", async () => {
+    setFallbackEnv();
+    fetchMock.mockImplementation(async () => json({ choices: [{ message: { content: '{"scene":""}' } }] }));
+    await expect(createImageWithFallback({
+      primary: async () => { throw new AiError("Шлюз картинок оборвал ответ.", 502); },
+      scene: SCENE,
+      state: { active: false },
+    })).rejects.toThrow("Шлюз картинок оборвал ответ.");
+
+    const text = String(vi.mocked(notifyAlert).mock.calls[0][1]);
+    expect(text).toContain("сцена (текстовая модель): Модель текста вернула пустую сцену.");
+    expect(fetchMock.mock.calls.every(([url]) => String(url).startsWith("https://text.test/"))).toBe(true);
   });
 });
 

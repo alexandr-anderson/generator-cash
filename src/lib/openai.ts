@@ -15,6 +15,24 @@ export class AiError extends Error {
     super(message);
     this.name = "AiError";
   }
+
+  /**
+   * Техническая причина для алерта: HTTP-статус с телом ответа или сетевая ошибка.
+   * Пользователю не показывается — ему хватает `message`.
+   */
+  detail?: string;
+}
+
+function withDetail(error: AiError, detail: string) {
+  error.detail = detail;
+  return error;
+}
+
+/** Сетевой сбой fetch в одну строку: у undici суть лежит в `cause` (ECONNRESET, ETIMEDOUT…). */
+function networkDetail(error: unknown) {
+  if (!(error instanceof Error)) return String(error);
+  const cause = error.cause as { code?: string; message?: string } | undefined;
+  return [error.message, cause?.code, cause?.message].filter(Boolean).join(" · ");
 }
 
 export function openaiConfigured() {
@@ -539,35 +557,39 @@ async function requestImage(gateway: ImageGateway, args: ImageArgs): Promise<Buf
       if (!response.ok) {
         const body = await response.text();
         console.error("[ai-image] error", host, model, response.status, `attempt=${attempt}`, body.slice(0, 400));
+        const detail = `${host} HTTP ${response.status}: ${body.slice(0, 200)}`;
         if (response.status === 401) {
-          throw new AiError(`Ключ картинок отклонён. Проверьте ${env}_API_KEY.`, 502);
+          throw withDetail(new AiError(`Ключ картинок отклонён. Проверьте ${env}_API_KEY.`, 502), detail);
         }
         if (response.status === 403 || /model-not-allowed|not allowed to use the requested model/i.test(body)) {
-          throw new AiError(`Этот ключ не умеет выбранную модель картинок. Проверьте ${env}_MODEL.`, 502);
+          throw withDetail(new AiError(`Этот ключ не умеет выбранную модель картинок. Проверьте ${env}_MODEL.`, 502), detail);
         }
         if (response.status === 404) {
-          throw new AiError(`Endpoint картинок не найден. Проверьте ${env}_BASE_URL.`, 502);
+          throw withDetail(new AiError(`Endpoint картинок не найден. Проверьте ${env}_BASE_URL.`, 502), detail);
         }
         if (response.status === 429) {
-          throw new AiError("Модель временно недоступна. Попробуйте ещё раз через минуту.", 429);
+          throw withDetail(new AiError("Модель временно недоступна. Попробуйте ещё раз через минуту.", 429), detail);
         }
         const retryable = response.status >= 500 || /stream_incomplete|оборвался/i.test(body);
         if (retryable && attempt < attempts) {
           await wait(1200 * attempt);
           continue;
         }
-        throw new AiError(
+        throw withDetail(new AiError(
           retryable
             ? "Шлюз картинок оборвал ответ. Нажмите «Создать» ещё раз."
             : "Не удалось нарисовать картинку. Попробуйте ещё раз.",
           502,
-        );
+        ), detail);
       }
 
       const payload = (await response.json()) as Record<string, unknown>;
       const png = await imagePayloadToPng(payload);
       if (!png) {
-        throw new AiError("Модель вернула картинку в неожиданном формате. Попробуйте ещё раз.", 502);
+        throw withDetail(
+          new AiError("Модель вернула картинку в неожиданном формате. Попробуйте ещё раз.", 502),
+          `${host}: ${JSON.stringify(payload).slice(0, 200)}`,
+        );
       }
       return png;
     } catch (error) {
@@ -581,10 +603,16 @@ async function requestImage(gateway: ImageGateway, args: ImageArgs): Promise<Buf
         continue;
       }
       if (aborted) {
-        throw new AiError("Картинка не успела нарисоваться. Попробуйте ещё раз.", 504);
+        throw withDetail(
+          new AiError("Картинка не успела нарисоваться. Попробуйте ещё раз.", 504),
+          `${host}: таймаут ${args.timeoutMs ?? 90_000} мс, ${attempts} попытки`,
+        );
       }
       console.error("[ai-image] request failed", host, error);
-      throw new AiError("Не удалось нарисовать картинку. Попробуйте ещё раз.", 502);
+      throw withDetail(
+        new AiError("Не удалось нарисовать картинку. Попробуйте ещё раз.", 502),
+        `${host}: ${networkDetail(error)}`,
+      );
     } finally {
       clearTimeout(timer);
     }
