@@ -100,7 +100,9 @@ Workflow: [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) — 
 | `SSH_USER` | `<ваш-логин>` |
 | `SSH_PORT` | `22` (опционально) |
 | `TELEGRAM_BOT_TOKEN` | токен бота от @BotFather — алерты в Telegram |
-| `TELEGRAM_CHAT_ID` | опционально, числовой chat id; иначе бот ждёт `/start` от получателя (задаётся переменной `TELEGRAM_CHAT`) |
+| `TELEGRAM_CHAT_ID` | числовой chat id — без него чат ищется через `getUpdates`, а они живут сутки (п. 49) |
+
+**С сервера Timeweb Telegram закрыт** (2026-09-15: `api.telegram.org` не отвечает ни по IPv4, ни по IPv6). Поэтому алерты приложения (сбой генерации, уход на запасную модель, платёж) при неудаче Telegram уходят письмом на `service@postvmeste.ru` через тот же Resend, что и письма регистрации (`notifyAlert` в `src/lib/alerts.ts`). Алерт «сайт упал» шлёт `uptime.yml` из GitHub Actions — оттуда Telegram работает.
 
 После push в `main` Actions соберёт проект, загрузит `release/` на сервер и выполнит `scripts/restart-app.sh`.
 

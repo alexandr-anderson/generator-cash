@@ -54,6 +54,12 @@ async function sendMail(to: string, subject: string, text: string) {
   console.info("[mail] sent", { to, resendId: payload.id || "unknown" });
 }
 
+/** Алерт письмом на почту поддержки — запасной канал, когда Telegram не доступен. */
+export async function sendAlertEmail(text: string) {
+  const [subject = "postvmeste.ru · алерт", ...rest] = text.split("\n");
+  await sendMail(SUPPORT_EMAIL, `[алерт] ${subject}`, rest.join("\n") || subject);
+}
+
 export async function sendVerificationEmail(email: string, token: string) {
   const url = `${appUrl()}/auth/verify?token=${token}`;
   await sendMail(
