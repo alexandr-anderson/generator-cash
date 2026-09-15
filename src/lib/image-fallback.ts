@@ -1,79 +1,148 @@
 import { buildFallbackImagePrompt, buildImageSceneRequest, type ImageSceneInput } from "./ai-image-prompt";
 import { errorText, notifyAlert } from "./alerts";
-import { AiError, fallbackImagePng, imageFallbackConfigured, openaiJson } from "./openai";
+import { imageProviders, type ImageProvider, type ImageSize } from "./image-providers";
+import { AiError, imageProviderPng, openaiJson } from "./openai";
 
-/**
- * Состояние на один запрос генерации: раз основная модель уже не ответила,
- * остальные картинки того же поста сразу идут на запасную — иначе каждая ждала
- * бы все повторы основной заново.
- */
-export type ImageFallbackState = { active: boolean };
-
-/**
- * Картинка с запасным шлюзом (п. 50 в docs/work-plan.md).
- *
- * Основная модель пробуется как обычно. Если она упала и запасной шлюз настроен:
- * текстовая модель переписывает задачу в сцену по-английски, запасная модель её
- * рисует. Уход на запасную — деградация качества, поэтому он всегда шлёт алерт,
- * а не проходит молча. Алерт один и уходит после попытки запасной, с её исходом:
- * у алертов генерации общий интервал 20 минут, второе сообщение («запасная тоже
- * упала») он бы погасил — так 2026-09-14 на проде пришло только «ушли на запасную»,
- * а почему она не нарисовала, осталось в логе сервера.
- *
- * Если не справилась и запасная, наружу летит ошибка основной модели: причину
- * чинить нужно там, а запасная — только страховка.
- */
-export async function createImageWithFallback(input: {
+/** Одна картинка поста: как её рисует основная модель и что нужно запасным. */
+export type ImageJob = {
   primary: () => Promise<Buffer>;
+  /** Обычный промпт — для запасных, которые понимают инструкции (`prompt: "original"`). */
+  prompt: string;
+  size: ImageSize;
+  /** Исходные данные для сцены — для диффузионных запасных (`prompt: "scene"`). */
   scene: ImageSceneInput;
-  state: ImageFallbackState;
-}): Promise<Buffer> {
-  if (!input.state.active) {
+};
+
+/**
+ * Картинки поста с запасными шлюзами (п. 50 в docs/work-plan.md).
+ *
+ * 1. Основная модель рисует по очереди, как раньше. Упала на какой-то картинке —
+ *    к ней больше не возвращаемся: иначе каждая следующая ждала бы её повторы.
+ * 2. Оставшиеся картинки идут по запасным шлюзам из image-providers.ts по порядку.
+ *    Последовательный шлюз, упав на картинке, дальше не используется; одновременный
+ *    рисует все оставшиеся разом (codex.sale — 128–175 с на картинку, по очереди
+ *    три не уложились бы в 400 с роута).
+ * 3. Весь запасной путь укладывается в `budgetMs`.
+ *
+ * Алерт один и уходит в конце, с исходом: у алертов генерации общий интервал
+ * 20 минут, второе сообщение он бы погасил. Если не выручил никто, наружу летит
+ * ошибка основной модели — причину чинить там.
+ */
+export async function createImagesWithFallback(
+  jobs: ImageJob[],
+  options: { pauseMs?: number; budgetMs?: number } = {},
+): Promise<Buffer[]> {
+  const pauseMs = options.pauseMs ?? 800;
+  const results: (Buffer | undefined)[] = new Array(jobs.length);
+  let primaryError: unknown;
+  let firstPending = jobs.length;
+
+  for (let index = 0; index < jobs.length; index += 1) {
+    if (index > 0 && pauseMs) await wait(pauseMs);
     try {
-      return await input.primary();
+      results[index] = await jobs[index].primary();
     } catch (error) {
-      if (!imageFallbackConfigured()) throw error;
-      console.error("[ai-image] основная модель картинок не ответила, уходим на запасную", error);
-      input.state.active = true;
-      try {
-        const image = await fallbackImage(input.scene);
-        void notifyAlert("generation", [
-          "картинки: основная не ответила, выручила запасная модель",
-          `основная — ${describe(error)}`,
-        ].join("\n"));
-        return image;
-      } catch (fallbackError) {
-        console.error("[ai-image] запасная модель картинок тоже не ответила", fallbackError);
-        void notifyAlert("generation", [
-          "картинки: основная не ответила, запасная тоже",
-          `основная — ${describe(error)}`,
-          `запасная — ${describe(fallbackError)}`,
-        ].join("\n"));
-        throw error;
-      }
+      primaryError = error;
+      firstPending = index;
+      break;
     }
   }
-  return fallbackImage(input.scene);
+  if (firstPending === jobs.length) return results as Buffer[];
+
+  const providers = imageProviders();
+  if (!providers.length) throw primaryError;
+  console.error("[ai-image] основная модель картинок не ответила, уходим на запасные", primaryError);
+
+  const deadline = Date.now() + (options.budgetMs ?? 330_000);
+  const helped = new Map<string, number>();
+  const failures: string[] = [];
+  let pending = jobs.map((_, index) => index).slice(firstPending);
+
+  for (const provider of providers) {
+    if (!pending.length) break;
+    const left = deadline - Date.now();
+    if (left < 15_000) {
+      failures.push(`${provider.id}: пропущен — не осталось времени`);
+      continue;
+    }
+    const timeoutMs = Math.min(provider.timeoutMs, left);
+
+    if (provider.parallel) {
+      const settled = await Promise.allSettled(pending.map((index) => drawWith(provider, jobs[index], timeoutMs)));
+      const stillPending: number[] = [];
+      settled.forEach((outcome, position) => {
+        const index = pending[position];
+        if (outcome.status === "fulfilled") {
+          results[index] = outcome.value;
+          helped.set(provider.id, (helped.get(provider.id) ?? 0) + 1);
+        } else {
+          stillPending.push(index);
+          if (stillPending.length === 1) failures.push(`${provider.id}: ${describe(outcome.reason)}`);
+        }
+      });
+      pending = stillPending;
+    } else {
+      const stillPending: number[] = [];
+      let broken = false;
+      for (const index of pending) {
+        if (broken || deadline - Date.now() < 15_000) {
+          stillPending.push(index);
+          continue;
+        }
+        try {
+          results[index] = await drawWith(provider, jobs[index], Math.min(provider.timeoutMs, deadline - Date.now()));
+          helped.set(provider.id, (helped.get(provider.id) ?? 0) + 1);
+        } catch (error) {
+          failures.push(`${provider.id}: ${describe(error)}`);
+          stillPending.push(index);
+          broken = true;
+        }
+      }
+      pending = stillPending;
+    }
+  }
+
+  const summary = [...helped].map(([id, count]) => `${id} ×${count}`).join(", ");
+  if (!pending.length) {
+    void notifyAlert("generation", [
+      `картинки: основная не ответила, выручили запасные — ${summary}`,
+      `основная — ${describe(primaryError)}`,
+      ...failures,
+    ].join("\n"));
+    return results as Buffer[];
+  }
+
+  console.error("[ai-image] запасные шлюзы картинок не выручили", failures.join(" | "));
+  void notifyAlert("generation", [
+    `картинки: основная не ответила, запасные не выручили (не нарисовано ${pending.length} из ${jobs.length})`,
+    `основная — ${describe(primaryError)}`,
+    ...failures,
+  ].join("\n"));
+  throw primaryError;
 }
 
-async function fallbackImage(scene: ImageSceneInput) {
-  let text = "";
-  try {
-    const { system, user } = buildImageSceneRequest(scene);
-    const answer = await openaiJson<{ scene?: string }>({ system, user, maxTokens: 300 });
-    text = String(answer.scene || "").trim();
-    if (!text) throw new AiError("Модель текста вернула пустую сцену.", 502);
-  } catch (error) {
-    throw new FallbackStepError("сцена (текстовая модель)", error);
+async function drawWith(provider: ImageProvider, job: ImageJob, timeoutMs: number) {
+  let prompt = job.prompt;
+  if (provider.prompt === "scene") {
+    try {
+      const { system, user } = buildImageSceneRequest(job.scene);
+      const answer = await openaiJson<{ scene?: string }>({ system, user, maxTokens: 300 });
+      const text = String(answer.scene || "").trim();
+      if (!text) throw new AiError("Модель текста вернула пустую сцену.", 502);
+      prompt = buildFallbackImagePrompt(text, job.scene.format);
+    } catch (error) {
+      throw new FallbackStepError("сцена (текстовая модель)", error);
+    }
   }
   try {
-    return await fallbackImagePng({
-      prompt: buildFallbackImagePrompt(text, scene.format),
-      size: scene.format === "vertical" ? "1024x1792" : "1024x1024",
-    });
+    return await imageProviderPng(provider, { prompt, size: job.size, timeoutMs });
   } catch (error) {
-    throw new FallbackStepError("картинка (запасной шлюз)", error);
+    throw new FallbackStepError("картинка", error);
   }
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** На каком шаге запасного пути случился сбой — в алерте это главное. */

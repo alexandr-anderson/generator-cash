@@ -1,6 +1,6 @@
 import { mailConfigured } from "./mail";
+import { imageProvidersLabel } from "./image-providers";
 import {
-  imageFallbackLabel,
   openaiConfigured,
   openaiHost,
   openaiImageConfigured,
@@ -49,7 +49,7 @@ export function logBootStatus() {
     } aiHost=${status.openaiHost} textModel=${status.openaiModel || "MISSING_OPENAI_MODEL"} image=${
       status.openaiImageConfigured ? "ok" : "MISSING_OPENAI_IMAGE_API"
     } imageHost=${status.openaiImageHost || "unset"} imageModel=${status.openaiImageModel || "MISSING_OPENAI_IMAGE_MODEL"} imageFallback=${
-      imageFallbackLabel() || "off"
+      imageProvidersLabel() || "off"
     } textProviders=${textProvidersLabel() || "none"}`,
   );
   const telegramWarning = telegramBootWarning();
