@@ -20,6 +20,8 @@ export const RATE_RULES = {
   forgotEmail: { limit: 3, windowMs: 60 * 60 * 1000 },
   ai: { limit: 20, windowMs: 60 * 60 * 1000 },
   upload: { limit: 30, windowMs: 60 * 60 * 1000 },
+  // Автосохранение из редактора: правки копятся ~0,8 с и уходят одним запросом.
+  works: { limit: 600, windowMs: 60 * 60 * 1000 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export function checkLimit(
