@@ -1,3 +1,4 @@
+import { mailConfigured, sendAlertEmail } from "./mail";
 import { sendTelegramMessage, telegramConfigured } from "./telegram";
 
 export type AlertKind = "generation" | "payment" | "site_down" | "site_up";
@@ -37,20 +38,50 @@ export function formatAlertMessage(kind: AlertKind, detail: string) {
   return [titles[kind], lead[kind], detail.trim()].filter(Boolean).join("\n");
 }
 
+/**
+ * Алерт: сначала Telegram, не вышло — письмом на почту поддержки.
+ *
+ * Почта — не «на всякий случай»: с сервера Timeweb api.telegram.org закрыт
+ * (2026-09-15 `fetch` падал с UND_ERR_CONNECT_TIMEOUT и по IPv4, и по IPv6), и
+ * алерты генерации не доходили вовсе. Из GitHub Actions Telegram при этом
+ * работает — поэтому тестовый алерт uptime.yml и приходил.
+ *
+ * Интервал занимаем до отправки, а не после: таймаут Telegram ~10 с, и второй
+ * сбой за это время прошёл бы проверку и продублировал письмо. Если не ушло ни
+ * одним каналом — интервал возвращаем, чтобы следующий алерт не потерялся.
+ */
 export async function notifyAlert(kind: AlertKind, detail: string) {
-  if (!telegramConfigured()) return { ok: false as const, skipped: "unconfigured" as const };
+  const telegram = telegramConfigured();
+  const mail = mailConfigured();
+  if (!telegram && !mail) return { ok: false as const, skipped: "unconfigured" as const };
   const now = Date.now();
-  if (!shouldSendAlert(lastSent.get(kind), now, ALERT_COOLDOWN_MS[kind])) {
+  const previous = lastSent.get(kind);
+  if (!shouldSendAlert(previous, now, ALERT_COOLDOWN_MS[kind])) {
     return { ok: false as const, skipped: "cooldown" as const };
   }
-  try {
-    await sendTelegramMessage(formatAlertMessage(kind, detail));
-    lastSent.set(kind, now);
-    return { ok: true as const };
-  } catch (caught) {
-    console.error("[telegram]", errorText(caught));
-    return { ok: false as const, skipped: "send" as const };
+  lastSent.set(kind, now);
+  const text = formatAlertMessage(kind, detail);
+
+  if (telegram) {
+    try {
+      await sendTelegramMessage(text);
+      return { ok: true as const, channel: "telegram" as const };
+    } catch (caught) {
+      console.error("[telegram]", errorText(caught));
+    }
   }
+  if (mail) {
+    try {
+      await sendAlertEmail(text);
+      return { ok: true as const, channel: "mail" as const };
+    } catch (caught) {
+      console.error("[alert-mail]", errorText(caught));
+    }
+  }
+
+  if (previous === undefined) lastSent.delete(kind);
+  else lastSent.set(kind, previous);
+  return { ok: false as const, skipped: "send" as const };
 }
 
 export function notifyGenerationFailure(source: string, caught: unknown) {
