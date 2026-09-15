@@ -94,6 +94,9 @@ module.exports = {
         IMAGE_FALLBACK_BASE_URL: process.env.IMAGE_FALLBACK_BASE_URL || "",
         IMAGE_FALLBACK_API_KEY: process.env.IMAGE_FALLBACK_API_KEY || "",
         IMAGE_FALLBACK_MODEL: process.env.IMAGE_FALLBACK_MODEL || "",
+        // Ключи запасных текстовых провайдеров (src/lib/text-providers.ts).
+        ZAI_API_KEY: process.env.ZAI_API_KEY || "",
+        POLLINATIONS_API_KEY: process.env.POLLINATIONS_API_KEY || "",
         TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
         TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || "",
         TELEGRAM_CHAT: process.env.TELEGRAM_CHAT || "mr_anderson_say",

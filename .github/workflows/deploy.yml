@@ -78,6 +78,8 @@ jobs:
           IMAGE_FALLBACK_API_KEY: ${{ secrets.IMAGE_FALLBACK_API_KEY }}
           IMAGE_FALLBACK_BASE_URL: ${{ secrets.IMAGE_FALLBACK_BASE_URL }}
           IMAGE_FALLBACK_MODEL: ${{ secrets.IMAGE_FALLBACK_MODEL }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
         run: |
           SSH_PORT="${SSH_PORT:-22}"
           if [ -z "${OPENAI_API_KEY}" ] && [ -z "${OPENAI_IMAGE_API_KEY}" ]; then
@@ -127,6 +129,14 @@ jobs:
           else
             echo "::warning::IMAGE_FALLBACK_* secrets are incomplete - image fallback stays as on the server"
           fi
+          # Ключи запасных текстовых провайдеров (src/lib/text-providers.ts): пустой
+          # секрет не пишем — провайдер без ключа в цепочке просто пропускается.
+          for name in ZAI_API_KEY POLLINATIONS_API_KEY; do
+            value="${!name}"
+            if [ -n "${value}" ]; then
+              printf '%s=%s\n' "${name}" "${value}" >> openai-incoming
+            fi
+          done
           scp -i ~/.ssh/deploy_key -P "${SSH_PORT}" -o BatchMode=yes -o ConnectTimeout=20 \
             openai-incoming "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/.openai-incoming"
           rm -f openai-incoming
