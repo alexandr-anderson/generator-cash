@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, Layers3, Image as ImageIcon, Video, RefreshCw } from "lucide-react";
+import { Trash2, Layers3, Image as ImageIcon, Video, RefreshCw, PenLine } from "lucide-react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { FORMAT_LABELS, type ArchiveItem } from "@/lib/types";
@@ -33,9 +33,10 @@ export function ArchivePage() {
     <div className="archive-page">
       <div className="page-header">
         <h1>Архив</h1>
-        {/* Из архива нельзя скачать файлы заново: в карточке только «Создать похожую»
-            (новая генерация) и «Удалить». Молчать об этом — обещать больше, чем есть. */}
-        <p>Все созданные работы. Файлы отсюда не скачать — они уехали к вам при экспорте.</p>
+        {/* Работа сохраняется сама, пока открыта в редакторе (п. 48), и открывается
+            отсюда снова — поправить и скачать ещё раз. Раньше из архива файлы было
+            не достать: только «Создать похожую» за новую генерацию. */}
+        <p>Все созданные работы. Откройте любую, чтобы поправить и скачать снова.</p>
       </div>
 
       {store.archive.length === 0 ? (
@@ -67,6 +68,9 @@ export function ArchivePage() {
                   <b>{item.topic}</b>
                   <small>{new Date(item.createdAt).toLocaleDateString("ru-RU")}</small>
                   <div className="archive-actions">
+                    <Link href={`/dashboard/create?work=${item.workId}`} className="btn-primary btn-xs">
+                      <PenLine size={12} /> Открыть
+                    </Link>
                     <Link
                       href={
                         item.rubricId

@@ -12,7 +12,6 @@ import type {
 } from "./types";
 import type { ComposedCopy } from "./ai-types";
 import type { CarouselRecipe } from "./carousel-recipe";
-import { DETACHED_RUBRIC_LABEL } from "./rubric-copy";
 
 type StudioPayload = {
   user: UserProfile | null;
@@ -34,7 +33,10 @@ type AppActions = {
   addRubric: (name: string) => Promise<Rubric | null>;
   updateRubric: (id: string, updates: Partial<Rubric>) => Promise<void>;
   deleteRubric: (id: string) => Promise<void>;
-  addWork: (work: CreativeWork) => Promise<ArchiveItem | null>;
+  /** Создаёт работу в архиве, возвращает её id. */
+  createWork: (work: CreativeWork) => Promise<string>;
+  /** Обновляет уже сохранённую работу — автосохранение редактора (п. 48). */
+  updateWork: (id: string, work: CreativeWork) => Promise<void>;
   deleteWork: (id: string) => Promise<void>;
   useGeneration: () => Promise<boolean>;
   draftText: (topic: string) => Promise<string>;
@@ -303,25 +305,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState(applyStudio(payload));
   }, []);
 
-  const addWork = useCallback(async (work: CreativeWork) => {
+  const createWork = useCallback(async (work: CreativeWork) => {
     const result = await api<{ work: CreativeWork }>("/api/works", {
       method: "POST",
       body: JSON.stringify({ work }),
     });
     await hydrate();
-    const created = result.work;
-    return {
-      id: `archive-${created.id}`,
-      workId: created.id,
-      format: created.format,
-      rubricId: created.rubricId,
-      rubricName: state.rubrics.find((item) => item.id === created.rubricId)?.name || DETACHED_RUBRIC_LABEL,
-      topic: created.topic,
-      previewSlide: created.slides[0],
-      background: created.background,
-      createdAt: created.createdAt,
-    } satisfies ArchiveItem;
-  }, [hydrate, state.rubrics]);
+    return result.work.id;
+  }, [hydrate]);
+
+  const updateWork = useCallback(async (id: string, work: CreativeWork) => {
+    const result = await api<{ work: CreativeWork }>(`/api/works/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ work }),
+    });
+    // Без полной перезагрузки студии: правки идут часто, а в архиве видны только
+    // тема, первый слайд и фон.
+    const updated = result.work;
+    setState((current) => ({
+      ...current,
+      archive: current.archive.map((item) => (
+        item.workId === id
+          ? { ...item, topic: updated.topic, previewSlide: updated.slides[0], background: updated.background }
+          : item
+      )),
+    }));
+  }, []);
 
   const deleteWork = useCallback(async (id: string) => {
     const payload = await api<StudioPayload>(`/api/works/${id}`, { method: "DELETE" });
@@ -463,7 +472,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addRubric,
         updateRubric,
         deleteRubric,
-        addWork,
+        createWork,
+        updateWork,
         deleteWork,
         useGeneration,
         draftText,

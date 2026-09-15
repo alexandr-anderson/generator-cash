@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Archive,
   ArrowLeft,
@@ -37,6 +37,14 @@ import { CarouselSlideFace } from "@/components/carousel-slide";
 import { ReelCover } from "@/components/reel-cover";
 import { ElapsedTimer } from "@/components/elapsed-timer";
 import { readableTail } from "@/lib/stream-preview";
+import { createWorkAutosaver, type SaveStatus } from "@/lib/work-autosave";
+
+const SAVE_STATUS_TEXT: Record<SaveStatus, string> = {
+  idle: "Сохраняем работу в архив…",
+  saving: "Сохраняем работу в архив…",
+  saved: "Работа в архиве — правки сохраняются сами.",
+  error: "Не удалось сохранить в архив. Попробуем снова при следующей правке или скачивании.",
+};
 
 type Step = "format" | "rubric" | "topic" | "text" | "variants" | "editor";
 type RetryAction = "generate" | "expand";
@@ -86,10 +94,18 @@ function FlowErrorBanner({
 export function CreateFlow() {
   const store = useStore();
   const params = useSearchParams();
+  const router = useRouter();
+  // Работа, открытая из архива (`?work=<id>`): сразу в редактор, правки — в ту же
+  // запись. Без этого автосохранение мало что давало — из архива работу было не
+  // достать, только «Создать похожую» за новую генерацию.
+  const [openedWork] = useState<CreativeWork | null>(
+    () => store.works.find((item) => item.id === params.get("work")) ?? null,
+  );
 
-  const [format, setFormat] = useState<CreativeFormat | null>(() => parseFormat(params.get("format")));
-  const [rubricId, setRubricId] = useState<string | null>(params.get("rubric") || null);
+  const [format, setFormat] = useState<CreativeFormat | null>(() => openedWork?.format ?? parseFormat(params.get("format")));
+  const [rubricId, setRubricId] = useState<string | null>(openedWork ? openedWork.rubricId : params.get("rubric") || null);
   const [step, setStep] = useState<Step>(() => {
+    if (openedWork) return "editor";
     if (params.get("rubric") && parseFormat(params.get("format"))) return "topic";
     return "format";
   });
@@ -108,7 +124,7 @@ export function CreateFlow() {
   const referenceInput = useRef<HTMLInputElement>(null);
   const [variants, setVariants] = useState<CreativeWork[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [work, setWork] = useState<CreativeWork | null>(null);
+  const [work, setWork] = useState<CreativeWork | null>(openedWork);
   const [activeSlide, setActiveSlide] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [expanding, setExpanding] = useState(false);
@@ -126,6 +142,33 @@ export function CreateFlow() {
   }, []);
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Автосохранение в архив (п. 48): запись создаётся при входе в редактор и
+  // обновляется на правках. Раньше работа сохранялась только изнутри экспорта —
+  // ушёл, не скачав, и пропадало всё, а второй экспорт давал дубль в архиве.
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  // createWork и updateWork стабильны (useCallback без меняющихся зависимостей),
+  // поэтому их можно захватить один раз.
+  const [autosaver] = useState(() => {
+    const saver = createWorkAutosaver<CreativeWork>({
+      create: store.createWork,
+      update: store.updateWork,
+    }, { onStatus: setSaveStatus });
+    if (openedWork) saver.resume(openedWork.id);
+    return saver;
+  });
+
+  useEffect(() => {
+    if (step === "editor" && work) autosaver.schedule(work);
+  }, [autosaver, step, work]);
+
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (autosaver.hasUnsaved()) event.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [autosaver]);
 
   const rubric = store.rubrics.find((r) => r.id === rubricId);
 
@@ -299,6 +342,9 @@ export function CreateFlow() {
         copy,
         format === "carousel" ? copy.carouselRecipe : null,
       );
+      // Новая генерация — новая работа в архиве. Выбор другого варианта той же
+      // генерации обновляет ту же запись, а не плодит черновики.
+      autosaver.reset();
       setVariants(v);
       setSelectedId(v[0].id);
       setStep("variants");
@@ -370,10 +416,14 @@ export function CreateFlow() {
 
   async function handleSave() {
     if (!work || !rubricId) return;
-    if (rubricId && colors.length) {
+    // У работы из архива `colors` — не её цвета, а стартовые со страницы создания:
+    // записать их в рубрику значило бы молча перекрасить всю серию.
+    if (rubricId && colors.length && !openedWork) {
       await store.updateRubric(rubricId, { colors });
     }
-    await store.addWork(work);
+    // Та же запись, что создало автосохранение: второй экспорт больше не даёт дубль.
+    autosaver.schedule(work);
+    await autosaver.flush();
   }
 
   async function handleExport(mode: "zip" | "phone" | "png" = "png") {
@@ -926,7 +976,10 @@ export function CreateFlow() {
         <div className="editor-layout">
           <aside className="editor-panel">
             <div className="editor-panel-header">
-              <button className="flow-back" onClick={() => setStep("variants")}>
+              <button
+                className="flow-back"
+                onClick={() => (openedWork && !variants.length ? router.push("/dashboard/archive") : setStep("variants"))}
+              >
                 <ArrowLeft size={16} /> Назад
               </button>
               <h2>Редактор</h2>
@@ -1072,14 +1125,7 @@ export function CreateFlow() {
 
               <div className="editor-separator" />
 
-              {/* handleSave вызывается только изнутри handleExport: ни автосохранения,
-                  ни предупреждения при уходе со страницы нет. До этой строки человек
-                  мог потратить генерацию, ждать три минуты, поправить текст — и уйти
-                  с пустыми руками, ничего об этом не подозревая. */}
-              <p className="editor-note">
-                Работа сохранится, только когда вы её скачаете. Уйдёте со страницы раньше —
-                всё пропадёт.
-              </p>
+              <p className="editor-note">{SAVE_STATUS_TEXT[saveStatus]}</p>
 
               {/* Здесь была галочка «Сохранить как шаблон для рубрики». Убрана
                   (2026-09-11): рубрика и есть шаблон — стиль серии держат её цвета и
