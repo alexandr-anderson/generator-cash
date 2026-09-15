@@ -1,6 +1,6 @@
 import { POST_SCENARIO_SPECS, REEL_SCENARIO_SPECS } from "./ai-types";
 import { buildPostImagePrompt, buildReelImagePrompt } from "./ai-image-prompt";
-import { createImageWithFallback, detectImageMime } from "./image-fallback";
+import { createImagesWithFallback, detectImageMime } from "./image-fallback";
 import { AiError, openaiImagePng, openaiVisualBrief } from "./openai";
 import { filePublicPath, readUserFile, saveUserBuffer } from "./storage";
 import { prisma } from "./db";
@@ -24,14 +24,21 @@ export async function attachPostImages(input: {
     images: references,
   });
 
-  const pngs = [];
-  const fallback = { active: false };
-  for (const spec of POST_SCENARIO_SPECS) {
-    if (pngs.length) {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-    }
-    pngs.push(await createImageWithFallback({
-      state: fallback,
+  const pngs = await createImagesWithFallback(POST_SCENARIO_SPECS.map((spec) => {
+    const prompt = buildPostImagePrompt({
+      topic: input.topic,
+      niche: input.niche,
+      tone: input.tone,
+      angle: spec.name,
+      hint: spec.hint,
+      colors: input.colors,
+      visualBrief,
+      textExcerpt: input.text.trim(),
+    });
+    return {
+      prompt,
+      size: "1024x1024" as const,
+      primary: () => openaiImagePng({ prompt }),
       scene: {
         topic: input.topic,
         niche: input.niche,
@@ -40,22 +47,10 @@ export async function attachPostImages(input: {
         hint: spec.hint,
         colors: input.colors,
         visualBrief,
-        format: "square",
+        format: "square" as const,
       },
-      primary: () => openaiImagePng({
-        prompt: buildPostImagePrompt({
-          topic: input.topic,
-          niche: input.niche,
-          tone: input.tone,
-          angle: spec.name,
-          hint: spec.hint,
-          colors: input.colors,
-          visualBrief,
-          textExcerpt: input.text.trim(),
-        }),
-      }),
-    }));
-  }
+    };
+  }));
 
   const saved = [];
   for (const png of pngs) {
@@ -90,14 +85,20 @@ export async function attachReelImages(input: {
     images: references,
   });
 
-  const pngs = [];
-  const fallback = { active: false };
-  for (const spec of REEL_SCENARIO_SPECS) {
-    if (pngs.length) {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-    }
-    pngs.push(await createImageWithFallback({
-      state: fallback,
+  const pngs = await createImagesWithFallback(REEL_SCENARIO_SPECS.map((spec) => {
+    const prompt = buildReelImagePrompt({
+      topic: input.topic,
+      niche: input.niche,
+      tone: input.tone,
+      angle: spec.name,
+      hint: spec.hint,
+      colors: input.colors,
+      visualBrief,
+    });
+    return {
+      prompt,
+      size: "1024x1792" as const,
+      primary: () => generateReelPng(prompt),
       scene: {
         topic: input.topic,
         niche: input.niche,
@@ -106,19 +107,10 @@ export async function attachReelImages(input: {
         hint: spec.hint,
         colors: input.colors,
         visualBrief,
-        format: "vertical",
+        format: "vertical" as const,
       },
-      primary: () => generateReelPng(buildReelImagePrompt({
-        topic: input.topic,
-        niche: input.niche,
-        tone: input.tone,
-        angle: spec.name,
-        hint: spec.hint,
-        colors: input.colors,
-        visualBrief,
-      })),
-    }));
-  }
+    };
+  }));
 
   const saved = [];
   for (const png of pngs) {

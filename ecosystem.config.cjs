@@ -87,16 +87,15 @@ module.exports = {
         OPENAI_IMAGE_BASE_URL: process.env.OPENAI_IMAGE_BASE_URL || "",
         OPENAI_IMAGE_API_KEY: process.env.OPENAI_IMAGE_API_KEY || "",
         OPENAI_IMAGE_MODEL: process.env.OPENAI_IMAGE_MODEL || "",
-        // Запасной шлюз картинок (п. 50). PM2 отдаёт приложению только ключи из
-        // этого списка, а не весь .env: без этих строк деплой писал секреты в .env,
-        // а до процесса они не доходили, и 2026-09-14 запасная на проде ни разу
-        // не включилась. Новую переменную окружения — добавлять и сюда.
-        IMAGE_FALLBACK_BASE_URL: process.env.IMAGE_FALLBACK_BASE_URL || "",
-        IMAGE_FALLBACK_API_KEY: process.env.IMAGE_FALLBACK_API_KEY || "",
-        IMAGE_FALLBACK_MODEL: process.env.IMAGE_FALLBACK_MODEL || "",
-        // Ключи запасных текстовых провайдеров (src/lib/text-providers.ts).
+        // Ключи запасных провайдеров (п. 50): текст — src/lib/text-providers.ts,
+        // картинки — src/lib/image-providers.ts; Pollinations — один ключ на оба.
+        // PM2 отдаёт приложению только ключи из этого списка, а не весь .env: без
+        // строки деплой пишет секрет в .env, а до процесса он не доходит — так
+        // 2026-09-14 запасная картинок на проде ни разу не включилась. Новую
+        // переменную окружения — добавлять и сюда (проверяет pm2-env.test.ts).
         ZAI_API_KEY: process.env.ZAI_API_KEY || "",
         POLLINATIONS_API_KEY: process.env.POLLINATIONS_API_KEY || "",
+        CODEX_SALE_API_KEY: process.env.CODEX_SALE_API_KEY || "",
         TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
         TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || "",
         TELEGRAM_CHAT: process.env.TELEGRAM_CHAT || "mr_anderson_say",

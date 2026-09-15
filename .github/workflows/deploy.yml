@@ -75,11 +75,9 @@ jobs:
           OPENAI_IMAGE_API_KEY: ${{ secrets.OPENAI_IMAGE_API_KEY }}
           OPENAI_IMAGE_BASE_URL: ${{ secrets.OPENAI_IMAGE_BASE_URL }}
           OPENAI_IMAGE_MODEL: ${{ secrets.OPENAI_IMAGE_MODEL }}
-          IMAGE_FALLBACK_API_KEY: ${{ secrets.IMAGE_FALLBACK_API_KEY }}
-          IMAGE_FALLBACK_BASE_URL: ${{ secrets.IMAGE_FALLBACK_BASE_URL }}
-          IMAGE_FALLBACK_MODEL: ${{ secrets.IMAGE_FALLBACK_MODEL }}
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           POLLINATIONS_API_KEY: ${{ secrets.POLLINATIONS_API_KEY }}
+          CODEX_SALE_API_KEY: ${{ secrets.CODEX_SALE_API_KEY }}
         run: |
           SSH_PORT="${SSH_PORT:-22}"
           if [ -z "${OPENAI_API_KEY}" ] && [ -z "${OPENAI_IMAGE_API_KEY}" ]; then
@@ -118,20 +116,10 @@ jobs:
               echo "::warning::OPENAI_IMAGE_MODEL secret is empty - leaving the server value as is"
             fi
           fi
-          # Запасной шлюз картинок (п. 50). Пишем только полный набор: без ключа,
-          # адреса или модели запасная всё равно не включится.
-          if [ -n "${IMAGE_FALLBACK_API_KEY}" ] && [ -n "${IMAGE_FALLBACK_BASE_URL}" ] && [ -n "${IMAGE_FALLBACK_MODEL}" ]; then
-            {
-              printf 'IMAGE_FALLBACK_BASE_URL=%s\n' "${IMAGE_FALLBACK_BASE_URL}"
-              printf 'IMAGE_FALLBACK_API_KEY=%s\n' "${IMAGE_FALLBACK_API_KEY}"
-              printf 'IMAGE_FALLBACK_MODEL=%s\n' "${IMAGE_FALLBACK_MODEL}"
-            } >> openai-incoming
-          else
-            echo "::warning::IMAGE_FALLBACK_* secrets are incomplete - image fallback stays as on the server"
-          fi
-          # Ключи запасных текстовых провайдеров (src/lib/text-providers.ts): пустой
-          # секрет не пишем — провайдер без ключа в цепочке просто пропускается.
-          for name in ZAI_API_KEY POLLINATIONS_API_KEY; do
+          # Ключи запасных провайдеров текста и картинок (src/lib/text-providers.ts,
+          # src/lib/image-providers.ts): пустой секрет не пишем — провайдер без
+          # ключа в цепочке просто пропускается.
+          for name in ZAI_API_KEY POLLINATIONS_API_KEY CODEX_SALE_API_KEY; do
             value="${!name}"
             if [ -n "${value}" ]; then
               printf '%s=%s\n' "${name}" "${value}" >> openai-incoming

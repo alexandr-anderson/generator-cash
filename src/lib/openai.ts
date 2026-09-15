@@ -148,35 +148,6 @@ function hostOf(url: string) {
   }
 }
 
-/**
- * Запасной шлюз картинок — на случай, когда основная модель не ответила
- * (п. 50 в docs/work-plan.md). Отдельные ключ, адрес и модель, OpenAI-формат
- * `/images/generations`. Проверен Pollinations `tongyi-mai/z-image-turbo`.
- *
- * Такие модели не понимают инструкций и отрицаний, поэтому основной промпт им
- * не годится — см. `createImageWithFallback` в image-fallback.ts.
- */
-function imageFallbackGateway() {
-  const endpoint = resolveImageGenerationsUrl(process.env.IMAGE_FALLBACK_BASE_URL || "");
-  return {
-    endpoint,
-    key: process.env.IMAGE_FALLBACK_API_KEY?.trim() || "",
-    model: process.env.IMAGE_FALLBACK_MODEL?.trim() || "",
-    host: hostOf(endpoint),
-  };
-}
-
-export function imageFallbackConfigured() {
-  const gateway = imageFallbackGateway();
-  return Boolean(gateway.endpoint && gateway.key && gateway.model);
-}
-
-/** Для диагностики: `host/model` запасного шлюза или пустая строка. */
-export function imageFallbackLabel() {
-  const gateway = imageFallbackGateway();
-  return imageFallbackConfigured() ? `${gateway.host}/${gateway.model}` : "";
-}
-
 export function openaiHost() {
   try {
     return new URL(openaiBaseUrl()).host;
@@ -549,9 +520,9 @@ type ImageGateway = {
   endpoint: string;
   key: string;
   model: string;
-  host: string;
-  /** Префикс переменных окружения — чтобы ошибка называла ту настройку, которая сломана. */
-  env: "OPENAI_IMAGE" | "IMAGE_FALLBACK";
+  /** Имя переменной ключа — чтобы ошибка называла, что проверить. */
+  keyEnv: string;
+  attempts: number;
 };
 
 export async function openaiImagePng(args: ImageArgs): Promise<Buffer> {
@@ -560,21 +531,18 @@ export async function openaiImagePng(args: ImageArgs): Promise<Buffer> {
   if (!key || !endpoint) {
     throw new AiError("Генерация картинок ещё не настроена. Задайте OPENAI_IMAGE_API_KEY и OPENAI_IMAGE_BASE_URL.", 503);
   }
-  return requestImage({ endpoint, key, model: openaiImageModel(), host: openaiImageHost(), env: "OPENAI_IMAGE" }, args);
+  return requestImage({ endpoint, key, model: openaiImageModel(), keyEnv: "OPENAI_IMAGE_API_KEY", attempts: 3 }, args);
 }
 
-/** Картинка через запасной шлюз (`IMAGE_FALLBACK_*`). Промпт — уже переписанный под такие модели. */
-export async function fallbackImagePng(args: ImageArgs): Promise<Buffer> {
-  if (!imageFallbackConfigured()) {
-    throw new AiError("Запасной шлюз картинок не настроен.", 503);
-  }
-  return requestImage({ ...imageFallbackGateway(), env: "IMAGE_FALLBACK" }, args);
+/** Картинка через запасной шлюз из image-providers.ts. */
+export async function imageProviderPng(gateway: ImageGateway, args: ImageArgs): Promise<Buffer> {
+  return requestImage(gateway, args);
 }
 
 async function requestImage(gateway: ImageGateway, args: ImageArgs): Promise<Buffer> {
-  const { endpoint, key, model, host, env } = gateway;
+  const { endpoint, key, model, keyEnv, attempts } = gateway;
+  const host = hostOf(endpoint);
   const bodies = imageRequestBodies(model, args.prompt, args.size || "1024x1024");
-  const attempts = 3;
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -593,13 +561,13 @@ async function requestImage(gateway: ImageGateway, args: ImageArgs): Promise<Buf
         console.error("[ai-image] error", host, model, response.status, `attempt=${attempt}`, body.slice(0, 400));
         const detail = `${host} HTTP ${response.status}: ${body.slice(0, 200)}`;
         if (response.status === 401) {
-          throw withDetail(new AiError(`Ключ картинок отклонён. Проверьте ${env}_API_KEY.`, 502), detail);
+          throw withDetail(new AiError(`Ключ картинок отклонён. Проверьте ${keyEnv}.`, 502), detail);
         }
         if (response.status === 403 || /model-not-allowed|not allowed to use the requested model/i.test(body)) {
-          throw withDetail(new AiError(`Этот ключ не умеет выбранную модель картинок. Проверьте ${env}_MODEL.`, 502), detail);
+          throw withDetail(new AiError(`Этот ключ не умеет модель картинок ${model} (${host}).`, 502), detail);
         }
         if (response.status === 404) {
-          throw withDetail(new AiError(`Endpoint картинок не найден. Проверьте ${env}_BASE_URL.`, 502), detail);
+          throw withDetail(new AiError(`Endpoint картинок не найден (${host}).`, 502), detail);
         }
         if (response.status === 429) {
           throw withDetail(new AiError("Модель временно недоступна. Попробуйте ещё раз через минуту.", 429), detail);
