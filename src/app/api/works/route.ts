@@ -1,10 +1,14 @@
 import { authed, json } from "@/lib/http";
 import { prisma } from "@/lib/db";
+import { RATE_RULES, rateLimit } from "@/lib/rate-limit";
 import { isFormat, toWork } from "@/lib/serializers";
+import { workFields } from "@/lib/work-input";
 
 export async function POST(request: Request) {
   const { user, error } = await authed();
   if (error) return error;
+  const limited = rateLimit("works", user.id, RATE_RULES.works);
+  if (limited) return limited;
   const body = await request.json().catch(() => null);
   if (!body?.work) return json({ error: "Нет работы" }, 400);
 
@@ -21,17 +25,7 @@ export async function POST(request: Request) {
       userId: user.id,
       rubricId,
       format,
-      topic: String(work.topic || "Без темы"),
-      slides: work.slides ?? [],
-      caption: String(work.caption || ""),
-      hashtags: work.hashtags ?? [],
-      reelScript: typeof work.reelScript === "string" ? work.reelScript : null,
-      layout: String(work.layout || "poster"),
-      background: String(work.background || "#f6f1e9"),
-      accent: String(work.accent || "#ff5c35"),
-      foreground: String(work.foreground || "#191817"),
-      eyebrow: String(work.eyebrow || ""),
-      brandLabel: String(work.brandLabel || "postvmeste"),
+      ...workFields(work),
     },
   });
 
